@@ -84,6 +84,12 @@ jobs:
             ~/.cache/ms-playwright
           key: exact-publish-${{ runner.os }}-${{ hashFiles('.exact-ref') }}
           restore-keys: exact-publish-${{ runner.os }}-
+      # Kept apart from the step above: a cache step's path list is part of its entries' version.
+      - uses: actions/cache@55cc8345863c7cc4c66a329aec7e433d2d1c52a9 # v6.1.0
+        with:
+          path: ~/.cache/koma-deploy
+          key: koma-deploy-${{ runner.os }}-${{ hashFiles('.exact-ref') }}
+          restore-keys: koma-deploy-${{ runner.os }}-
       - name: Signing keys
         env:
           EXACT_KEYSTORE_BASE64: ${{ secrets.EXACT_KEYSTORE_BASE64 }}
