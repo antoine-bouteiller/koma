@@ -5,7 +5,17 @@
   },
   "deploy": {
     "store": {
-      "web": "0"
+      "web": "0",
+      "android": "A"
+    },
+    "channels": {
+      "prod": "appdrop"
+    },
+    "signing": {
+      "key": "koma",
+      "keys": {
+        "koma": "2vFLW8ZlthXRxhHTtmOtWKZ36HuzwkwcICd5b5B5+pw="
+      }
     }
   },
   "$schema": "../exact/scripts/app.schema.json",

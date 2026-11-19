@@ -48,9 +48,24 @@ run `bun exact.mjs update` and `bun exact.mjs contract build app.contract --erro
 
 ## CI
 
-[`.github/workflows/ci.yml`](.github/workflows/ci.yml) runs three jobs on every push:
+[`.github/workflows/ci.yml`](.github/workflows/ci.yml) runs these jobs on every push:
 
 - `format`: `nix flake check`, which fails on unformatted files.
 - `test`: builds the contract and runs the tests on the web host.
 - `android`: builds the APK and uploads it as the `koma-debug-apk` artifact. It is signed with
   the debug key.
+- `publish`, on `develop` only, after the others pass: runs [`tools/publish.sh`](tools/publish.sh).
+  When Android needs a new binary, it builds a release APK and uploads it to the AppDrop link.
+  Then it publishes an over-the-air update. The design is in
+  [`doc/architecture/specs/distribution.spec.md`](doc/architecture/specs/distribution.spec.md).
+
+## Install and updates
+
+Install Koma from the AppDrop link in the `APPDROP_URL` repository variable. An installed app
+checks for updates when it comes to the foreground and applies one at its next cold launch; an
+"An update is ready." banner applies it sooner. A change that needs a new APK (a new grant, a new
+Exact) is installed again from the same link.
+
+The publish job reads these repository secrets: `EXACT_KEYSTORE_BASE64`,
+`EXACT_KEYSTORE_PASSWORD`, `EXACT_KEY_ALIAS`, `EXACT_KEY_PASSWORD` (the release upload key),
+`EXACT_SIGNING_KEY` (the update signing key, `koma.pem`) and `APPDROP_MANAGE_KEY`.

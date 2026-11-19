@@ -60,8 +60,11 @@
               pkgs.jdk25
             ];
           shellHook = ''
-            mkdir -p .pre-commit
-            ${preCommit.shellHook}
+            # `deploy --dirty` refuses the hook config's /nix/store symlink, and CI commits nothing.
+            if [ -z "''${CI:-}" ]; then
+              mkdir -p .pre-commit
+              ${preCommit.shellHook}
+            fi
             export EXACT="''${EXACT:-$PWD/../exact}"
             # `cargo install`ed tools Exact's setup adds (wasm-bindgen).
             export PATH="$PATH:''${CARGO_HOME:-$HOME/.cargo}/bin"
