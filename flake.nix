@@ -11,6 +11,10 @@
       url = "github:cachix/git-hooks.nix";
       inputs.nixpkgs.follows = "nixpkgs";
     };
+    bun-flake = {
+      url = "github:antoine-bouteiller/bun-flake";
+      inputs.nixpkgs.follows = "nixpkgs";
+    };
   };
 
   outputs = {
@@ -18,6 +22,7 @@
     nixpkgs,
     treefmt-nix,
     git-hooks,
+    bun-flake,
   }: let
     forAllSystems = nixpkgs.lib.genAttrs ["aarch64-darwin" "x86_64-linux"];
     treefmt = forAllSystems (system: treefmt-nix.lib.evalModule nixpkgs.legacyPackages.${system} ./treefmt.nix);
@@ -49,7 +54,7 @@
           packages =
             preCommit.enabledPackages
             ++ [
-              pkgs.bun
+              bun-flake.packages.${system}.default
               # Exact installs its pinned stable and nightly toolchains through rustup (rust-toolchain.toml).
               pkgs.rustup
               pkgs.jdk25
