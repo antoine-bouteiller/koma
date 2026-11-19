@@ -1,12 +1,13 @@
-name: ci
+name: publish
 
 on:
   push:
-  workflow_dispatch:
+    branches: [main]
 
+# Queued, never cancelled: a publish stopped mid-way can leave the APK link and the update stream out of step.
 concurrency:
-  group: ${{ github.workflow }}-${{ github.ref }}
-  cancel-in-progress: true
+  group: ${{ github.workflow }}
+  cancel-in-progress: false
 
 env:
   CARGO_TERM_COLOR: always
@@ -50,54 +51,10 @@ jobs:
       - name: Tests (web)
         run: nix develop -c bun exact.mjs test web
 
-  android:
-    if: github.ref != format('refs/heads/{0}', github.event.repository.default_branch)
-    runs-on: ubuntu-24.04
-    timeout-minutes: 90
-    steps:
-      - uses: actions/checkout@3d3c42e5aac5ba805825da76410c181273ba90b1 # v7.0.1
-      - uses: cachix/install-nix-action@3dc140bfc76c49fbd4dd958429132e3746bcb086 # v31.11.5
-      - uses: actions/cache@55cc8345863c7cc4c66a329aec7e433d2d1c52a9 # v6.1.0
-        with:
-          path: |
-            ~/.rustup
-            ~/.cargo/registry
-            ~/.cargo/git
-            ~/.cargo/hermes-lean-sys
-            ~/.gradle
-            ~/.cache/exact
-            ${{ runner.workspace }}/exact
-            target
-          key: exact-android-${{ runner.os }}-${{ hashFiles('.exact-ref') }}
-          # Branch caches are invisible to other branches; publish's cache on main is the shared warm start.
-          restore-keys: |
-            exact-android-${{ runner.os }}-
-            exact-publish-${{ runner.os }}-
-      - name: Exact checkout
-        run: nix develop -c tools/exact-checkout.sh
-      - name: Android SDK packages
-        run: |
-          yes | nix develop -c "$ANDROID_HOME/cmdline-tools/latest/bin/sdkmanager" --licenses > /dev/null
-          nix develop -c "$ANDROID_HOME/cmdline-tools/latest/bin/sdkmanager" \
-            'platforms;android-37.2' 'build-tools;37.0.0' 'ndk;27.1.12297006'
-      - name: Exact setup (Android)
-        run: nix develop -c tools/exact-setup-android.sh
-      - name: Build APK
-        run: nix develop -c bun exact.mjs android --no-install --json
-      - uses: actions/upload-artifact@cf430e030ddbb5b0abf93d22962f4752f3646cd9 # v7.0.2
-        with:
-          name: koma-debug-apk
-          path: target/android/app/outputs/apk/**/*.apk
-          if-no-files-found: error
-
   publish:
-    if: github.ref == format('refs/heads/{0}', github.event.repository.default_branch)
     needs: [format, test]
     runs-on: ubuntu-24.04
     timeout-minutes: 120
-    concurrency:
-      group: publish
-      cancel-in-progress: false
     env:
       APPDROP_URL: ${{ vars.APPDROP_URL }}
       APPDROP_MANAGE_KEY: ${{ secrets.APPDROP_MANAGE_KEY }}

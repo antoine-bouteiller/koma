@@ -4,7 +4,8 @@ status: review
 author: Antoine Bouteiller
 date: 2026-11-19
 module:
-  - .github/workflows/ci.yml
+  - .github/workflows/check.yml
+  - .github/workflows/publish.yml
   - app.json
   - app.contract
   - app.test.contract
@@ -51,11 +52,11 @@ new binary, and AppDrop can host both the APK and those updates without a server
 | `[KD-7]` Stream start | A new APK is built with `EXACT_UPDATE_GENESIS=1`, starting its stream at sequence zero, and `deploy --yes` runs right after it in the same job. | A fresh runner has no release record to pass as `EXACT_UPDATE_RECEIPT`. `deploy` reads the APK's production build receipt from the job's bake output, starts the stream from it, and leaves the stream head at the APK's own commit. |
 | `[KD-8]` Publication order | Upload the APK, then `deploy --yes`. | If `deploy` fails after the upload, the next run finds no stream and builds the APK again. The reverse order would leave a stream on AppDrop whose APK never reached the link, and later runs would see no need for a binary. |
 | `[KD-9]` Build number | `EXACT_BUILD_NUMBER` is the link's published `version` from `GET https://appdrop.app/api/drops/<id>`, plus one. | AppDrop refuses a reused `versionCode`. Exact's own `share` reads the same endpoint for the same reason. Survives workflow renames that reset `github.run_number`. |
-| `[KD-10]` Trigger | A `publish` job on pushes to the default branch (`develop`), after `format`, `test` and `android` pass. | `[G-3]`, `[NG-4]`. |
+| `[KD-10]` Trigger | A `publish` workflow on pushes to the default branch (`main`), after its `format` and `test` jobs pass. Pull requests run `format`, `test` and `android` in a separate `check` workflow. | `[G-3]`, `[NG-4]`. |
 
 ```mermaid
 flowchart TB
-  P["push to develop"] --> G["format · test · android"]
+  P["push to main"] --> G["format · test"]
   G --> D["deploy --platform android --dirty --json<br/>(dry run)"]
   D -->|"Android needs a binary"| B["release APK<br/>EXACT_UPDATE_GENESIS=1"]
   B --> U["appdrop --update APPDROP_URL"]
@@ -100,9 +101,9 @@ created with `bun ../exact/scripts/deploy.mjs keygen koma` and never enters the 
 Kind: boundary · Anchor: null
 
 ```yaml
-# .github/workflows/ci.yml, job `publish`; secrets and vars list the job's inputs
-if: github.ref == format('refs/heads/{0}', github.event.repository.default_branch)
-needs: [format, test, android]
+# .github/workflows/publish.yml, job `publish`; secrets and vars list the job's inputs
+on: { push: { branches: [main] } }
+needs: [format, test]
 secrets:
   EXACT_KEYSTORE_BASE64:    # release upload keystore, base64; written to a file named by EXACT_KEYSTORE
   EXACT_KEYSTORE_PASSWORD:
@@ -166,7 +167,7 @@ Kind: invariant · Anchor: null
 AppDrop and a device, which CI does not have.
 
 - `[VC-1]` Given Koma installed from `APPDROP_URL` and showing `Koma is running.`, when a push to
-  `develop` changes only that text in `app.ts`, then AppDrop's `version` for the link is unchanged,
+  `main` changes only that text in `app.ts`, then AppDrop's `version` for the link is unchanged,
   the run's `deploy` table publishes one Android bundle, the app shows `update-banner` after its
   next return to the foreground, and tapping `update-now` shows the new text. — demonstrates
   `[SO-1]`, `[SO-2]`

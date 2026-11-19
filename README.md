@@ -48,13 +48,14 @@ run `bun exact.mjs update` and `bun exact.mjs contract build app.contract --erro
 
 ## CI
 
-[`.github/workflows/ci.yml`](.github/workflows/ci.yml) runs these jobs on every push:
+Two workflows run `format` (`nix flake check`, which fails on unformatted files) and `test`
+(builds the contract and runs the tests on the web host):
 
-- `format`: `nix flake check`, which fails on unformatted files.
-- `test`: builds the contract and runs the tests on the web host.
-- `android`: builds the APK and uploads it as the `koma-debug-apk` artifact. It is signed with
+- [`.github/workflows/check.yml`](.github/workflows/check.yml), on pull requests, also runs
+  `android`: it builds the APK and uploads it as the `koma-debug-apk` artifact. It is signed with
   the debug key.
-- `publish`, on `develop` only, after the others pass: runs [`tools/publish.sh`](tools/publish.sh).
+- [`.github/workflows/publish.yml`](.github/workflows/publish.yml), on pushes to `main`, runs
+  `publish` after `format` and `test` pass: [`tools/publish.sh`](tools/publish.sh).
   When Android needs a new binary, it builds a release APK and uploads it to the AppDrop link.
   Then it publishes an over-the-air update. The design is in
   [`doc/architecture/specs/distribution.spec.md`](doc/architecture/specs/distribution.spec.md).
