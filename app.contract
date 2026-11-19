@@ -1,28 +1,52 @@
 // Koma: the view. app.ts answers what it asks for.
-shape Status
-  message: string
+use EmptyState from "exact:content"
 
 shape Delivery
   staged: bool
 
 routes nav
-  home "/"
+  tab library "/"
+  tab updates "/updates"
+  tab history "/history"
+  tab discover "/discover"
+
+fn titleOf(tab: string): string = tab == "updates" ? "Updates" : tab == "history" ? "History" : tab == "discover" ? "Discover" : "Library"
+fn iconOf(tab: string): string = tab == "updates" ? "symbol:notifications" : tab == "history" ? "symbol:history" : tab == "discover" ? "symbol:sparkles" : "symbol:book"
+fn emptyTitleOf(tab: string): string = tab == "updates" ? "No new chapters" : tab == "history" ? "Nothing read yet" : tab == "discover" ? "Nothing to discover yet" : "Your library is empty"
+fn emptyMessageOf(tab: string): string = tab == "updates" ? "New chapters of the titles you follow show up here." : tab == "history" ? "The chapters you read show up here." : tab == "discover" ? "Trending, top-rated and popular titles show up here." : "The titles you track on MangaBaka show up here."
 
 component Koma
-  resource status = status() as shape Status
   resource delivery = exactDelivery() as shape Delivery
+  action pick(name: string)
+    nav = select(nav, name)
+  action follow(url: string)
+    nav = go(nav, url)
   action update
     deliveryActivate()
   view
-    main testId="root" navigationKey=`${top(nav).id}` width="100%" height="100%"
-      for e in stack(nav) key=e.id
-        column navigationKey=`${e.id}` navigationScroll="content" position="absolute" inset=0 display="flex" flex-direction="column"
-          header display="flex" align-items="center"
-            text "Koma" role="heading" aria-level=1 flex=1
-          scroll id="content" flex=1 min-height=0 padding=16
-            if delivery.staged
-              row testId="update-banner" gap=8 align-items="center" margin-bottom=16
-                text "An update is ready." flex=1
-                button press=update buttonStyle="filled" testId="update-now"
-                  text "Update"
-            text status.message testId="status"
+    main testId="root" navigationKey=`${top(nav).id}` navigate=follow width="100%" height="100%"
+      display="flex" flex-direction="column"
+      column flex=1 min-height=0 position="relative"
+        for t in nav.tabs key=t.name
+          column role="tabpanel" id=`panel-${t.name}` position="absolute" inset=0
+            for e in t.stack key=e.id
+              column navigationKey=`${e.id}` navigationScroll=`content-${e.id}` position="absolute" inset=0
+                display="flex" flex-direction="column"
+                header display="flex" align-items="center"
+                  text titleOf(e.name) role="heading" aria-level=1 flex=1 testId=`title-${t.name}`
+                if delivery.staged
+                  row testId="update-banner" gap=12 align-items="center" margin="8px 16px" padding="12px 16px"
+                    border-radius=16 background-color="-exact-secondary-background"
+                    image "symbol:download"
+                    text "An update is ready." flex=1 min-width=0
+                    button press=update buttonStyle="filled" testId="update-now"
+                      text "Update"
+                column id=`content-${e.id}` flex=1 min-height=0 testId=`empty-${t.name}`
+                  EmptyState(symbol=iconOf(t.name), title=emptyTitleOf(t.name), message=emptyMessageOf(t.name))
+      row role="tablist" testId="tabs"
+        for t in nav.tabs key=t.name
+          button role="tab" aria-controls=`panel-${t.name}` aria-selected=(nav.tab == t.name) press=pick(t.name)
+            testId=`tab-${t.name}` flex=1 min-width=0
+            display="flex" flex-direction="column" align-items="center" gap=4 padding="8px 0"
+            image iconOf(t.name)
+            text titleOf(t.name) max-width="100%" overflow="hidden" text-overflow="ellipsis" white-space="nowrap"
