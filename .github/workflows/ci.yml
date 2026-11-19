@@ -104,6 +104,11 @@ jobs:
       EXACT_KEY_ALIAS: ${{ secrets.EXACT_KEY_ALIAS }}
       EXACT_KEY_PASSWORD: ${{ secrets.EXACT_KEY_PASSWORD }}
     steps:
+      # The web bake and the release APK together outgrow the runner's free disk.
+      - name: Free disk space
+        run: |
+          sudo rm -rf /usr/share/dotnet /opt/ghc /usr/local/.ghcup /opt/hostedtoolcache/CodeQL /usr/share/swift /usr/local/share/boost /usr/local/share/powershell
+          df -h /
       - uses: actions/checkout@3d3c42e5aac5ba805825da76410c181273ba90b1 # v7.0.1
       - uses: cachix/install-nix-action@3dc140bfc76c49fbd4dd958429132e3746bcb086 # v31.11.5
       - uses: actions/cache@55cc8345863c7cc4c66a329aec7e433d2d1c52a9 # v6.1.0
