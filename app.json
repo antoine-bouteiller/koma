@@ -17,5 +17,19 @@
   "app": {
     "id": "io.github.antoinebouteiller.koma",
     "name": "Koma"
-  }
+  },
+  "icons": [
+    {
+      "src": "assets/icon.png",
+      "sizes": "1024x1024",
+      "type": "image/png",
+      "purpose": "any maskable"
+    },
+    {
+      "src": "assets/icon-monochrome.png",
+      "sizes": "1024x1024",
+      "type": "image/png",
+      "purpose": "monochrome"
+    }
+  ]
 }
