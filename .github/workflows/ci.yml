@@ -118,6 +118,7 @@ jobs:
             ~/.cache/exact
             ../exact
             target
+            ~/.cache/ms-playwright
           key: exact-publish-${{ runner.os }}-${{ hashFiles('.exact-ref') }}
           restore-keys: exact-publish-${{ runner.os }}-
       - name: Signing keys
@@ -140,5 +141,8 @@ jobs:
             'platforms;android-37.2' 'build-tools;37.0.0' 'ndk;27.1.12297006'
       - name: Exact setup (Android)
         run: nix develop -c tools/exact-setup-android.sh
+      # Every deploy bakes the web artifact the update bundle is made from, Android-only included.
+      - name: Exact setup (web)
+        run: nix develop -c bun ../exact/scripts/exact.mjs setup --platform web
       - name: Publish
         run: nix develop -c tools/publish.sh
