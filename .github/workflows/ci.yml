@@ -1,0 +1,79 @@
+name: ci
+
+on:
+  push:
+  workflow_dispatch:
+
+concurrency:
+  group: ${{ github.workflow }}-${{ github.ref }}
+  cancel-in-progress: true
+
+env:
+  CARGO_TERM_COLOR: always
+
+jobs:
+  format:
+    runs-on: ubuntu-24.04
+    timeout-minutes: 15
+    steps:
+      - uses: actions/checkout@v4
+      - uses: cachix/install-nix-action@v31
+      - run: nix flake check
+
+  test:
+    runs-on: ubuntu-24.04
+    timeout-minutes: 60
+    steps:
+      - uses: actions/checkout@v4
+      - uses: cachix/install-nix-action@v31
+      - uses: actions/cache@v4
+        with:
+          path: |
+            ~/.rustup
+            ~/.cargo/bin
+            ~/.cargo/registry
+            ~/.cargo/git
+            ~/.cache/exact
+            ~/.cache/ms-playwright
+          key: exact-web-${{ runner.os }}-${{ hashFiles('.exact-ref') }}
+      - name: Exact checkout
+        run: nix develop -c tools/exact-checkout.sh
+      - name: Exact setup (web)
+        run: nix develop -c bun ../exact/scripts/exact.mjs setup --platform web
+      - name: Contract build
+        run: nix develop -c bun exact.mjs contract build app.contract --json --errors-only
+      - name: Tests (web)
+        run: nix develop -c bun exact.mjs test web
+
+  android:
+    runs-on: ubuntu-24.04
+    timeout-minutes: 90
+    steps:
+      - uses: actions/checkout@v4
+      - uses: cachix/install-nix-action@v31
+      - uses: actions/cache@v4
+        with:
+          path: |
+            ~/.rustup
+            ~/.cargo/registry
+            ~/.cargo/git
+            ~/.cargo/hermes-lean-sys
+            ~/.gradle
+            ~/.cache/exact
+          key: exact-android-${{ runner.os }}-${{ hashFiles('.exact-ref') }}
+      - name: Exact checkout
+        run: nix develop -c tools/exact-checkout.sh
+      - name: Android SDK packages
+        run: |
+          yes | nix develop -c "$ANDROID_HOME/cmdline-tools/latest/bin/sdkmanager" --licenses > /dev/null
+          nix develop -c "$ANDROID_HOME/cmdline-tools/latest/bin/sdkmanager" \
+            'platforms;android-37.2' 'build-tools;37.0.0' 'ndk;27.1.12297006'
+      - name: Exact setup (Android)
+        run: nix develop -c tools/exact-setup-android.sh
+      - name: Build APK
+        run: nix develop -c bun exact.mjs android --no-install --json
+      - uses: actions/upload-artifact@v4
+        with:
+          name: koma-debug-apk
+          path: target/android/app/outputs/apk/**/*.apk
+          if-no-files-found: error

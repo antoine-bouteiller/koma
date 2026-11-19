@@ -1,0 +1,21 @@
+{
+  "host": {
+    "web": {},
+    "android": {}
+  },
+  "deploy": {
+    "store": {
+      "web": "0"
+    }
+  },
+  "$schema": "../exact/scripts/app.schema.json",
+  "name": "Koma",
+  "short_name": "Koma",
+  "id": "io.github.antoinebouteiller.koma",
+  "start_url": "/",
+  "display": "standalone",
+  "app": {
+    "id": "io.github.antoinebouteiller.koma",
+    "name": "Koma"
+  }
+}

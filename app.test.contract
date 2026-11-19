@@ -1,0 +1,3 @@
+test "the test screen shows the data module's status"
+  expect tree has "root"
+  expect text "status" == "Koma is running."
