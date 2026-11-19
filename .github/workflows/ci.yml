@@ -27,6 +27,7 @@ jobs:
       - uses: actions/checkout@3d3c42e5aac5ba805825da76410c181273ba90b1 # v7.0.1
       - uses: cachix/install-nix-action@3dc140bfc76c49fbd4dd958429132e3746bcb086 # v31.11.5
       # Caches all of ../exact, not only its target: a fresh clone gets new mtimes, and cargo would rebuild its crates.
+      # actions/cache refuses paths with `..`; runner.workspace is the checkout's parent.
       - uses: actions/cache@55cc8345863c7cc4c66a329aec7e433d2d1c52a9 # v6.1.0
         with:
           path: |
@@ -35,7 +36,7 @@ jobs:
             ~/.cargo/registry
             ~/.cargo/git
             ~/.cache/exact
-            ../exact
+            ${{ runner.workspace }}/exact
             target
             ~/.cache/ms-playwright
           key: exact-web-${{ runner.os }}-${{ hashFiles('.exact-ref') }}
@@ -65,7 +66,7 @@ jobs:
             ~/.cargo/hermes-lean-sys
             ~/.gradle
             ~/.cache/exact
-            ../exact
+            ${{ runner.workspace }}/exact
             target
           key: exact-android-${{ runner.os }}-${{ hashFiles('.exact-ref') }}
           # Branch caches are invisible to other branches; publish's cache on main is the shared warm start.
@@ -121,7 +122,7 @@ jobs:
             ~/.cargo/hermes-lean-sys
             ~/.gradle
             ~/.cache/exact
-            ../exact
+            ${{ runner.workspace }}/exact
             target
             ~/.cache/ms-playwright
           key: exact-publish-${{ runner.os }}-${{ hashFiles('.exact-ref') }}
