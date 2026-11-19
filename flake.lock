@@ -16,6 +16,7 @@
       },
       "original": {
         "owner": "antoine-bouteiller",
+        "ref": "v1.4.4",
         "repo": "bun-flake",
         "type": "github"
       }
