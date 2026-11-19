@@ -26,6 +26,7 @@ jobs:
     steps:
       - uses: actions/checkout@3d3c42e5aac5ba805825da76410c181273ba90b1 # v7.0.1
       - uses: cachix/install-nix-action@3dc140bfc76c49fbd4dd958429132e3746bcb086 # v31.11.5
+      # Caches all of ../exact, not only its target: a fresh clone gets new mtimes, and cargo would rebuild its crates.
       - uses: actions/cache@55cc8345863c7cc4c66a329aec7e433d2d1c52a9 # v6.1.0
         with:
           path: |
@@ -34,8 +35,11 @@ jobs:
             ~/.cargo/registry
             ~/.cargo/git
             ~/.cache/exact
+            ../exact
+            target
             ~/.cache/ms-playwright
           key: exact-web-${{ runner.os }}-${{ hashFiles('.exact-ref') }}
+          restore-keys: exact-web-${{ runner.os }}-
       - name: Exact checkout
         run: nix develop -c tools/exact-checkout.sh
       - name: Exact setup (web)
@@ -60,7 +64,10 @@ jobs:
             ~/.cargo/hermes-lean-sys
             ~/.gradle
             ~/.cache/exact
+            ../exact
+            target
           key: exact-android-${{ runner.os }}-${{ hashFiles('.exact-ref') }}
+          restore-keys: exact-android-${{ runner.os }}-
       - name: Exact checkout
         run: nix develop -c tools/exact-checkout.sh
       - name: Android SDK packages
@@ -105,7 +112,10 @@ jobs:
             ~/.cargo/hermes-lean-sys
             ~/.gradle
             ~/.cache/exact
+            ../exact
+            target
           key: exact-publish-${{ runner.os }}-${{ hashFiles('.exact-ref') }}
+          restore-keys: exact-publish-${{ runner.os }}-
       - name: Signing keys
         env:
           EXACT_KEYSTORE_BASE64: ${{ secrets.EXACT_KEYSTORE_BASE64 }}
