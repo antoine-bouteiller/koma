@@ -6,8 +6,8 @@ date: 2026-11-24
 module:
   - .github/workflows/check.yml
   - .github/workflows/publish.yml
-  - .releaserc.json
-  - tools/release.sh
+  - tools/release.nu
+  - tools/commit-msg.nu
   - app/build.gradle.kts
   - buildSrc/
   - app/src/main/kotlin/app/koma/version/
@@ -44,32 +44,38 @@ Releases, and the installed app offers to download it, as ReVanced Manager and M
   publish.
 - `[PI-3]` The installed binary is the only version. Its `versionName` is the release's semantic
   version and its `versionCode` derives from it.
-- `[PI-4]` Commit messages decide releases. Conventional Commits drive semantic-release, as in
-  `antoine-bouteiller/FanControl.LiquidCtl`.
+- ~~`[PI-4]` Commit messages decide releases. Conventional Commits drive semantic-release, as in
+  `antoine-bouteiller/FanControl.LiquidCtl`.~~
+- `[PI-4.1]` Commit messages decide releases. Conventional Commits drive `tools/release.nu`.
 
 | Decision | Choice | Rationale |
 | --- | --- | --- |
-| `[KD-1]` Host | GitHub Releases of the public `antoine-bouteiller/koma` repository. Each release is tagged `v<version>`, carries one asset, `koma.apk`, and semantic-release's notes. Releases from `develop` are prereleases (`1.2.0-beta.1`). | Free, no account beyond GitHub, a stable latest-asset URL, and an unauthenticated API the app can read. |
+| ~~`[KD-1]` Host~~ | ~~GitHub Releases of the public `antoine-bouteiller/koma` repository. Each release is tagged `v<version>`, carries one asset, `koma.apk`, and semantic-release's notes. Releases from `develop` are prereleases (`1.2.0-beta.1`).~~ | ~~Free, no account beyond GitHub, a stable latest-asset URL, and an unauthenticated API the app can read.~~ |
+| `[KD-1.1]` Host | GitHub Releases of the public `antoine-bouteiller/koma` repository. Each release is tagged `v<version>`, carries one asset, `koma.apk`, and notes generated from its commits (`[CT-2.2]`). Releases from `develop` are prereleases (`1.2.0-beta.1`). | Free, no account beyond GitHub, a stable latest-asset URL, and an unauthenticated API the app can read. |
 | ~~`[KD-3]` Update banner~~ | ~~When the latest stable release's `versionCode` exceeds the installed `exactDelivery().version`'s, every screen shows "Koma X.Y.Z is available." with a Download button that opens the release's `koma.apk` URL in the browser (`[CT-3]`).~~ | ~~Exact has no API to hand an APK to Android's installer. The browser downloads it, and tapping the download installs it.~~ |
 | ~~`[KD-3.1]` Update banner~~ | ~~When the latest stable release's `versionCode` exceeds the installed `BuildConfig.VERSION_NAME`'s, every screen shows "Koma X.Y.Z is available." with a Download button that opens the release's `koma.apk` URL in the browser (`[CT-3.1]`).~~ | ~~The browser downloads it, and tapping the download installs it, so the app needs no install permission.~~ |
 | `[KD-3.2]` Update pill | When the latest stable release's `versionCode` exceeds the installed `BuildConfig.VERSION_NAME`'s, every screen's header shows an Update pill. It opens a dialog, "Update available" for "Koma X.Y.Z", whose Download fetches `koma.apk` into the app's cache with its progress, then opens Android's installer on it through a `FileProvider` (`[CT-3.2]`). The app holds `REQUEST_INSTALL_PACKAGES`. | As in Morphe Manager: no trip through the browser and its downloads. Android's installer still asks each time (`[NG-3]`). |
 | ~~`[KD-4]` APK signing~~ | ~~One release upload keystore, used for every published APK: the keystore the AppDrop APKs used.~~ | ~~Android refuses to install over a different signer. Keeping it lets the AppDrop install update in place.~~ |
 | `[KD-4.1]` APK signing | One release upload keystore, used for every published APK: the keystore the Exact APKs used. | Android refuses to install over a different signer, so every release keeps it. The AppDrop and Exact installs it updated in place are another application id, which `app.koma` does not replace. |
-| `[KD-6]` When an APK is built | When semantic-release finds a releasing commit since the last tag: `feat` (minor), `fix` or `perf` (patch), `build(deps)` (patch), or a breaking change (minor, `[KD-13]`). Its `prepare` step runs `tools/release.sh`. | Every release is offered to the installed app, so `docs`, `ci`, `chore`, `refactor`, `style` and `test` commits must not prompt an install. |
+| ~~`[KD-6]` When an APK is built~~ | ~~When semantic-release finds a releasing commit since the last tag: `feat` (minor), `fix` or `perf` (patch), `build(deps)` (patch), or a breaking change (minor, `[KD-13]`). Its `prepare` step runs `tools/release.sh`.~~ | ~~Every release is offered to the installed app, so `docs`, `ci`, `chore`, `refactor`, `style` and `test` commits must not prompt an install.~~ |
+| `[KD-6.1]` When an APK is built | When `tools/release.nu` finds a releasing commit since the last tag: `feat` (minor), `fix`, `perf` or `revert` (patch), `build(deps)` (patch), or a breaking change (minor, `[KD-13.1]`). A commit and a revert of it (`This reverts commit <hash>`) since the last tag both count as absent, from the version and the notes. It builds the APK before it publishes the release. | Every release is offered to the installed app, so `docs`, `ci`, `chore`, `refactor`, `style` and `test` commits must not prompt an install. |
 | ~~`[KD-9]` Build number~~ | ~~`EXACT_VERSION` is the release version and `EXACT_BUILD_NUMBER` its `versionCode(version)` from `src/version.ts`: MAJOR·10⁶ + MINOR·10⁴ + PATCH·10² + the beta number, or 99 for a stable release. MINOR, PATCH and the beta number stay below 100.~~ | ~~Android installs over an APK only with a higher `versionCode`; a stable release outranks its betas. The first release, 0.1.0, is 10099, above every AppDrop APK.~~ |
 | `[KD-9.1]` Build number | `app/build.gradle.kts` sets `versionName` from `KOMA_VERSION` (default `0.1.0`) and `versionCode` from `versionCode(versionName)` in `app/src/main/kotlin/app/koma/version/VersionCode.kt`, which `buildSrc` compiles too: MAJOR·10⁶ + MINOR·10⁴ + PATCH·10² + the beta number, or 99 for a stable release. MINOR, PATCH and the beta number stay below 100. | Android installs over an APK only with a higher `versionCode`; a stable release outranks its betas. One definition serves the build and the update check. |
 | `[KD-10]` Trigger | A `publish` workflow on every push to `main` and `develop` and on manual dispatch, after its `format` and `test` jobs pass. A `develop` run fails unless `develop` contains `main`. Runs queue and are never cancelled. A release pushes only its tag, never a commit, so `develop` can be promoted to `main` by fast-forward and still contain it. Pull requests run `format`, `test` and `android` in a separate `check` workflow. | `[G-3]`, `[NG-4.1]`. A run cancelled mid-release can leave a tag without its APK. |
 | ~~`[KD-11]` Check timing~~ | ~~The app asks GitHub once per launch, and only when `version` is set. A missing release (404) means nothing to offer, not a failure.~~ | ~~GitHub allows 60 unauthenticated requests per hour per IP. The web build sets `version` only from `EXACT_VERSION`, which the dev shell defaults to native's `0.1.0`.~~ |
 | `[KD-11.1]` Check timing | The app asks GitHub once per launch. A missing release (404) means nothing to offer, not a failure. | GitHub allows 60 unauthenticated requests per hour per IP. |
-| `[KD-12]` Commit convention | Conventional Commits, checked at `commit-msg` by commitlint with `@commitlint/config-conventional`, through the dev shell's git hooks. | A malformed message is a release semantic-release silently skips. |
-| `[KD-13]` Version line | Releases stay at 0.x: tag `v0.0.0` on the root commit is the base, so the first release is `0.1.0`, and a breaking change bumps the minor version. Leaving 0.x is a deliberate edit of that rule in `.releaserc.json`. | Koma is a pre-1.0 personal app; semantic-release would otherwise start at `1.0.0` and turn every breaking change into a major. |
+| ~~`[KD-12]` Commit convention~~ | ~~Conventional Commits, checked at `commit-msg` by commitlint with `@commitlint/config-conventional`, through the dev shell's git hooks.~~ | ~~A malformed message is a release semantic-release silently skips.~~ |
+| `[KD-12.1]` Commit convention | Conventional Commits, checked at `commit-msg` by `tools/commit-msg.nu` through the dev shell's git hooks. The header must be `type(scope)!: subject`, at most 100 characters: type one of `build`, `chore`, `ci`, `docs`, `feat`, `fix`, `perf`, `refactor`, `revert`, `style` or `test`; scope lowercase; subject starting in lowercase, without a final period. Merge, `Revert "…"`, `fixup!`, `squash!` and `amend!` headers pass. The body is not checked. | A malformed message is a release `tools/release.nu` silently skips. |
+| ~~`[KD-13]` Version line~~ | ~~Releases stay at 0.x: tag `v0.0.0` on the root commit is the base, so the first release is `0.1.0`, and a breaking change bumps the minor version. Leaving 0.x is a deliberate edit of that rule in `.releaserc.json`.~~ | ~~Koma is a pre-1.0 personal app; semantic-release would otherwise start at `1.0.0` and turn every breaking change into a major.~~ |
+| `[KD-13.1]` Version line | Releases stay at 0.x: tag `v0.0.0` on the root commit is the base, so the first release is `0.1.0`, and a breaking change bumps the minor version. Leaving 0.x is a deliberate edit of `release-type` in `tools/release.nu`. | Koma is a pre-1.0 personal app. |
+| `[KD-14]` Release tooling | One Nushell script, `tools/release.nu`, run from the dev shell, with the GitHub CLI. It replaces semantic-release, and `tools/commit-msg.nu` replaces commitlint, so the repository has no Node toolchain. Its versions and notes reproduce semantic-release's for every release up to `v0.6.0`. | semantic-release and commitlint were the only Node tools, and they brought a package manager, a lockfile and a pinned runtime that Renovate could bump but not lock. |
 
 ```mermaid
 flowchart TB
   P["push to main or develop"] --> G["format · test"]
-  G --> S["semantic-release: commits since the last tag"]
+  G --> S["tools/release.nu: commits since the last tag"]
   S -->|"no releasing commit"| X["nothing published"]
-  S -->|"next version X.Y.Z"| B["tools/release.sh X.Y.Z<br/>release APK, versionCode(X.Y.Z)"]
+  S -->|"next version X.Y.Z"| B["assembleRelease with KOMA_VERSION=X.Y.Z<br/>release APK, versionCode(X.Y.Z)"]
   B --> R[("GitHub release vX.Y.Z<br/>koma.apk · notes")]
   R --> Ph["phone: pill on launch → in-app download → installer"]
 ```
@@ -81,8 +87,10 @@ flowchart TB
 - `[SO-2]` A push to `main` with a releasing commit publishes a new APK with a higher semantic
   version and `versionCode`, and the installed app offers it at its next launch; installing it
   takes the user's confirmation. — demonstrated by `[VC-1.2]`, `[VC-3.2]`
-- `[SO-3]` A push whose commits are none of `feat`, `fix`, `perf`, `build(deps)` or a breaking
-  change publishes nothing. — demonstrated by `[VC-2]`
+- ~~`[SO-3]` A push whose commits are none of `feat`, `fix`, `perf`, `build(deps)` or a breaking
+  change publishes nothing. — demonstrated by `[VC-2]`~~
+- `[SO-3.1]` A push whose commits are none of `feat`, `fix`, `perf`, `revert`, `build(deps)` or a
+  breaking change publishes nothing. — demonstrated by `[VC-2]`, `[VC-4]`
 
 ## Contracts
 
@@ -104,11 +112,13 @@ defaultConfig {
 The APK links no update store (`[NG-5.1]`). A release build is signed by `KOMA_KEYSTORE` with
 `KOMA_KEYSTORE_PASSWORD`, `KOMA_KEY_ALIAS` and `KOMA_KEY_PASSWORD`, else by the debug key.
 
-### [CT-2.1] Publish job
+### [CT-2.2] Publish job
 
-Kind: boundary · Anchor: `.releaserc.json`
+Kind: boundary · Anchor: `tools/release.nu`
 
 ~~`[CT-2]` Publish job, with the `EXACT_*` build variables~~: the same job, with `KOMA_*` ones.
+
+~~`[CT-2.1]` Publish job, run by semantic-release~~: the same job, run by `tools/release.nu`.
 
 ```yaml
 # .github/workflows/publish.yml, job `publish`; secrets list the job's inputs
@@ -125,21 +135,40 @@ secrets:
 ```
 
 ```sh
-bun install --frozen-lockfile
-bunx semantic-release   # branches: main, develop (prerelease "beta"); preset conventionalcommits
-# prepare: tools/release.sh <version>; no commit: the tag is the version
-# publish: GitHub release v<version> with koma.apk
+tools/release.nu [--dry-run]   # branch from GITHUB_REF_NAME: main or develop, else it fails
+# last: the highest tag v<version> reachable from HEAD; on main, stable tags only
+# next on main:    last bumped by the highest release type since last (`[KD-6.1]`)
+# next on develop: last bumped, with -beta.1; after a beta, the higher of that beta's
+#                  next number and the latest stable version bumped, with -beta.1
+# --dry-run prints next and its notes, and stops
+KOMA_VERSION=<next> ./gradlew --no-daemon assembleRelease
+cp app/build/outputs/apk/release/app-release.apk koma.apk
+git fetch origin <branch>      # unless origin/<branch> is HEAD or behind it: nothing published, exit 0
+gh release create v<next> koma.apk --target <HEAD> --title v<next> --notes-file - [--prerelease]
 ```
 
-```sh
-# tools/release.sh <version>
-KOMA_VERSION=<version> ./gradlew --no-daemon assembleRelease
-cp app/build/outputs/apk/release/app-release.apk koma.apk
+```md
+## [<next>](<repo>/compare/<last>...v<next>) (<UTC date>)
+
+### ⚠ BREAKING CHANGES        # the `BREAKING CHANGE:` footer, else the subject
+### 🎉 New Features           # feat
+### 🐛 Bug Fixes              # fix
+### 📦 Dependency Updates     # build(deps)
+### 📚 Documentation          # docs
+
+* **<scope>:** <subject> ([<short hash>](<repo>/commit/<hash>))
 ```
+
+Empty sections are left out, and other types are not listed. Entries sort by scope, then subject.
+Several `build(deps)` bumps of one package in a release, titled
+`update <package> ( <from> ➜ <to> )` by Renovate, make one entry from the oldest `<from>` to the
+newest `<to>`, linking every commit.
 
 The keystore file is written under `$RUNNER_TEMP`, never into the workspace. A failed step fails
-the job, and semantic-release creates no tag or release after a failed `prepare`. The secrets keep
-their `EXACT_*` names; renaming them is a change in the repository settings.
+the job. A failed build creates no tag or release, since `gh release create` creates the tag with
+the release. A run whose branch moved on during its build publishes nothing, so the newer run
+releases its commits too, as semantic-release did. The secrets keep their `EXACT_*` names; renaming them is a change in the repository
+settings.
 
 ### [CT-3.2] Update pill
 
@@ -202,8 +231,8 @@ Kind: invariant · Anchor: null
 
 ## Acceptance
 
-`[VC-1.1]` and `[VC-2]` are manual qualifications against GitHub and a phone, which CI does not
-have.
+`[VC-1.1]`, `[VC-2]` and `[VC-4]` are manual qualifications against GitHub and a phone, which CI
+does not have.
 
 - ~~`[VC-1]` Given Koma installed from release `v4` or the AppDrop link, when the first push after
   this change runs `publish`, then release `v0.1.0` exists with `koma.apk` and notes, the
@@ -237,6 +266,11 @@ have.
   hands the file over again without a second request. A failing download says so and retries.
   A stubbed `v0.1.0` shows no `update-pill`. — demonstrates `[SO-2]`
 
+- `[VC-4]` In a clone where a published release's tag is deleted, `tools/release.nu --dry-run` at
+  that tag's commit prints its version and its published notes, for every release up to `v0.6.0`.
+  On `develop`, a `fix` after `v0.1.0` gives `0.1.1-beta.1`, then `0.1.1-beta.2`; a `feat` after
+  `v0.1.1-beta.1` gives `0.2.0-beta.1`. — demonstrates `[SO-3.1]`
+
 ## Caveats
 
 - ~~`[C-1]` Not yet run: `publish` on a runner, and the banner on Android. Exact's native `fetch`
@@ -265,3 +299,7 @@ have.
 - `[C-8]` Android blocks opening the installer from the background. When the download ends after
   the user left Koma, nothing opens, and the dialog's Install opens it on return.
 - `[C-9]` The first install from the app makes Android ask to let Koma install unknown apps.
+- `[C-10]` Not yet run: `tools/release.nu` publishing on a runner. `[VC-4]` covers its versions and
+  notes, not `gh release create`. The next releasing push is its first run.
+- `[C-11]` Unlike semantic-release, the notes do not link issue references, and a release does not
+  comment on the pull requests it ships.

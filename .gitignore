@@ -6,7 +6,6 @@
 /.kotlin/
 /local.properties
 *.iml
-/node_modules/
 /.pre-commit/
 /.direnv/
 /.env.local

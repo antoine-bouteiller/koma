@@ -84,8 +84,6 @@ jobs:
       # AGP installs the SDK platform it lacks once the licenses are accepted.
       - name: Android SDK licenses
         run: yes | nix develop -c "$ANDROID_HOME/cmdline-tools/latest/bin/sdkmanager" --licenses > /dev/null
-      - name: Install Node dependencies
-        run: nix develop -c bun install --frozen-lockfile
-      # Builds the APK (tools/release.sh) only when the commits since the last tag call for a release.
-      - name: Semantic Release
-        run: nix develop -c bunx semantic-release
+      # Builds the APK only when the commits since the last tag call for a release.
+      - name: Release
+        run: nix develop -c tools/release.nu

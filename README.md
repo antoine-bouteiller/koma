@@ -25,11 +25,10 @@ A feature imports `data`, `ui` and `version`, never another feature. Only `ui/Ko
 ## Setup
 
 Needs [Nix](https://nixos.org) with flakes, and optionally [direnv](https://direnv.net). The dev
-shell (`flake.nix`) provides JDK 21, Bun, Node, treefmt and the git hooks.
+shell (`flake.nix`) provides JDK 21, Nushell, the GitHub CLI, treefmt and the git hooks.
 
 1. Enter the dev shell: `direnv allow`, or `nix develop`.
-2. Install the tools the `commit-msg` hook and the release run: `bun install`.
-3. Install the Android SDK into `$ANDROID_HOME` (default `~/Library/Android/sdk`), with Android
+2. Install the Android SDK into `$ANDROID_HOME` (default `~/Library/Android/sdk`), with Android
    Studio or the command-line tools (`brew install --cask android-commandlinetools`), and accept
    its licenses: `sdkmanager --licenses`. Gradle installs the SDK platform it needs.
 
@@ -71,18 +70,19 @@ Two workflows run `format` (`nix flake check`, which fails on unformatted files)
   `koma-debug-apk` artifact.
 - [`.github/workflows/publish.yml`](.github/workflows/publish.yml), on pushes to `main` and
   `develop`, runs `publish` after `format` and `test` pass. It runs
-  [semantic-release](https://semantic-release.gitbook.io) ([`.releaserc.json`](.releaserc.json)):
-  when the commits since the last tag call for a release, [`tools/release.sh`](tools/release.sh)
-  builds the release APK, and the GitHub release `v<version>` carries it with generated notes.
-  `develop` publishes betas (`1.2.0-beta.1`). The design is in
+  [`tools/release.nu`](tools/release.nu): when the commits since the last tag call for a release,
+  it builds the release APK, and the GitHub release `v<version>` carries it with generated notes.
+  `develop` publishes betas (`1.2.0-beta.1`). `tools/release.nu --dry-run` prints the next version
+  and its notes without building or publishing. The design is in
   [`doc/architecture/specs/distribution.spec.md`](doc/architecture/specs/distribution.spec.md).
 
 ## Commits
 
 Commit messages follow [Conventional Commits](https://www.conventionalcommits.org); the
-`commit-msg` hook checks them with commitlint. `feat` releases a minor version, `fix`, `perf` and
-`build(deps)` a patch, and a breaking change (`feat!:` or a `BREAKING CHANGE:` footer) a minor one too: Koma stays at
-0.x, from the `v0.0.0` tag on the root commit.
+`commit-msg` hook checks them with [`tools/commit-msg.nu`](tools/commit-msg.nu). `feat` releases a
+minor version, `fix`, `perf`, `revert` and `build(deps)` a patch, and a breaking change (`feat!:`
+or a `BREAKING CHANGE:` footer) a minor one too: Koma stays at 0.x, from the `v0.0.0` tag on the
+root commit.
 `docs`, `ci`, `chore`, `refactor`, `style` and `test` release nothing.
 
 ## Install and updates

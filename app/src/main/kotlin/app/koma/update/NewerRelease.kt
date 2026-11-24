@@ -36,7 +36,7 @@ fun newerRelease(http: OkHttpClient, installed: String): Release? {
             response.body.string()
         }
     val latest = json.decodeFromString(GitHubRelease.serializer(), body)
-    // semantic-release tags each release `v<version>`.
+    // tools/release.nu tags each release `v<version>`.
     val version = latest.tag.removePrefix("v")
     val apk =
         latest.assets.find { it.name == "koma.apk" }

@@ -11,10 +11,6 @@
       url = "github:cachix/git-hooks.nix";
       inputs.nixpkgs.follows = "nixpkgs";
     };
-    bun-flake = {
-      url = "github:antoine-bouteiller/bun-flake/v1.4.4";
-      inputs.nixpkgs.follows = "nixpkgs";
-    };
   };
 
   outputs = {
@@ -22,7 +18,6 @@
     nixpkgs,
     treefmt-nix,
     git-hooks,
-    bun-flake,
   }: let
     forAllSystems = nixpkgs.lib.genAttrs ["aarch64-darwin" "x86_64-linux"];
     treefmt = forAllSystems (system: treefmt-nix.lib.evalModule nixpkgs.legacyPackages.${system} ./treefmt.nix);
@@ -45,10 +40,10 @@
               package = treefmt.${system}.config.build.wrapper;
             };
             gitleaks.enable = true;
-            commitlint = {
+            conventional-commit = {
               enable = true;
-              name = "commitlint";
-              entry = "bunx commitlint --edit";
+              name = "conventional-commit";
+              entry = "${pkgs.lib.getExe pkgs.nushell} tools/commit-msg.nu";
               language = "system";
               stages = ["commit-msg"];
             };
@@ -59,10 +54,10 @@
           packages =
             preCommit.enabledPackages
             ++ [
-              bun-flake.packages.${system}.default
               pkgs.jdk21
-              # semantic-release and commitlint run on Node.
-              pkgs.nodejs_26
+              # tools/release.nu
+              pkgs.nushell
+              pkgs.gh
             ];
           shellHook = ''
             # CI commits nothing.
