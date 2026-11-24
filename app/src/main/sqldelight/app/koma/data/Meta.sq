@@ -1,0 +1,14 @@
+CREATE TABLE IF NOT EXISTS meta (key TEXT PRIMARY KEY, value TEXT NOT NULL);
+
+value:
+SELECT value FROM meta WHERE key = ?;
+
+-- Not an upsert: Android 8 to 10 ship SQLite older than 3.24, which has none.
+put:
+INSERT OR REPLACE INTO meta (key, value) VALUES (?, ?);
+
+remove:
+DELETE FROM meta WHERE key IN ?;
+
+clear:
+DELETE FROM meta;

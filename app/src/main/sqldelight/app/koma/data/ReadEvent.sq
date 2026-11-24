@@ -1,0 +1,16 @@
+CREATE TABLE IF NOT EXISTS read_event (id INTEGER PRIMARY KEY, series_id INTEGER NOT NULL, at INTEGER NOT NULL, from_chapter REAL, to_chapter REAL);
+CREATE INDEX IF NOT EXISTS read_event_at ON read_event (at DESC, id DESC);
+
+newest:
+SELECT max(at) AS newest FROM read_event;
+
+upsert:
+INSERT OR REPLACE INTO read_event (id, series_id, at, from_chapter, to_chapter) VALUES (?, ?, ?, ?, ?);
+
+titled:
+SELECT e.id, e.series_id, e.at, e.from_chapter, e.to_chapter, s.title, s.cover
+FROM read_event e JOIN series s ON s.id = e.series_id
+WHERE s.title != '' ORDER BY e.at DESC, e.id DESC;
+
+clear:
+DELETE FROM read_event;

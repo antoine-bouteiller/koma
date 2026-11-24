@@ -1,0 +1,91 @@
+name: publish
+
+on:
+  push:
+    branches:
+      - main
+      - develop
+  workflow_dispatch:
+
+# Queued, never cancelled: a release stopped mid-way can leave a tag without its APK.
+concurrency:
+  group: ${{ github.workflow }}
+  cancel-in-progress: false
+
+jobs:
+  format:
+    runs-on: ubuntu-24.04
+    timeout-minutes: 15
+    steps:
+      - uses: actions/checkout@3d3c42e5aac5ba805825da76410c181273ba90b1 # v7.0.1
+      - uses: cachix/install-nix-action@3dc140bfc76c49fbd4dd958429132e3746bcb086 # v31.11.5
+      - run: nix flake check
+
+  test:
+    runs-on: ubuntu-24.04
+    timeout-minutes: 30
+    steps:
+      - uses: actions/checkout@3d3c42e5aac5ba805825da76410c181273ba90b1 # v7.0.1
+      - uses: cachix/install-nix-action@3dc140bfc76c49fbd4dd958429132e3746bcb086 # v31.11.5
+      - uses: actions/cache@55cc8345863c7cc4c66a329aec7e433d2d1c52a9 # v6.1.0
+        with:
+          path: |
+            ~/.gradle/caches
+            ~/.gradle/wrapper
+            ~/.m2/repository/org/robolectric
+          key: gradle-${{ runner.os }}-${{ hashFiles('gradle/libs.versions.toml', '**/*.gradle.kts', 'gradle/wrapper/gradle-wrapper.properties') }}
+          restore-keys: gradle-${{ runner.os }}-
+      # AGP installs the SDK platform it lacks once the licenses are accepted.
+      - name: Android SDK licenses
+        run: yes | nix develop -c "$ANDROID_HOME/cmdline-tools/latest/bin/sdkmanager" --licenses > /dev/null
+      - name: Tests and lint
+        run: nix develop -c ./gradlew testDebugUnitTest lintDebug
+
+  publish:
+    needs: [format, test]
+    runs-on: ubuntu-24.04
+    timeout-minutes: 30
+    permissions:
+      contents: write
+    env:
+      GITHUB_TOKEN: ${{ github.token }}
+      # The secrets keep the names they had before the native app.
+      KOMA_KEYSTORE_PASSWORD: ${{ secrets.EXACT_KEYSTORE_PASSWORD }}
+      KOMA_KEY_ALIAS: ${{ secrets.EXACT_KEY_ALIAS }}
+      KOMA_KEY_PASSWORD: ${{ secrets.EXACT_KEY_PASSWORD }}
+    steps:
+      - uses: actions/checkout@3d3c42e5aac5ba805825da76410c181273ba90b1 # v7.0.1
+        with:
+          fetch-depth: 0
+      - name: Enforce develop is up to date with main
+        if: github.ref == 'refs/heads/develop'
+        run: |
+          if ! git merge-base --is-ancestor origin/main origin/develop; then
+            echo "ERROR: 'develop' is behind 'main'."
+            echo "Please rebase 'main' into 'develop' before creating a pre-release."
+            exit 1
+          fi
+      - uses: cachix/install-nix-action@3dc140bfc76c49fbd4dd958429132e3746bcb086 # v31.11.5
+      - uses: actions/cache@55cc8345863c7cc4c66a329aec7e433d2d1c52a9 # v6.1.0
+        with:
+          path: |
+            ~/.gradle/caches
+            ~/.gradle/wrapper
+            ~/.m2/repository/org/robolectric
+          key: gradle-${{ runner.os }}-${{ hashFiles('gradle/libs.versions.toml', '**/*.gradle.kts', 'gradle/wrapper/gradle-wrapper.properties') }}
+          restore-keys: gradle-${{ runner.os }}-
+      - name: Signing keys
+        env:
+          EXACT_KEYSTORE_BASE64: ${{ secrets.EXACT_KEYSTORE_BASE64 }}
+        run: |
+          umask 077
+          printf '%s' "$EXACT_KEYSTORE_BASE64" | base64 -d > "$RUNNER_TEMP/koma-upload.jks"
+          echo "KOMA_KEYSTORE=$RUNNER_TEMP/koma-upload.jks" >> "$GITHUB_ENV"
+      # AGP installs the SDK platform it lacks once the licenses are accepted.
+      - name: Android SDK licenses
+        run: yes | nix develop -c "$ANDROID_HOME/cmdline-tools/latest/bin/sdkmanager" --licenses > /dev/null
+      - name: Install Node dependencies
+        run: nix develop -c bun install --frozen-lockfile
+      # Builds the APK (tools/release.sh) only when the commits since the last tag call for a release.
+      - name: Semantic Release
+        run: nix develop -c bunx semantic-release

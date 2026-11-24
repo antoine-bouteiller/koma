@@ -1,0 +1,9 @@
+{
+  $schema: 'https://docs.renovatebot.com/renovate-schema.json',
+  extends: ['github>antoine-bouteiller/renovate'],
+  nix: {
+    enabled: true,
+    // nixpkgs, treefmt-nix, and git-hooks track branches, so only a lock refresh moves them.
+    lockFileMaintenance: { enabled: true },
+  },
+}

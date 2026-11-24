@@ -1,0 +1,13 @@
+/build/
+/app/build/
+/buildSrc/build/
+/buildSrc/.gradle/
+/.gradle/
+/.kotlin/
+/local.properties
+*.iml
+/node_modules/
+/.pre-commit/
+/.direnv/
+/.env.local
+/koma.apk

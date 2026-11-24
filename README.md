@@ -1,0 +1,95 @@
+# Koma
+
+A tracker-first manga reader for Android. MangaBaka is the library and the discovery surface;
+sources only supply chapters and pages. The design lives in
+[`doc/architecture/specs/app.spec.md`](doc/architecture/specs/app.spec.md).
+
+Koma is a Kotlin and Jetpack Compose app in one Gradle module, `app/`, with packages by feature:
+
+| Package | Holds |
+| --- | --- |
+| `app.koma` | `KomaApplication`, `MainActivity`, and `AppContainer`, which builds every dependency |
+| `app.koma.data` | The HTTP client, the MangaBaka API, and the SQLite store (SQLDelight, `app/src/main/sqldelight/`) |
+| `app.koma.auth` | MangaBaka sign-in (OAuth with PKCE in a Custom Tab), the Keystore secret store |
+| `app.koma.library` | The library sync, its shelves and their screen |
+| `app.koma.history` | The reading history sync and its screen |
+| `app.koma.update` | The banner offering a newer release |
+| `app.koma.ui` | The app shell: tabs, header, empty states, theme |
+| `app.koma.version` | `versionCode`, also compiled by `buildSrc` for the build |
+
+A feature imports `data`, `ui` and `version`, never another feature. Only `ui/KomaApp.kt` and
+`MainActivity.kt` compose features. Screens render a ViewModel's state and decide nothing.
+
+## Setup
+
+Needs [Nix](https://nixos.org) with flakes, and optionally [direnv](https://direnv.net). The dev
+shell (`flake.nix`) provides JDK 21, Bun, Node, treefmt and the git hooks.
+
+1. Enter the dev shell: `direnv allow`, or `nix develop`.
+2. Install the tools the `commit-msg` hook and the release run: `bun install`.
+3. Install the Android SDK into `$ANDROID_HOME` (default `~/Library/Android/sdk`), with Android
+   Studio or the command-line tools (`brew install --cask android-commandlinetools`), and accept
+   its licenses: `sdkmanager --licenses`. Gradle installs the SDK platform it needs.
+
+## Commands
+
+Run from the repository root, inside the dev shell.
+
+| Command | Does |
+| --- | --- |
+| `./gradlew testDebugUnitTest` | Runs every test on the JVM with Robolectric, the UI included |
+| `./gradlew lintDebug` | Runs Android Lint; a warning fails it |
+| `./gradlew installDebug` | Installs Koma Dev (`app.koma.dev`) on the device `adb` lists |
+| `./gradlew assembleRelease` | Builds `app/build/outputs/apk/release/app-release.apk`, signed with the debug key unless `KOMA_KEYSTORE` is set |
+| `nix fmt` | Formats Kotlin (ktfmt), Nix, JSON and YAML |
+
+Android Studio opens the repository as a Gradle project, with Compose previews and Live Edit.
+
+## Tests
+
+Tests run the whole app on the JVM through `app/src/test/kotlin/app/koma/testing/AppHarness.kt`:
+an in-memory secret store, a fake browser, a fixed clock, and `FakeNetwork`, an OkHttp interceptor
+that answers from stubs and fails the test on any request no stub answers. Work runs on the main
+looper there, so Compose's idling waits for it. Images are never loaded; the harness records the
+URLs asked for.
+
+## MangaBaka sign-in
+
+Koma signs in as the public OAuth client `lYFPQeyaYBnVaZJmcQHPiNjlprtCsVDL`, registered on
+mangabaka.org with the redirect URL `koma://auth`. Koma and Koma Dev both register that scheme, so
+with both installed Android asks which one completes a sign-in.
+
+## CI
+
+Two workflows run `format` (`nix flake check`, which fails on unformatted files) and `test`
+(`./gradlew testDebugUnitTest lintDebug`):
+
+- [`.github/workflows/check.yml`](.github/workflows/check.yml), on pull requests, also runs
+  `android`: it builds the release APK, signed with the debug key, and uploads it as the
+  `koma-debug-apk` artifact.
+- [`.github/workflows/publish.yml`](.github/workflows/publish.yml), on pushes to `main` and
+  `develop`, runs `publish` after `format` and `test` pass. It runs
+  [semantic-release](https://semantic-release.gitbook.io) ([`.releaserc.json`](.releaserc.json)):
+  when the commits since the last tag call for a release, [`tools/release.sh`](tools/release.sh)
+  builds the release APK, and the GitHub release `v<version>` carries it with generated notes.
+  `develop` publishes betas (`1.2.0-beta.1`). The design is in
+  [`doc/architecture/specs/distribution.spec.md`](doc/architecture/specs/distribution.spec.md).
+
+## Commits
+
+Commit messages follow [Conventional Commits](https://www.conventionalcommits.org); the
+`commit-msg` hook checks them with commitlint. `feat` releases a minor version, `fix`, `perf` and
+`build(deps)` a patch, and a breaking change (`feat!:` or a `BREAKING CHANGE:` footer) a minor one too: Koma stays at
+0.x, from the `v0.0.0` tag on the root commit.
+`docs`, `ci`, `chore`, `refactor`, `style` and `test` release nothing.
+
+## Install and updates
+
+Install Koma from
+<https://github.com/antoine-bouteiller/koma/releases/latest/download/koma.apk>. At each launch the
+app asks GitHub for the latest stable release; when it is newer, a banner offers to download it, and
+Android's installer installs it over the current one.
+
+The publish job reads these repository secrets: `EXACT_KEYSTORE_BASE64`,
+`EXACT_KEYSTORE_PASSWORD`, `EXACT_KEY_ALIAS` and `EXACT_KEY_PASSWORD` (the release upload key). It
+hands them to the build as `KOMA_KEYSTORE` and the `KOMA_KEY*` variables.

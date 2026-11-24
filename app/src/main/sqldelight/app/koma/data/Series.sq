@@ -1,0 +1,8 @@
+-- Public series data, kept across sign-outs. An empty title marks an id MangaBaka no longer answers.
+CREATE TABLE IF NOT EXISTS series (id INTEGER PRIMARY KEY, title TEXT NOT NULL, cover TEXT NOT NULL, type TEXT NOT NULL);
+
+ids:
+SELECT id FROM series;
+
+upsert:
+INSERT OR REPLACE INTO series (id, title, cover, type) VALUES (?, ?, ?, ?);
