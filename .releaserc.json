@@ -27,7 +27,7 @@
             { "type": "fix", "section": "🐛 Bug Fixes" },
             { "type": "build", "scope": "deps", "section": "📦 Dependency Updates" },
             { "type": "docs", "section": "📚 Documentation" },
-            { "type": "chore", "section": "🔧 Maintenance", "hidden": true }
+            { "type": "chore", "section": "🔧 Maintenance", "effect": "hidden" }
           ]
         }
       }

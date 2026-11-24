@@ -62,7 +62,7 @@
               bun-flake.packages.${system}.default
               pkgs.jdk21
               # semantic-release and commitlint run on Node.
-              pkgs.nodejs_24
+              pkgs.nodejs_26
             ];
           shellHook = ''
             # CI commits nothing.
