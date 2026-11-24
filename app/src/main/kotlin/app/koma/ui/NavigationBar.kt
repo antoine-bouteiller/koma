@@ -5,6 +5,9 @@ import androidx.compose.animation.core.Animatable
 import androidx.compose.animation.core.FastOutSlowInEasing
 import androidx.compose.animation.core.LinearEasing
 import androidx.compose.animation.core.tween
+import androidx.compose.animation.graphics.res.animatedVectorResource
+import androidx.compose.animation.graphics.res.rememberAnimatedVectorPainter
+import androidx.compose.animation.graphics.vector.AnimatedImageVector
 import androidx.compose.material3.Icon
 import androidx.compose.material3.MaterialTheme
 import androidx.compose.material3.ShortNavigationBar
@@ -16,7 +19,6 @@ import androidx.compose.runtime.remember
 import androidx.compose.ui.Modifier
 import androidx.compose.ui.draw.drawWithContent
 import androidx.compose.ui.geometry.Offset
-import androidx.compose.ui.graphics.Color
 import androidx.compose.ui.graphics.GraphicsLayerScope
 import androidx.compose.ui.graphics.TransformOrigin
 import androidx.compose.ui.graphics.graphicsLayer
@@ -25,9 +27,6 @@ import androidx.compose.ui.platform.testTag
 import androidx.compose.ui.res.painterResource
 import androidx.compose.ui.text.style.TextOverflow
 import androidx.compose.ui.unit.dp
-import dev.chrisbanes.haze.HazeInput
-import dev.chrisbanes.haze.HazeState
-import dev.chrisbanes.haze.blur.hazeBlur
 import kotlin.math.PI
 import kotlin.math.roundToInt
 import kotlin.math.sin
@@ -36,6 +35,7 @@ import kotlin.math.sin
 interface TabItem {
     val title: String
     @get:DrawableRes val icon: Int
+    /** The filled icon; for [IconMotion.Fill], the animated vector filling [icon] in. */
     @get:DrawableRes val selectedIcon: Int
     val motion: IconMotion
     val tag: String
@@ -43,35 +43,24 @@ interface TabItem {
 
 /** How a tab's icon moves as the tab gets selected. */
 enum class IconMotion {
-    /** Hops up and lands. */
-    Hop,
+    /** Fills in as the tab gets selected, and empties again as it gets deselected. */
+    Fill,
     /** Swings from its top, as a bell rings. */
     Ring,
     /** Winds back a full turn. */
     Rewind,
-    /** Swells and twinkles. */
-    Twinkle,
     /** Turns by one tooth of a six-toothed gear. */
     Turn;
 
     /** The icon's pose at [t], from 0 to 1; both ends are its resting pose. */
     internal fun GraphicsLayerScope.pose(t: Float) {
-        val wave = sin(PI * t).toFloat()
         when (this@IconMotion) {
-            Hop -> {
-                translationY = -0.3f * size.height * wave
-                rotationZ = -10f * sin(2 * PI * t).toFloat()
-            }
+            Fill -> Unit
             Ring -> {
                 transformOrigin = TransformOrigin(0.5f, 0.1f)
                 rotationZ = 22f * sin(4 * PI * t).toFloat() * (1 - t)
             }
             Rewind -> rotationZ = -360f * FastOutSlowInEasing.transform(t)
-            Twinkle -> {
-                scaleX = 1 + 0.3f * wave
-                scaleY = scaleX
-                rotationZ = 18f * sin(2 * PI * t).toFloat()
-            }
             Turn -> rotationZ = 60f * backOut(t)
         }
     }
@@ -84,24 +73,18 @@ private fun backOut(t: Float): Float {
 }
 
 /**
- * The glass bar of the app's tabs, along the bottom edge over the content marked as the [haze]
- * source. It slides down out of sight as [hidden] goes from 0 to 1.
+ * The bar of the app's tabs, along the bottom edge over the content. It slides down out of sight as
+ * [hidden] goes from 0 to 1.
  */
 @Composable
 fun <T : TabItem> NavigationBar(
     tabs: List<T>,
     selected: T,
     onSelect: (T) -> Unit,
-    haze: HazeState,
     hidden: () -> Float,
     modifier: Modifier = Modifier,
 ) {
-    val colors = MaterialTheme.colorScheme
-    val style =
-        remember(colors.surfaceContainer, colors.surface) {
-            glassBlurStyle(colors.surfaceContainer.copy(alpha = 0.7f), colors.surface)
-        }
-    val edge = colors.outlineVariant.copy(alpha = 0.6f)
+    val edge = MaterialTheme.colorScheme.outlineVariant.copy(alpha = 0.6f)
     ShortNavigationBar(
         modifier =
             modifier
@@ -111,13 +94,11 @@ fun <T : TabItem> NavigationBar(
                         bar.place(0, (bar.height * hidden()).roundToInt())
                     }
                 }
-                .hazeBlur(HazeInput.Sources(haze), style)
                 .drawWithContent {
                     drawContent()
                     drawLine(edge, Offset.Zero, Offset(size.width, 0f), 1.dp.toPx())
                 }
-                .testTag("tabs"),
-        containerColor = Color.Transparent,
+                .testTag("tabs")
     ) {
         for (tab in tabs) {
             ShortNavigationBarItem(
@@ -134,6 +115,11 @@ fun <T : TabItem> NavigationBar(
 /** [tab]'s icon, filled while [selected], playing its motion each time it gets selected. */
 @Composable
 private fun TabIcon(tab: TabItem, selected: Boolean) {
+    if (tab.motion == IconMotion.Fill) {
+        val image = AnimatedImageVector.animatedVectorResource(tab.selectedIcon)
+        Icon(rememberAnimatedVectorPainter(image, atEnd = selected), contentDescription = null)
+        return
+    }
     val progress = remember { Animatable(1f) }
     val was = remember { booleanArrayOf(selected) }
     LaunchedEffect(selected) {

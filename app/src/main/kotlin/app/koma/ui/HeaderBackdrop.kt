@@ -14,8 +14,8 @@ import androidx.compose.runtime.setValue
 import androidx.compose.runtime.staticCompositionLocalOf
 
 /**
- * What the content under the screen header hands it: its scroll, which lays the header's glass
- * down, and an accessory the header shows under the title.
+ * What the content under the screen header hands it: its scroll, which lays the header's band down,
+ * and an accessory the header shows under the title.
  */
 @Stable
 class HeaderBackdrop {
@@ -71,7 +71,7 @@ fun TrackHeaderBackdrop(state: ScrollableState) {
 }
 
 /**
- * Shows [content] in the screen header, under the title, while this is composed. The header's glass
+ * Shows [content] in the screen header, under the title, while this is composed. The header's band
  * covers it, and it slides away under the title as the content scrolls down.
  */
 @Composable

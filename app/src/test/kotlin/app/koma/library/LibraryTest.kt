@@ -3,6 +3,7 @@ package app.koma.library
 import androidx.compose.ui.test.assertIsDisplayed
 import androidx.compose.ui.test.assertIsNotDisplayed
 import androidx.compose.ui.test.getUnclippedBoundsInRoot
+import androidx.compose.ui.test.performClick
 import androidx.compose.ui.test.performTouchInput
 import androidx.compose.ui.test.swipeDown
 import androidx.compose.ui.test.swipeUp
@@ -72,6 +73,15 @@ class LibraryTest {
         app.awaitIdle()
         assertTrue(barTop() < rootBottom())
         app.node("shelves").assertIsDisplayed()
+    }
+
+    @Test
+    fun `the shelves' tabs leave the header at once when another tab opens`() {
+        longShelf()
+        app.compose.mainClock.autoAdvance = false
+        app.node("tab-updates").performClick()
+        app.compose.mainClock.advanceTimeBy(64)
+        app.missing("shelves")
     }
 
     @Test

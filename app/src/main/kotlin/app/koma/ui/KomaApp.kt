@@ -59,8 +59,6 @@ import app.koma.ui.theme.KomaTheme
 import app.koma.update.UpdateDialog
 import app.koma.update.UpdatePill
 import app.koma.update.UpdateViewModel
-import dev.chrisbanes.haze.hazeSource
-import dev.chrisbanes.haze.rememberHazeState
 import kotlinx.coroutines.CancellationException
 import kotlinx.coroutines.launch
 
@@ -77,8 +75,8 @@ enum class Tab(
         "library",
         "Library",
         R.drawable.ic_book,
-        R.drawable.ic_book_filled,
-        IconMotion.Hop,
+        R.drawable.avd_book,
+        IconMotion.Fill,
         "Your library is empty",
         "The titles you track on MangaBaka show up here.",
     ),
@@ -104,8 +102,8 @@ enum class Tab(
         "discover",
         "Discover",
         R.drawable.ic_auto_awesome,
-        R.drawable.ic_auto_awesome,
-        IconMotion.Twinkle,
+        R.drawable.avd_auto_awesome,
+        IconMotion.Fill,
         "Nothing to discover yet",
         "Trending, top-rated and popular titles show up here.",
     ),
@@ -171,7 +169,6 @@ fun KomaApp(container: AppContainer) {
     }
     // Keeps each screen's shelf and scroll position while another one shows.
     val saved = rememberSaveableStateHolder()
-    val haze = rememberHazeState()
     val backdrop = remember { HeaderBackdrop() }
     // The header and the bar float over the content, which leaves them this much room at its ends.
     var headerHeight by remember { mutableStateOf(0.dp) }
@@ -205,7 +202,6 @@ fun KomaApp(container: AppContainer) {
                 val contentPadding = PaddingValues(top = headerHeight, bottom = barHeight)
                 Box(
                     Modifier.fillMaxSize()
-                        .hazeSource(haze)
                         .nestedScroll(bars)
                         .windowInsetsPadding(
                             WindowInsets.safeDrawing.only(WindowInsetsSides.Horizontal)
@@ -272,8 +268,7 @@ fun KomaApp(container: AppContainer) {
                         }
                     }
                 }
-                GlassHeader(
-                    haze,
+                FloatingHeader(
                     backdrop,
                     hidden = { bars.hidden },
                     onHeight = { headerHeight = with(density) { it.toDp() } },
@@ -299,7 +294,6 @@ fun KomaApp(container: AppContainer) {
                         if (it == tab) settingsPage = null
                         tab = it
                     },
-                    haze = haze,
                     hidden = { bars.hidden },
                     modifier =
                         Modifier.align(Alignment.BottomCenter).onSizeChanged {

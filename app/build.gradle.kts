@@ -72,6 +72,7 @@ sqldelight { databases { create("KomaDatabase") { packageName = "app.koma.data" 
 
 dependencies {
     implementation(platform(libs.compose.bom))
+    implementation(libs.compose.animation.graphics)
     implementation(libs.compose.foundation)
     implementation(libs.compose.material3)
     implementation(libs.compose.ui)
@@ -84,8 +85,6 @@ dependencies {
     implementation(libs.androidx.lifecycle.viewmodel.compose)
     implementation(libs.coil.compose)
     implementation(libs.coil.network.okhttp)
-    implementation(libs.haze)
-    implementation(libs.haze.blur)
     implementation(libs.kotlinx.coroutines.android)
     implementation(libs.kotlinx.serialization.json)
     implementation(libs.okhttp)

@@ -1,10 +1,6 @@
 package app.koma.ui
 
-import androidx.compose.animation.AnimatedContent
-import androidx.compose.animation.SizeTransform
-import androidx.compose.animation.fadeIn
-import androidx.compose.animation.fadeOut
-import androidx.compose.animation.togetherWith
+import androidx.compose.foundation.background
 import androidx.compose.foundation.layout.Box
 import androidx.compose.foundation.layout.Column
 import androidx.compose.foundation.layout.ColumnScope
@@ -25,7 +21,6 @@ import androidx.compose.runtime.Composable
 import androidx.compose.runtime.remember
 import androidx.compose.ui.Alignment
 import androidx.compose.ui.Modifier
-import androidx.compose.ui.draw.clip
 import androidx.compose.ui.draw.clipToBounds
 import androidx.compose.ui.graphics.graphicsLayer
 import androidx.compose.ui.layout.layout
@@ -38,9 +33,6 @@ import androidx.compose.ui.text.font.FontFamily
 import androidx.compose.ui.text.font.FontWeight
 import androidx.compose.ui.unit.dp
 import app.koma.R
-import dev.chrisbanes.haze.HazeInput
-import dev.chrisbanes.haze.HazeState
-import dev.chrisbanes.haze.blur.hazeBlur
 import kotlin.math.roundToInt
 
 // Google Sans Flex cut to one instance: SemiBold, fully rounded, optical size 28.
@@ -87,26 +79,21 @@ fun ScreenTitle(title: String, titleTag: String, onBack: (() -> Unit)? = null) {
 }
 
 /**
- * The header floating over the content marked as the [haze] source. Bare at rest, it lays down a
- * band of glass as the content [backdrop] tracks runs on under it, following the scroll rather than
- * a timer. Under [content] it shows the backdrop's accessory, which slides away under the title as
- * [hidden] goes from 0 to 1. [onHeight] receives the header's height with the accessory out, so the
- * content's start stays put while it slides.
+ * The header floating over the content. Bare at rest, it lays down a solid band as the content
+ * [backdrop] tracks runs on under it, following the scroll rather than a timer. Under [content] it
+ * shows the backdrop's accessory, which slides away under the title as [hidden] goes from 0
+ * to 1. [onHeight] receives the header's height with the accessory out, so the content's start
+ * stays put while it slides.
  */
 @Composable
-fun GlassHeader(
-    haze: HazeState,
+fun FloatingHeader(
     backdrop: HeaderBackdrop,
     hidden: () -> Float,
     onHeight: (Int) -> Unit,
     modifier: Modifier = Modifier,
     content: @Composable ColumnScope.() -> Unit,
 ) {
-    val colors = MaterialTheme.colorScheme
-    val style =
-        remember(colors.onSurface, colors.surface) {
-            glassBlurStyle(colors.onSurface.copy(alpha = 0.06f), colors.surface)
-        }
+    val band = MaterialTheme.colorScheme.surfaceContainer
     // Written while measuring, before the header's size is reported.
     val slid = remember { IntArray(1) }
     Box(modifier.fillMaxWidth().onSizeChanged { onHeight(it.height + slid[0]) }.testTag("header")) {
@@ -115,8 +102,7 @@ fun GlassHeader(
                 .graphicsLayer {
                     alpha = (backdrop.scrolledPast / BandFadeDistance.toPx()).coerceIn(0f, 1f)
                 }
-                .clip(BandShape)
-                .hazeBlur(HazeInput.Sources(haze), style)
+                .background(band, BandShape)
         )
         Column(
             Modifier.windowInsetsPadding(
@@ -124,27 +110,15 @@ fun GlassHeader(
             )
         ) {
             content()
-            val effects = MaterialTheme.motionScheme.defaultEffectsSpec<Float>()
-            AnimatedContent(
-                backdrop.accessory,
-                transitionSpec = {
-                    fadeIn(effects) togetherWith fadeOut(effects) using SizeTransform(clip = true)
-                },
-                contentKey = { it != null },
-                label = "accessory",
-            ) { accessory ->
-                Box(
-                    Modifier.clipToBounds().layout { measurable, constraints ->
-                        val placeable = measurable.measure(constraints)
-                        val away = (placeable.height * hidden()).roundToInt()
-                        slid[0] = away
-                        layout(placeable.width, placeable.height - away) {
-                            placeable.place(0, -away)
-                        }
-                    }
-                ) {
-                    accessory?.invoke()
+            Box(
+                Modifier.clipToBounds().layout { measurable, constraints ->
+                    val placeable = measurable.measure(constraints)
+                    val away = (placeable.height * hidden()).roundToInt()
+                    slid[0] = away
+                    layout(placeable.width, placeable.height - away) { placeable.place(0, -away) }
                 }
+            ) {
+                backdrop.accessory?.invoke()
             }
         }
     }
