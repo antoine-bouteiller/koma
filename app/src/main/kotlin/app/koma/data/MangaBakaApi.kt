@@ -13,9 +13,30 @@ private const val API = "https://api.mangabaka.org"
 /** Makes requests with the signed-in person's access token. */
 interface Authorized {
     suspend fun <T> get(url: String, body: DeserializationStrategy<T>): T
+
+    /** Sends [body] as JSON. A reply that is not 2xx throws an [HttpException]. */
+    suspend fun send(method: String, url: String, body: String)
 }
 
 data class SeriesInfo(val id: Long, val title: String, val cover: String, val type: String)
+
+/** A series as its title screen shows it. */
+data class SeriesDetails(
+    val id: Long,
+    val title: String,
+    val cover: String,
+    val authors: List<String>,
+    /** releasing, completed, hiatus, cancelled, upcoming or unknown. */
+    val status: String,
+    val startYear: Int?,
+    /** MangaBaka's rating, from 0 to 100. */
+    val rating: Double?,
+    val description: String,
+    val tags: List<SeriesTag>,
+)
+
+/** [weight] is core, defining, recurrent, incidental or unweighted. */
+data class SeriesTag(val name: String, val genre: Boolean, val weight: String, val spoiler: Boolean)
 
 sealed interface EntryChange {
     val seriesId: Long
@@ -50,6 +71,33 @@ private class SeriesReply(
 )
 
 @Serializable private class Batch(val data: List<SeriesReply>)
+
+@Serializable private class Published(@SerialName("start_date") val startDate: String? = null)
+
+@Serializable
+private class RawTag(
+    val name: String,
+    @SerialName("is_genre") val genre: Boolean = false,
+    val weight: String = "unweighted",
+    @SerialName("is_spoiler") val spoiler: Boolean? = null,
+)
+
+@Serializable
+private class FullSeries(
+    val id: Long,
+    val titles: List<Title>? = null,
+    val cover: Cover = Cover(),
+    val authors: List<String>? = null,
+    val status: String = "unknown",
+    val published: Published = Published(),
+    val rating: Double? = null,
+    val description: String? = null,
+    val tags: List<RawTag>? = null,
+)
+
+@Serializable private class OneSeries(val data: FullSeries)
+
+@Serializable private class EntryWrite(val state: String)
 
 @Serializable private class Pagination(val cursor: String = "", val more: Boolean = false)
 
@@ -91,6 +139,8 @@ private fun encode(value: String): String = URLEncoder.encode(value, "UTF-8").re
 private fun titleOf(titles: List<Title>?): String =
     (titles?.find { it.language == "en" } ?: titles?.firstOrNull())?.title ?: ""
 
+private fun coverOf(cover: Cover): String = cover.x350 ?: cover.x250 ?: cover.raw ?: ""
+
 class MangaBakaApi(private val http: OkHttpClient, private val auth: Authorized) {
     /**
      * Up to 50 series by id, unauthenticated so MangaBaka's CDN can answer. Merged or deleted ids
@@ -102,10 +152,44 @@ class MangaBakaApi(private val http: OkHttpClient, private val auth: Authorized)
             SeriesInfo(
                 id = it.id,
                 title = titleOf(it.titles),
-                cover = it.cover.x350 ?: it.cover.x250 ?: it.cover.raw ?: "",
+                cover = coverOf(it.cover),
                 type = it.type,
             )
         }
+    }
+
+    /** One series with its tags, unauthenticated so MangaBaka's CDN can answer. */
+    fun series(id: Long): SeriesDetails {
+        val s =
+            json
+                .decodeFromString(
+                    OneSeries.serializer(),
+                    http.getText("$API/v2/series/$id?schema=full"),
+                )
+                .data
+        return SeriesDetails(
+            id = s.id,
+            title = titleOf(s.titles),
+            cover = coverOf(s.cover),
+            authors = s.authors.orEmpty(),
+            status = s.status,
+            startYear = s.published.startDate?.take(4)?.toIntOrNull(),
+            rating = s.rating,
+            description = s.description.orEmpty().trim(),
+            tags =
+                s.tags.orEmpty().map {
+                    SeriesTag(it.name, it.genre, it.weight, it.spoiler == true)
+                },
+        )
+    }
+
+    /** Files the series under [state] in the library, adding it unless it [exists] there. */
+    suspend fun saveEntry(id: Long, state: String, exists: Boolean) {
+        auth.send(
+            if (exists) "PATCH" else "POST",
+            "$API/v1/my/library/$id",
+            json.encodeToString(EntryWrite.serializer(), EntryWrite(state)),
+        )
     }
 
     /**

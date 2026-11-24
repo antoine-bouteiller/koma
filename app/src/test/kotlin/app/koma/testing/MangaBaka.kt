@@ -33,3 +33,21 @@ fun event(id: Int, seriesId: Int, from: Number, to: Number, at: String) =
 
 fun events(limit: Int, cursor: String, more: Boolean, vararg data: String) =
     """{"status":200,"pagination":{"limit":$limit,"cursor":"$cursor","more":$more},"data":[${data.joinToString(",")}]}"""
+
+const val SERIES = "https://api.mangabaka.org/v2/series"
+const val LIBRARY = "https://api.mangabaka.org/v1/my/library"
+
+fun tag(name: String, weight: String, genre: Boolean = false, spoiler: Boolean = false) =
+    """{"id":${name.hashCode()},"is_spoiler":$spoiler,"is_genre":$genre,"is_explicit":false,"implied_by_tag_ids":[],"parent_id":null,"name":"$name","level":2,"name_path":"$name","series_count":1,"description":null,"content_rating":"safe","weight":"$weight"}"""
+
+fun fullSeries(
+    id: Int,
+    title: String,
+    authors: List<String> = emptyList(),
+    status: String = "releasing",
+    startDate: String? = null,
+    rating: Number? = null,
+    description: String? = null,
+    vararg tags: String,
+) =
+    """{"status":200,"data":{"id":$id,"state":"active","merged_with":null,"authors":[${authors.joinToString(",") { "\"$it\"" }}],"artists":[],"description":${description?.let { "\"$it\"" } ?: "null"},"published":{"start_date":${startDate?.let { "\"$it\"" } ?: "null"},"end_date":null},"status":"$status","type":"manhwa","rating":$rating,"titles":[{"language":"en","traits":[],"title":"$title","is_primary":true}],"cover":{"raw":null,"x150":null,"x250":null,"x350":"https://cdn.mangabaka.dev/$id.jpg"},"tags":[${tags.joinToString(",")}]}}"""

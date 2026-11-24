@@ -54,10 +54,10 @@ class SignInTest {
         app.awaitIdle()
         app.text("account-title", "reader")
         app.tap("tab-library")
-        app.text("manga-title-3397", "Solo Leveling")
+        app.text("manga-3397", "Solo Leveling")
         app.compose.waitUntil { "https://cdn.mangabaka.dev/solo.jpg" in app.images }
         app.reload()
-        app.text("manga-title-3397", "Solo Leveling")
+        app.text("manga-3397", "Solo Leveling")
         app.tap("tab-settings")
         app.tap("sign-out")
         app.has("mangabaka-sign-in")
@@ -88,7 +88,7 @@ class SignInTest {
         app.network.answer(BATCH, 200, batch(series(1, "Berserk"), series(7, "Pluto")))
         app.network.answer(EVENTS, 401, """{"status":401}""")
         app.launch()
-        app.text("manga-title-1", "Berserk")
+        app.text("manga-1", "Berserk")
         // The history's 401 refreshes, and MangaBaka refuses the refresh token.
         app.tap("tab-history")
         app.has("history-sign-in")
@@ -105,7 +105,7 @@ class SignInTest {
         app.browser.authorize()
         app.awaitIdle()
         app.tap("tab-library")
-        app.text("manga-title-7", "Pluto")
+        app.text("manga-7", "Pluto")
     }
 
     @Test

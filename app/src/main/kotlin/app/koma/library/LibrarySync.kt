@@ -81,9 +81,7 @@ fun KomaDatabase.readLibrary(): LibraryData {
         Shelf(
             rule.id,
             rule.title,
-            rows
-                .filter { it.state in rule.states }
-                .map { Manga(it.id.toString(), it.title, it.cover) },
+            rows.filter { it.state in rule.states }.map { Manga(it.id, it.title, it.cover) },
         )
     }
     return LibraryData(synced, shelves)

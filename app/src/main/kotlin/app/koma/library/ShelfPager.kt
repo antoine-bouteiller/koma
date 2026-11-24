@@ -1,6 +1,7 @@
 package app.koma.library
 
 import androidx.compose.foundation.background
+import androidx.compose.foundation.clickable
 import androidx.compose.foundation.layout.Arrangement
 import androidx.compose.foundation.layout.Column
 import androidx.compose.foundation.layout.PaddingValues
@@ -36,6 +37,7 @@ import androidx.compose.ui.graphics.Color
 import androidx.compose.ui.layout.ContentScale
 import androidx.compose.ui.platform.LocalLayoutDirection
 import androidx.compose.ui.platform.testTag
+import androidx.compose.ui.semantics.Role
 import androidx.compose.ui.text.style.TextOverflow
 import androidx.compose.ui.unit.dp
 import app.koma.R
@@ -54,6 +56,7 @@ fun ShelfPager(
     images: ImageLoader,
     contentPadding: PaddingValues,
     onRefresh: () -> Unit,
+    onOpen: (Long) -> Unit,
 ) {
     val pager = rememberPagerState { state.shelves.size }
     val scope = rememberCoroutineScope()
@@ -109,7 +112,7 @@ fun ShelfPager(
                     )
                 },
             ) {
-                CoverGrid(shelf, images, grid, contentPadding)
+                CoverGrid(shelf, images, grid, contentPadding, onOpen)
             }
         }
     }
@@ -121,6 +124,7 @@ private fun CoverGrid(
     images: ImageLoader,
     grid: LazyGridState,
     contentPadding: PaddingValues,
+    onOpen: (Long) -> Unit,
 ) {
     val direction = LocalLayoutDirection.current
     LazyVerticalGrid(
@@ -139,7 +143,10 @@ private fun CoverGrid(
     ) {
         items(shelf.items, key = { it.id }) { manga ->
             Column(
-                Modifier.animateItem().testTag("manga-${manga.id}"),
+                Modifier.animateItem()
+                    .clip(RoundedCornerShape(8.dp))
+                    .clickable(role = Role.Button) { onOpen(manga.id) }
+                    .testTag("manga-${manga.id}"),
                 verticalArrangement = Arrangement.spacedBy(6.dp),
             ) {
                 AsyncImage(
@@ -158,7 +165,6 @@ private fun CoverGrid(
                     style = MaterialTheme.typography.bodySmall,
                     maxLines = 1,
                     overflow = TextOverflow.Ellipsis,
-                    modifier = Modifier.testTag("manga-title-${manga.id}"),
                 )
             }
         }

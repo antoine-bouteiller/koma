@@ -29,6 +29,8 @@ class StoreTest {
         object : Authorized {
             override suspend fun <T> get(url: String, body: DeserializationStrategy<T>): T =
                 error("unused")
+
+            override suspend fun send(method: String, url: String, body: String) = error("unused")
         }
     private val db =
         KomaDatabase(
@@ -59,7 +61,7 @@ class StoreTest {
             }
             // An id MangaBaka did not answer is kept with an empty title, which the screens skip.
             assertEquals(
-                listOf(Manga("1", "Berserk", "https://cdn.mangabaka.dev/1.jpg")),
+                listOf(Manga(1, "Berserk", "https://cdn.mangabaka.dev/1.jpg")),
                 db.readLibrary().shelves.first { it.id == "reading" }.items,
             )
         }

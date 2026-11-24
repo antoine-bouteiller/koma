@@ -122,7 +122,7 @@ class LibraryTest {
         app.launch()
         assertEquals(listOf("manga-4", "manga-2"), app.childTags("library-reading"))
         assertEquals(listOf("manga-3"), app.childTags("library-archived"))
-        app.text("manga-title-4", "Monster")
+        app.text("manga-4", "Monster")
         app.missing("manga-1")
         app.missing("manga-5")
     }
@@ -142,7 +142,7 @@ class LibraryTest {
         )
         app.network.answer(BATCH, 200, batch(series(1, "Berserk"), series(2, "Vagabond")))
         app.launch()
-        app.text("manga-title-2", "Vagabond")
+        app.text("manga-2", "Vagabond")
         app.network.fail("$CHANGES?limit=1000")
         app.network.fail(BATCH)
         app.network.answer(
@@ -157,8 +157,8 @@ class LibraryTest {
         )
         app.network.answer("$BATCH?id=7", 200, batch(series(7, "Pluto")))
         app.reload()
-        app.text("manga-title-7", "Pluto")
-        app.text("manga-title-2", "Vagabond")
+        app.text("manga-7", "Pluto")
+        app.text("manga-2", "Vagabond")
         app.missing("manga-1")
     }
 
@@ -172,7 +172,7 @@ class LibraryTest {
         )
         app.network.answer(BATCH, 200, batch(series(1, "Berserk"), series(2, "Vagabond")))
         app.launch()
-        app.text("manga-title-1", "Berserk")
+        app.text("manga-1", "Berserk")
         app.network.answer(
             "$CHANGES?limit=1000&cursor=c1",
             400,
@@ -184,7 +184,7 @@ class LibraryTest {
             changes("c2", false, upsert(2, "reading", "2026-01-02T00:00:00Z")),
         )
         app.reload()
-        app.text("manga-title-2", "Vagabond")
+        app.text("manga-2", "Vagabond")
         app.missing("manga-1")
     }
 
@@ -194,11 +194,11 @@ class LibraryTest {
         app.network.answer(CHANGES, 200, changes("c1", false, upsert(1, "reading")))
         app.network.answer(BATCH, 200, batch(series(1, "Berserk")))
         app.launch()
-        app.text("manga-title-1", "Berserk")
+        app.text("manga-1", "Berserk")
         app.network.fail(CHANGES)
         app.network.fail(BATCH)
         app.reload()
-        app.text("manga-title-1", "Berserk")
+        app.text("manga-1", "Berserk")
         app.missing("library-retry")
     }
 
@@ -237,7 +237,7 @@ class LibraryTest {
         )
         app.network.answer(BATCH, 200, batch(series(1, "Berserk")))
         app.launch()
-        app.text("manga-title-1", "Berserk")
+        app.text("manga-1", "Berserk")
     }
 
     @Test
@@ -272,7 +272,7 @@ class LibraryTest {
         app.network.answer(BATCH, 200, batch(series(1, "Berserk"), series(5, "Pluto")))
         app.launch()
         app.selected("shelf-reading")
-        app.text("manga-title-5", "Pluto")
+        app.text("manga-5", "Pluto")
         app.tap("shelf-archived")
         app.selected("shelf-archived")
         app.tap("shelf-reading")

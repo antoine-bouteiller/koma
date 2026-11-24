@@ -20,8 +20,10 @@ import kotlinx.serialization.Serializable
 import kotlinx.serialization.SerializationException
 import okhttp3.FormBody
 import okhttp3.HttpUrl.Companion.toHttpUrl
+import okhttp3.MediaType.Companion.toMediaType
 import okhttp3.OkHttpClient
 import okhttp3.Request
+import okhttp3.RequestBody.Companion.toRequestBody
 
 private const val ISSUER = "https://mangabaka.org/auth"
 private const val CLIENT_ID = "lYFPQeyaYBnVaZJmcQHPiNjlprtCsVDL"
@@ -30,6 +32,7 @@ private const val SCOPES = "openid library.read library.write offline_access"
 private const val REDIRECT = "koma://auth"
 private const val KEY = "mangabaka.session"
 private const val SESSION_ENDED = "Your MangaBaka session ended. Sign in again."
+private val JSON = "application/json".toMediaType()
 
 data class Session(val signedIn: Boolean, val error: String)
 
@@ -180,25 +183,28 @@ class MangaBakaAuth(
     }
 
     /** A GET with the access token, refreshed when it has expired or the API refuses it. */
-    override suspend fun <T> get(url: String, body: DeserializationStrategy<T>): T {
-        var tokens = current.value ?: throw SignedOutException()
-        if (tokens.expiresAt in 1..clock.millis()) tokens = refresh(tokens)
-        var reply = request(url, tokens)
-        if (reply.first == 401) {
-            tokens = refresh(tokens)
-            reply = request(url, tokens)
-        }
-        if (reply.first !in 200..299) throw HttpException(reply.first)
-        return json.decodeFromString(body, reply.second)
+    override suspend fun <T> get(url: String, body: DeserializationStrategy<T>): T =
+        json.decodeFromString(body, authorized(Request.Builder().url(url)))
+
+    /** A write with the access token, refreshed as for [get]. */
+    override suspend fun send(method: String, url: String, body: String) {
+        authorized(Request.Builder().url(url).method(method, body.toRequestBody(JSON)))
     }
 
-    private fun request(url: String, tokens: Tokens): Pair<Int, String> =
-        http.call(
-            Request.Builder()
-                .url(url)
-                .header("Authorization", "Bearer ${tokens.accessToken}")
-                .build()
-        ) {
+    private suspend fun authorized(request: Request.Builder): String {
+        var tokens = current.value ?: throw SignedOutException()
+        if (tokens.expiresAt in 1..clock.millis()) tokens = refresh(tokens)
+        var reply = request(request, tokens)
+        if (reply.first == 401) {
+            tokens = refresh(tokens)
+            reply = request(request, tokens)
+        }
+        if (reply.first !in 200..299) throw HttpException(reply.first)
+        return reply.second
+    }
+
+    private fun request(request: Request.Builder, tokens: Tokens): Pair<Int, String> =
+        http.call(request.header("Authorization", "Bearer ${tokens.accessToken}").build()) {
             it.code to it.body.string()
         }
 

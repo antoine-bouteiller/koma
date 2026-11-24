@@ -55,6 +55,7 @@ import app.koma.library.LibraryView
 import app.koma.settings.Account
 import app.koma.settings.SettingsPage
 import app.koma.settings.SettingsView
+import app.koma.title.TitleView
 import app.koma.ui.theme.KomaTheme
 import app.koma.update.UpdateDialog
 import app.koma.update.UpdatePill
@@ -119,13 +120,17 @@ enum class Tab(
         get() = "tab-$route"
 }
 
-/** What the app shows: a tab, and the Settings page opened over it. */
-private data class Screen(val tab: Tab, val page: SettingsPage?) {
+/** What the app shows: a tab, and the Settings page or the Library title opened over it. */
+private data class Screen(val tab: Tab, val page: SettingsPage?, val series: Long?) {
     val route: String
-        get() = page?.route ?: tab.route
+        get() = page?.route ?: series?.let { "series" } ?: tab.route
 
+    // A title's own screen names it, under the header.
     val title: String
-        get() = page?.title ?: tab.title
+        get() = page?.title ?: if (series != null) "" else tab.title
+
+    val nested: Boolean
+        get() = page != null || series != null
 }
 
 /**
@@ -142,7 +147,7 @@ private fun AnimatedContentTransitionScope<Screen>.screenChange(
             fadeIn(effects) +
                 scaleIn(motion.defaultSpatialSpec(), initialScale = 0.94f) togetherWith
                 fadeOut(motion.fastEffectsSpec())
-        targetState.page != null ->
+        targetState.nested ->
             slideInHorizontally(spatial) { it / 4 } + fadeIn(effects) togetherWith
                 slideOutHorizontally(spatial) { -it / 4 } + fadeOut(effects)
         else ->
@@ -161,8 +166,17 @@ fun KomaApp(container: AppContainer) {
     val theme by container.theme.settings.collectAsStateWithLifecycle()
     var tab by rememberSaveable { mutableStateOf(Tab.Library) }
     var settingsPage by rememberSaveable { mutableStateOf<SettingsPage?>(null) }
+    var openSeries by rememberSaveable { mutableStateOf<Long?>(null) }
     val page = settingsPage.takeIf { tab == Tab.Settings }
-    val screen = Screen(tab, page)
+    val series = openSeries.takeIf { tab == Tab.Library && session.signedIn }
+    val screen = Screen(tab, page, series)
+    val back = {
+        when (tab) {
+            Tab.Settings -> settingsPage = null
+            Tab.Library -> openSeries = null
+            else -> {}
+        }
+    }
     val openSignIn = {
         tab = Tab.Settings
         settingsPage = SettingsPage.MangaBaka
@@ -179,10 +193,10 @@ fun KomaApp(container: AppContainer) {
     LaunchedEffect(screen) { screens.animateTo(screen) }
     val scope = rememberCoroutineScope()
     // The back gesture drags the page back over its tab, which it opens once released.
-    PredictiveBackHandler(enabled = page != null) { progress ->
+    PredictiveBackHandler(enabled = screen.nested) { progress ->
         try {
-            progress.collect { screens.seekTo(it.progress, Screen(tab, null)) }
-            settingsPage = null
+            progress.collect { screens.seekTo(it.progress, Screen(tab, null, null)) }
+            back()
         } catch (e: CancellationException) {
             scope.launch { screens.animateTo(screens.currentState) }
             throw e
@@ -213,7 +227,9 @@ fun KomaApp(container: AppContainer) {
                             LocalHeaderBackdrop provides backdrop.takeIf { entering }
                         ) {
                             saved.SaveableStateProvider(
-                                shown.page?.let { "settings-${it.route}" } ?: shown.tab.route
+                                shown.page?.let { "settings-${it.route}" }
+                                    ?: shown.series?.let { "series-$it" }
+                                    ?: shown.tab.route
                             ) {
                                 when {
                                     shown.tab == Tab.Settings ->
@@ -233,8 +249,12 @@ fun KomaApp(container: AppContainer) {
                                             onLoadUserName = sessionModel::loadUserName,
                                             contentPadding = contentPadding,
                                         )
+                                    shown.series != null ->
+                                        TitleView(container, shown.series, contentPadding)
                                     shown.tab == Tab.Library && session.signedIn ->
-                                        LibraryView(container, contentPadding)
+                                        LibraryView(container, contentPadding) {
+                                            openSeries = it
+                                        }
                                     shown.tab == Tab.Library ->
                                         SignInPrompt(
                                             message =
@@ -281,7 +301,7 @@ fun KomaApp(container: AppContainer) {
                             ScreenTitle(
                                 title = shown.title,
                                 titleTag = "title-${shown.route}",
-                                onBack = shown.page?.let { { settingsPage = null } },
+                                onBack = back.takeIf { shown.nested },
                             )
                         }
                     }
@@ -290,8 +310,8 @@ fun KomaApp(container: AppContainer) {
                     tabs = Tab.entries,
                     selected = tab,
                     onSelect = {
-                        // Tapping Settings again leads back to its list.
-                        if (it == tab) settingsPage = null
+                        // Tapping a tab again leads back to its root.
+                        if (it == tab) back()
                         tab = it
                     },
                     hidden = { bars.hidden },

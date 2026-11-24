@@ -1,6 +1,6 @@
 package app.koma.library
 
-data class Manga(val id: String, val title: String, val cover: String)
+data class Manga(val id: Long, val title: String, val cover: String)
 
 /** A tab of the library: most recently updated first. */
 data class Shelf(val id: String, val title: String, val items: List<Manga>)

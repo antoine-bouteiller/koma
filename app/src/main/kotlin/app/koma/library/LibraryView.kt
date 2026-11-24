@@ -21,9 +21,9 @@ import app.koma.R
 import app.koma.ui.EmptyState
 import app.koma.ui.LoadingState
 
-/** The signed-in person's MangaBaka library. */
+/** The signed-in person's MangaBaka library. [onOpen] opens a series by its id. */
 @Composable
-fun LibraryView(container: AppContainer, contentPadding: PaddingValues) {
+fun LibraryView(container: AppContainer, contentPadding: PaddingValues, onOpen: (Long) -> Unit) {
     val model = viewModel { LibraryViewModel(container) }
     LaunchedEffect(model) { model.open() }
     val state by model.state.collectAsStateWithLifecycle()
@@ -54,7 +54,7 @@ fun LibraryView(container: AppContainer, contentPadding: PaddingValues) {
                     Modifier.padding(contentPadding).testTag("library-loading"),
                 )
             is LibraryState.Shelves ->
-                ShelfPager(shown, container.images, contentPadding, model::sync)
+                ShelfPager(shown, container.images, contentPadding, model::sync, onOpen)
         }
     }
 }

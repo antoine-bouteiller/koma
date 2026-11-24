@@ -13,6 +13,7 @@ Koma is a Kotlin and Jetpack Compose app in one Gradle module, `app/`, with pack
 | `app.koma.auth` | MangaBaka sign-in (OAuth with PKCE in a Custom Tab), the Keystore secret store |
 | `app.koma.library` | The library sync, its shelves and their screen |
 | `app.koma.history` | The reading history sync and its screen |
+| `app.koma.title` | A series' screen: its MangaBaka facts, summary and tags, and its library status |
 | `app.koma.update` | The header pill offering a newer release, its download and its hand-off to the installer |
 | `app.koma.settings` | The Settings tab: the Theme and MangaBaka pages |
 | `app.koma.ui` | The app shell: tabs, header, empty states, settings rows, option groups, theme |

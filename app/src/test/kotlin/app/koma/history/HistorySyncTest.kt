@@ -35,6 +35,9 @@ class HistorySyncTest {
             object : Authorized {
                 override suspend fun <T> get(url: String, body: DeserializationStrategy<T>): T =
                     json.decodeFromString(body, http.getText(url))
+
+                override suspend fun send(method: String, url: String, body: String) =
+                    error("unused")
             },
         )
     private val db =
