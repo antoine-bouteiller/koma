@@ -58,6 +58,7 @@ class AppHarness : TestRule {
 
     val network = FakeNetwork()
     val secrets = MemorySecretStore()
+    val preferences = MemoryPreferenceStore()
     val browser = FakeBrowser()
     val opened = mutableListOf<String>()
     /** The image URLs the app asked for; no image is ever loaded. */
@@ -115,6 +116,7 @@ class AppHarness : TestRule {
                     folder.root.resolve("koma.db").absolutePath,
                 ),
             secrets = secrets,
+            preferences = preferences,
             browser = browser,
             clock = Clock.fixed(epoch, ZoneOffset.UTC),
             zone = { zone },

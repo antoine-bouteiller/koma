@@ -78,6 +78,14 @@ private class RawEvent(
 
 @Serializable private class Events(val data: List<RawEvent>, val pagination: Pagination)
 
+@Serializable
+private class Profile(
+    @SerialName("preferred_username") val username: String? = null,
+    val nickname: String? = null,
+)
+
+@Serializable private class ProfileReply(val data: Profile)
+
 private fun encode(value: String): String = URLEncoder.encode(value, "UTF-8").replace("+", "%20")
 
 private fun titleOf(titles: List<Title>?): String =
@@ -143,5 +151,11 @@ class MangaBakaApi(private val http: OkHttpClient, private val auth: Authorized)
                 )
             }
         return Page(events, body.pagination.cursor, body.pagination.more)
+    }
+
+    /** The signed-in person's MangaBaka user name, empty when they have none. */
+    suspend fun userName(): String {
+        val profile = auth.get("$API/v1/my/profile", ProfileReply.serializer()).data
+        return profile.username ?: profile.nickname ?: ""
     }
 }

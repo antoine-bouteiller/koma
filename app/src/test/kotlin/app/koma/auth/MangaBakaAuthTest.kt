@@ -204,7 +204,7 @@ class MangaBakaAuthTest {
         app.network.answer(CHANGES, 200, """{"data":[],"pagination":{"cursor":"c","more":false}}""")
         app.signedIn(expiresAt = app.epoch.toEpochMilli() - 1)
         app.launch()
-        app.has("sign-in")
+        app.tap("sign-in")
         app.text("sign-in-error", "Your MangaBaka session ended. Sign in again.")
         assertNull(app.secrets.get("mangabaka.session"))
     }

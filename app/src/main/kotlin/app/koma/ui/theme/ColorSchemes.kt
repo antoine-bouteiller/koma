@@ -1,0 +1,95 @@
+package app.koma.ui.theme
+
+import androidx.compose.material3.ColorScheme
+import androidx.compose.material3.darkColorScheme
+import androidx.compose.material3.lightColorScheme
+import androidx.compose.ui.graphics.Color
+import androidx.compose.ui.graphics.toArgb
+import androidx.core.graphics.ColorUtils
+
+/** The colors [settings] call for. [wallpaper] is Material You's scheme, null before Android 12. */
+fun colorScheme(settings: ThemeSettings, dark: Boolean, wallpaper: ColorScheme?): ColorScheme {
+    val style = settings.effectiveStyle(dynamicColor = wallpaper != null)
+    val baseline = if (dark) darkColorScheme() else lightColorScheme()
+    var scheme =
+        when {
+            style == ColorStyle.MaterialYou && wallpaper != null -> wallpaper
+            style == ColorStyle.Monochrome ->
+                baseline.withAccents(0f, 0f, dark).withNeutrals { (_, _, l) -> hsl(0f, 0f, l) }
+            else -> baseline
+        }
+    val accent = settings.accent
+    if (accent != null && style != ColorStyle.MaterialYou) {
+        val (hue, saturation) = hslOf(Color(accent))
+        scheme = scheme.withAccents(hue, saturation, dark)
+        // Monochrome keeps its grey surfaces under an accent.
+        if (style != ColorStyle.Monochrome) {
+            scheme = scheme.withNeutrals { (_, s, l) -> hsl(hue, s, l) }
+        }
+    }
+    if (dark && settings.trueBlack) {
+        scheme =
+            scheme.copy(
+                background = Color.Black,
+                surface = Color.Black,
+                surfaceDim = Color.Black,
+                surfaceContainerLowest = Color.Black,
+            )
+    }
+    return scheme
+}
+
+/** Primary, secondary and tertiary roles from one hue, at the lightness each role takes. */
+private fun ColorScheme.withAccents(hue: Float, saturation: Float, dark: Boolean): ColorScheme {
+    fun tone(light: Float, darkTone: Float, s: Float = saturation, h: Float = hue) =
+        hsl(h, s, if (dark) darkTone else light)
+    val muted = saturation * 0.35f
+    val third = (hue + 60f) % 360f
+    val tertiarySaturation = saturation * 0.6f
+    return copy(
+        primary = tone(0.40f, 0.78f),
+        onPrimary = tone(0.98f, 0.16f),
+        primaryContainer = tone(0.88f, 0.30f),
+        onPrimaryContainer = tone(0.12f, 0.90f),
+        inversePrimary = tone(0.78f, 0.40f),
+        surfaceTint = tone(0.40f, 0.78f),
+        secondary = tone(0.40f, 0.78f, muted),
+        onSecondary = tone(0.98f, 0.16f, muted),
+        secondaryContainer = tone(0.88f, 0.30f, muted),
+        onSecondaryContainer = tone(0.12f, 0.90f, muted),
+        tertiary = tone(0.40f, 0.78f, tertiarySaturation, third),
+        onTertiary = tone(0.98f, 0.16f, tertiarySaturation, third),
+        tertiaryContainer = tone(0.88f, 0.30f, tertiarySaturation, third),
+        onTertiaryContainer = tone(0.12f, 0.90f, tertiarySaturation, third),
+    )
+}
+
+/** Every surface, outline and text-on-surface color passed through [change], given its HSL. */
+private fun ColorScheme.withNeutrals(change: (FloatArray) -> Color): ColorScheme {
+    fun Color.map() = change(hslOf(this))
+    return copy(
+        background = background.map(),
+        onBackground = onBackground.map(),
+        surface = surface.map(),
+        onSurface = onSurface.map(),
+        surfaceVariant = surfaceVariant.map(),
+        onSurfaceVariant = onSurfaceVariant.map(),
+        inverseSurface = inverseSurface.map(),
+        inverseOnSurface = inverseOnSurface.map(),
+        outline = outline.map(),
+        outlineVariant = outlineVariant.map(),
+        surfaceBright = surfaceBright.map(),
+        surfaceDim = surfaceDim.map(),
+        surfaceContainer = surfaceContainer.map(),
+        surfaceContainerHigh = surfaceContainerHigh.map(),
+        surfaceContainerHighest = surfaceContainerHighest.map(),
+        surfaceContainerLow = surfaceContainerLow.map(),
+        surfaceContainerLowest = surfaceContainerLowest.map(),
+    )
+}
+
+private fun hslOf(color: Color): FloatArray =
+    FloatArray(3).also { ColorUtils.colorToHSL(color.toArgb(), it) }
+
+private fun hsl(hue: Float, saturation: Float, lightness: Float): Color =
+    Color(ColorUtils.HSLToColor(floatArrayOf(hue, saturation, lightness)))

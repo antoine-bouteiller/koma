@@ -7,6 +7,7 @@ import app.koma.auth.MangaBakaAuth
 import app.koma.data.KomaDatabase
 import app.koma.data.MangaBakaApi
 import app.koma.data.Store
+import app.koma.ui.theme.ThemePreferences
 import coil3.ImageLoader
 import java.time.Clock
 import java.time.ZoneId
@@ -23,6 +24,13 @@ interface SecretStore {
     fun delete(key: String)
 }
 
+/** Plain values that outlive the process and the signed-in session. */
+interface PreferenceStore {
+    fun get(key: String): String?
+
+    fun set(key: String, value: String)
+}
+
 fun interface AuthBrowser {
     /** Opens [url] and answers the [redirect] it comes back to, or null when cancelled. */
     suspend fun open(url: String, redirect: String): Uri?
@@ -34,6 +42,7 @@ class AppContainer(
     val images: ImageLoader,
     val driver: SqlDriver,
     val secrets: SecretStore,
+    val preferences: PreferenceStore,
     val browser: AuthBrowser,
     val clock: Clock,
     val zone: () -> ZoneId,
@@ -48,4 +57,5 @@ class AppContainer(
     val auth = MangaBakaAuth(http, secrets, browser, clock)
     val api = MangaBakaApi(http, auth)
     val store = Store(KomaDatabase(driver), api, work)
+    val theme = ThemePreferences(preferences)
 }

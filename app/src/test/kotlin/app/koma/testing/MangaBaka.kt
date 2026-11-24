@@ -4,6 +4,10 @@ const val CHANGES = "https://api.mangabaka.org/v2/my/library/changes"
 const val BATCH = "https://api.mangabaka.org/v2/series/batch"
 const val EVENTS = "https://api.mangabaka.org/v2/my/library/events"
 const val RECENT_EVENTS = "$EVENTS?event_type=progress_update&limit=50"
+const val PROFILE = "https://api.mangabaka.org/v1/my/profile"
+
+fun profile(username: String?) =
+    """{"status":200,"data":{"id":"u","nickname":null,"preferred_username":${username?.let { "\"$it\"" } ?: "null"},"picture":null,"updated_at":null,"role":"user","auth_type":"oauth","scopes":["openid"]}}"""
 
 fun upsert(
     seriesId: Int,

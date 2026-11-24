@@ -1,5 +1,6 @@
 package app.koma.ui
 
+import androidx.activity.compose.BackHandler
 import androidx.compose.foundation.layout.Box
 import androidx.compose.foundation.layout.Column
 import androidx.compose.foundation.layout.PaddingValues
@@ -29,9 +30,11 @@ import app.koma.AppContainer
 import app.koma.R
 import app.koma.auth.SessionViewModel
 import app.koma.auth.SignInPrompt
-import app.koma.auth.SignOutButton
 import app.koma.history.HistoryView
 import app.koma.library.LibraryView
+import app.koma.settings.Account
+import app.koma.settings.SettingsPage
+import app.koma.settings.SettingsView
 import app.koma.ui.theme.KomaTheme
 import app.koma.update.UpdateBanner
 import app.koma.update.UpdateViewModel
@@ -42,8 +45,8 @@ enum class Tab(
     val route: String,
     override val title: String,
     override val icon: Int,
-    val emptyTitle: String,
-    val emptyMessage: String,
+    val emptyTitle: String = "",
+    val emptyMessage: String = "",
 ) : TabItem {
     Library(
         "library",
@@ -72,7 +75,8 @@ enum class Tab(
         R.drawable.ic_auto_awesome,
         "Nothing to discover yet",
         "Trending, top-rated and popular titles show up here.",
-    );
+    ),
+    Settings("settings", "Settings", R.drawable.ic_settings);
 
     override val tag: String
         get() = "tab-$route"
@@ -87,12 +91,21 @@ fun KomaApp(container: AppContainer) {
     val updateModel = viewModel { UpdateViewModel(container) }
     val session by sessionModel.session.collectAsStateWithLifecycle()
     val signIn by sessionModel.signInView.collectAsStateWithLifecycle()
+    val userName by sessionModel.userName.collectAsStateWithLifecycle()
+    val theme by container.theme.settings.collectAsStateWithLifecycle()
     var tab by rememberSaveable { mutableStateOf(Tab.Library) }
+    var settingsPage by rememberSaveable { mutableStateOf<SettingsPage?>(null) }
+    val page = settingsPage.takeIf { tab == Tab.Settings }
+    val openSignIn = {
+        tab = Tab.Settings
+        settingsPage = SettingsPage.MangaBaka
+    }
     // Keeps each tab's shelf and scroll position while another tab shows.
     val tabs = rememberSaveableStateHolder()
     val haze = rememberHazeState()
+    BackHandler(enabled = page != null) { settingsPage = null }
 
-    KomaTheme {
+    KomaTheme(theme) {
         Surface(Modifier.fillMaxSize().testTag("root")) {
             Box(Modifier.fillMaxSize()) {
                 Column(
@@ -104,38 +117,53 @@ fun KomaApp(container: AppContainer) {
                             )
                         )
                 ) {
-                    ScreenHeader(tab.title, "title-${tab.route}") {
-                        if (tab == Tab.Library && session.signedIn) {
-                            SignOutButton(sessionModel::signOut)
-                        }
-                    }
+                    ScreenHeader(
+                        title = page?.title ?: tab.title,
+                        titleTag = "title-${page?.route ?: tab.route}",
+                        onBack = page?.let { { settingsPage = null } },
+                    )
                     UpdateBanner(updateModel, container.openUrl)
                     Box(Modifier.weight(1f).fillMaxWidth()) {
-                        tabs.SaveableStateProvider(tab.route) {
+                        tabs.SaveableStateProvider(
+                            page?.let { "settings-${it.route}" } ?: tab.route
+                        ) {
                             when {
+                                tab == Tab.Settings ->
+                                    SettingsView(
+                                        container = container,
+                                        page = page,
+                                        onOpen = { settingsPage = it },
+                                        account =
+                                            Account(
+                                                signedIn = session.signedIn,
+                                                userName = userName,
+                                                busy = signIn.busy,
+                                                error = signIn.error,
+                                            ),
+                                        onSignIn = sessionModel::signIn,
+                                        onSignOut = sessionModel::signOut,
+                                        onLoadUserName = sessionModel::loadUserName,
+                                        contentPadding = TabBarSpace,
+                                    )
                                 tab == Tab.Library && session.signedIn ->
                                     LibraryView(container, TabBarSpace)
                                 tab == Tab.Library ->
                                     SignInPrompt(
-                                        view = signIn,
                                         message = "Koma shows the titles you track on MangaBaka.",
                                         tag = "signed-out",
                                         buttonTag = "sign-in",
-                                        errorShown = true,
                                         contentPadding = TabBarSpace,
-                                        onSignIn = sessionModel::signIn,
+                                        onSignIn = openSignIn,
                                     )
                                 tab == Tab.History && session.signedIn ->
                                     HistoryView(container, TabBarSpace)
                                 tab == Tab.History ->
                                     SignInPrompt(
-                                        view = signIn,
                                         message = "Koma shows the chapters you read on MangaBaka.",
                                         tag = "history-signed-out",
                                         buttonTag = "history-sign-in",
-                                        errorShown = false,
                                         contentPadding = TabBarSpace,
-                                        onSignIn = sessionModel::signIn,
+                                        onSignIn = openSignIn,
                                     )
                                 else ->
                                     EmptyState(
@@ -151,7 +179,11 @@ fun KomaApp(container: AppContainer) {
                 FloatingTabBar(
                     tabs = Tab.entries,
                     selected = tab,
-                    onSelect = { tab = it },
+                    onSelect = {
+                        // Tapping Settings again leads back to its list.
+                        if (it == tab) settingsPage = null
+                        tab = it
+                    },
                     haze = haze,
                     modifier =
                         Modifier.align(Alignment.BottomCenter)

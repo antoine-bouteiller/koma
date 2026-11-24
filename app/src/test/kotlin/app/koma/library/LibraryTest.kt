@@ -153,7 +153,7 @@ class LibraryTest {
         app.network.answer(CHANGES, 200, changes("c0", false))
         app.launch()
         app.has("empty-library")
-        app.has("sign-out")
+        app.missing("signed-out")
     }
 
     @Test

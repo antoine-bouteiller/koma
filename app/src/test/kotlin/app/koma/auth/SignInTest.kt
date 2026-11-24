@@ -1,12 +1,15 @@
 package app.koma.auth
 
+import androidx.compose.ui.test.assertIsEnabled
 import app.koma.testing.AppHarness
 import app.koma.testing.BATCH
 import app.koma.testing.CHANGES
 import app.koma.testing.EVENTS
+import app.koma.testing.PROFILE
 import app.koma.testing.batch
 import app.koma.testing.changes
 import app.koma.testing.events
+import app.koma.testing.profile
 import app.koma.testing.series
 import app.koma.testing.upsert
 import org.junit.Assert.assertNull
@@ -20,11 +23,14 @@ class SignInTest {
     @get:Rule val app = AppHarness()
 
     @Test
-    fun `signed out, the library asks to sign in to MangaBaka`() {
+    fun `signed out, the library's Sign In opens the MangaBaka settings`() {
         app.launch()
-        app.has("sign-in")
-        app.missing("sign-out")
         app.missing("library")
+        app.tap("sign-in")
+        app.selected("tab-settings")
+        app.text("title-mangabaka", "MangaBaka")
+        app.has("mangabaka-sign-in")
+        app.missing("sign-out")
     }
 
     @Test
@@ -40,15 +46,22 @@ class SignInTest {
             200,
             """{"status":200,"data":[{"id":3397,"type":"manhwa","titles":[{"language":"ko","traits":["native"],"title":"나 혼자만 레벨업"},{"language":"en","traits":["official"],"title":"Solo Leveling"}],"cover":{"raw":null,"x150":null,"x250":null,"x350":"https://cdn.mangabaka.dev/solo.jpg","blurhash":null,"width":null,"height":null}}]}""",
         )
+        app.network.answer(PROFILE, 200, profile("reader"))
         app.launch()
         app.tap("sign-in")
+        app.tap("mangabaka-sign-in")
         app.browser.authorize()
         app.awaitIdle()
+        app.text("account-title", "reader")
+        app.tap("tab-library")
         app.text("manga-title-3397", "Solo Leveling")
         app.compose.waitUntil { "https://cdn.mangabaka.dev/solo.jpg" in app.images }
         app.reload()
         app.text("manga-title-3397", "Solo Leveling")
+        app.tap("tab-settings")
         app.tap("sign-out")
+        app.has("mangabaka-sign-in")
+        app.tap("tab-library")
         app.has("sign-in")
         app.missing("manga-3397")
         assertNull(app.secrets.get("mangabaka.session"))
@@ -60,6 +73,7 @@ class SignInTest {
         app.secrets.failWrites = true
         app.launch()
         app.tap("sign-in")
+        app.tap("mangabaka-sign-in")
         app.browser.authorize()
         app.awaitIdle()
         app.text("sign-in-error", "Sign-in could not be saved. Try again.")
@@ -85,7 +99,9 @@ class SignInTest {
             200,
             changes("c2", false, upsert(7, "reading", "2026-01-02T00:00:00Z")),
         )
+        app.network.answer(PROFILE, 200, profile("reader"))
         app.tap("history-sign-in")
+        app.tap("mangabaka-sign-in")
         app.browser.authorize()
         app.awaitIdle()
         app.tap("tab-library")
@@ -97,12 +113,13 @@ class SignInTest {
         app.stubAuthServer()
         app.launch()
         app.tap("sign-in")
+        app.tap("mangabaka-sign-in")
         app.browser.cancel()
         app.awaitIdle()
         app.text("sign-in-error", "Sign-in was cancelled.")
-        app.tap("sign-in")
+        app.tap("mangabaka-sign-in")
         app.browser.cancel()
         app.awaitIdle()
-        app.has("sign-in")
+        app.node("mangabaka-sign-in").assertIsEnabled()
     }
 }

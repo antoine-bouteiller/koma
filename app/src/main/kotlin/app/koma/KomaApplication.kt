@@ -29,6 +29,7 @@ class KomaApplication : Application() {
                     .build(),
             driver = AndroidSqliteDriver(KomaDatabase.Schema, this, "koma.db"),
             secrets = KeystoreSecretStore(this),
+            preferences = SharedPreferenceStore(this),
             browser = browser,
             clock = Clock.systemUTC(),
             zone = { ZoneId.systemDefault() },

@@ -29,6 +29,9 @@ class AppTest {
         app.tap("tab-discover")
         app.selected("tab-discover")
         app.text("title-discover", "Discover")
+        app.tap("tab-settings")
+        app.selected("tab-settings")
+        app.text("title-settings", "Settings")
         app.tap("tab-library")
         app.selected("tab-library")
     }
