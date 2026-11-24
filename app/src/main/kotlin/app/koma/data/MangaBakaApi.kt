@@ -57,7 +57,12 @@ data class ReadEvent(
 
 data class Page<T>(val items: List<T>, val cursor: String, val more: Boolean)
 
-@Serializable private class Title(val language: String, val title: String)
+@Serializable
+private class Title(
+    val language: String,
+    val title: String,
+    @SerialName("is_primary") val primary: Boolean = true,
+)
 
 @Serializable
 private class Cover(val x350: String? = null, val x250: String? = null, val raw: String? = null)
@@ -136,8 +141,11 @@ private class Profile(
 
 private fun encode(value: String): String = URLEncoder.encode(value, "UTF-8").replace("+", "%20")
 
-private fun titleOf(titles: List<Title>?): String =
-    (titles?.find { it.language == "en" } ?: titles?.firstOrNull())?.title ?: ""
+// The full schema also lists alternate titles, which the batch leaves out.
+private fun titleOf(titles: List<Title>?): String {
+    val primary = titles.orEmpty().filter { it.primary }
+    return (primary.find { it.language == "en" } ?: primary.firstOrNull())?.title ?: ""
+}
 
 private fun coverOf(cover: Cover): String = cover.x350 ?: cover.x250 ?: cover.raw ?: ""
 

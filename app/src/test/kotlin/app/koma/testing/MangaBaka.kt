@@ -49,5 +49,6 @@ fun fullSeries(
     rating: Number? = null,
     description: String? = null,
     vararg tags: String,
+    alternateTitle: String? = null,
 ) =
-    """{"status":200,"data":{"id":$id,"state":"active","merged_with":null,"authors":[${authors.joinToString(",") { "\"$it\"" }}],"artists":[],"description":${description?.let { "\"$it\"" } ?: "null"},"published":{"start_date":${startDate?.let { "\"$it\"" } ?: "null"},"end_date":null},"status":"$status","type":"manhwa","rating":$rating,"titles":[{"language":"en","traits":[],"title":"$title","is_primary":true}],"cover":{"raw":null,"x150":null,"x250":null,"x350":"https://cdn.mangabaka.dev/$id.jpg"},"tags":[${tags.joinToString(",")}]}}"""
+    """{"status":200,"data":{"id":$id,"state":"active","merged_with":null,"authors":[${authors.joinToString(",") { "\"$it\"" }}],"artists":[],"description":${description?.let { "\"$it\"" } ?: "null"},"published":{"start_date":${startDate?.let { "\"$it\"" } ?: "null"},"end_date":null},"status":"$status","type":"manhwa","rating":$rating,"titles":[${alternateTitle?.let { """{"language":"en","traits":[],"title":"$it","is_primary":false},""" } ?: ""}{"language":"en","traits":[],"title":"$title","is_primary":true}],"cover":{"raw":null,"x150":null,"x250":null,"x350":"https://cdn.mangabaka.dev/$id.jpg"},"tags":[${tags.joinToString(",")}]}}"""

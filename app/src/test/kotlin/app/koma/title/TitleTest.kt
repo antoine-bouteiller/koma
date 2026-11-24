@@ -72,6 +72,20 @@ class TitleTest {
     }
 
     @Test
+    fun `a title is named as in the library, not by an alternate title`() {
+        library(upsert(1, "reading"))
+        app.network.answer(
+            "$SERIES/1?schema=full",
+            200,
+            fullSeries(1, "Solo Leveling", alternateTitle = "Only I Level Up"),
+        )
+        app.launch()
+        app.text("manga-1", "Solo Leveling")
+        app.tap("manga-1")
+        app.text("title-name", "Solo Leveling")
+    }
+
+    @Test
     fun `a new status is saved on MangaBaka and files the title on its shelf`() {
         library(upsert(1, "reading"), upsert(2, "reading", "2026-01-02T00:00:00Z"))
         app.network.answer("$SERIES/1?schema=full", 200, fullSeries(1, "Solo Leveling"))
