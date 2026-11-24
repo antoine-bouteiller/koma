@@ -1,5 +1,12 @@
 package app.koma.library
 
+import androidx.compose.ui.test.assertIsDisplayed
+import androidx.compose.ui.test.assertIsNotDisplayed
+import androidx.compose.ui.test.getUnclippedBoundsInRoot
+import androidx.compose.ui.test.performTouchInput
+import androidx.compose.ui.test.swipeDown
+import androidx.compose.ui.test.swipeUp
+import androidx.compose.ui.unit.Dp
 import app.koma.testing.AppHarness
 import app.koma.testing.BATCH
 import app.koma.testing.CHANGES
@@ -9,6 +16,7 @@ import app.koma.testing.delete
 import app.koma.testing.series
 import app.koma.testing.upsert
 import org.junit.Assert.assertEquals
+import org.junit.Assert.assertTrue
 import org.junit.Rule
 import org.junit.Test
 import org.junit.runner.RunWith
@@ -17,6 +25,54 @@ import org.robolectric.RobolectricTestRunner
 @RunWith(RobolectricTestRunner::class)
 class LibraryTest {
     @get:Rule val app = AppHarness()
+
+    private fun longShelf() {
+        app.signedIn()
+        val ids = 1..30
+        app.network.answer(
+            "$CHANGES?limit=1000",
+            200,
+            changes(
+                "c1",
+                false,
+                *ids.map { upsert(it, "reading", "2026-01-01T00:00:00Z") }.toTypedArray(),
+            ),
+        )
+        app.network.answer(BATCH, 200, batch(*ids.map { series(it, "Title $it") }.toTypedArray()))
+        app.launch()
+    }
+
+    private fun barTop(): Dp = app.node("tabs").getUnclippedBoundsInRoot().top
+
+    private fun rootBottom(): Dp = app.node("root").getUnclippedBoundsInRoot().bottom
+
+    @Test
+    fun `the shelves' tabs sit in the header, above the grid`() {
+        longShelf()
+        val header = app.node("header").getUnclippedBoundsInRoot()
+        val shelves = app.node("shelves").getUnclippedBoundsInRoot()
+        val first = app.node("manga-1").getUnclippedBoundsInRoot()
+        assertTrue("${shelves.bottom} is in ${header.bottom}", shelves.bottom <= header.bottom)
+        assertTrue("${first.top} is under ${header.bottom}", first.top >= header.bottom)
+    }
+
+    @Test
+    fun `scrolling down hides the tab bar and the shelves' tabs, and scrolling up brings them back`() {
+        longShelf()
+        assertTrue(barTop() < rootBottom())
+        app.node("library-reading").performTouchInput {
+            swipeUp(centerY + height / 4, centerY - height / 4)
+        }
+        app.awaitIdle()
+        assertEquals(rootBottom(), barTop())
+        app.node("shelves").assertIsNotDisplayed()
+        app.node("library-reading").performTouchInput {
+            swipeDown(centerY - height / 4, centerY + height / 4)
+        }
+        app.awaitIdle()
+        assertTrue(barTop() < rootBottom())
+        app.node("shelves").assertIsDisplayed()
+    }
 
     @Test
     fun `the library reads every page of the changes feed, sorts each shelf and leaves novels out`() {

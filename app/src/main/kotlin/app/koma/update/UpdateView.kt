@@ -1,9 +1,12 @@
 package app.koma.update
 
 import androidx.compose.animation.AnimatedContent
+import androidx.compose.animation.SizeTransform
 import androidx.compose.animation.core.animateFloatAsState
 import androidx.compose.animation.fadeIn
 import androidx.compose.animation.fadeOut
+import androidx.compose.animation.scaleIn
+import androidx.compose.animation.scaleOut
 import androidx.compose.animation.togetherWith
 import androidx.compose.foundation.Image
 import androidx.compose.foundation.background
@@ -51,13 +54,27 @@ import app.koma.ui.TitleFont
 @Composable
 fun UpdatePill(model: UpdateViewModel) {
     val state by model.state.collectAsStateWithLifecycle()
-    val pill = state?.pill ?: return
-    PillButton(
-        pill,
-        onClick = model::openDialog,
-        icon = R.drawable.ic_download,
-        modifier = Modifier.testTag("update-pill"),
-    )
+    val motion = MaterialTheme.motionScheme
+    AnimatedContent(
+        state?.pill,
+        transitionSpec = {
+            fadeIn(motion.defaultEffectsSpec()) + scaleIn(motion.defaultSpatialSpec()) togetherWith
+                fadeOut(motion.fastEffectsSpec()) + scaleOut(motion.fastSpatialSpec()) using
+                SizeTransform(clip = false) { _, _ -> motion.defaultSpatialSpec() }
+        },
+        contentAlignment = Alignment.CenterEnd,
+        contentKey = { it != null },
+        label = "update-pill",
+    ) { pill ->
+        if (pill != null) {
+            PillButton(
+                pill,
+                onClick = model::openDialog,
+                icon = R.drawable.ic_download,
+                modifier = Modifier.testTag("update-pill"),
+            )
+        }
+    }
 }
 
 /** Koma's icon over the step, its body, then the step's action above the way out. */

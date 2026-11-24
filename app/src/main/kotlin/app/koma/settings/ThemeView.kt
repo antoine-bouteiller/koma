@@ -25,7 +25,6 @@ import androidx.compose.ui.Alignment
 import androidx.compose.ui.Modifier
 import androidx.compose.ui.draw.clip
 import androidx.compose.ui.graphics.Color
-import androidx.compose.ui.graphics.Shape
 import androidx.compose.ui.graphics.lerp
 import androidx.compose.ui.graphics.toArgb
 import androidx.compose.ui.platform.testTag
@@ -40,6 +39,7 @@ import androidx.lifecycle.compose.collectAsStateWithLifecycle
 import androidx.lifecycle.viewmodel.compose.viewModel
 import app.koma.AppContainer
 import app.koma.R
+import app.koma.ui.GroupRow
 import app.koma.ui.Option
 import app.koma.ui.OptionGroup
 import app.koma.ui.PillShape
@@ -113,36 +113,32 @@ internal fun ThemeView(container: AppContainer) {
             OptionGroup(page.styles.mapNotNull { styles[it] }, page.style, model::setStyle)
         }
     }
-    val rows =
-        buildList<@Composable (Shape) -> Unit> {
-            if (page.accentShown) {
-                add { shape ->
-                    SettingsCard(shape) {
-                        Column(
-                            Modifier.padding(16.dp),
-                            verticalArrangement = Arrangement.spacedBy(8.dp),
-                        ) {
-                            Heading("Accent color")
-                            AccentGrid(page.accent, model::setAccent)
-                        }
+    SettingsGroup(
+        listOf(
+            GroupRow(page.accentShown) { shape ->
+                SettingsCard(shape) {
+                    Column(
+                        Modifier.padding(16.dp),
+                        verticalArrangement = Arrangement.spacedBy(8.dp),
+                    ) {
+                        Heading("Accent color")
+                        AccentGrid(page.accent, model::setAccent)
                     }
                 }
-            }
-            if (page.trueBlackShown) {
-                add { shape ->
-                    SettingsSwitchRow(
-                        title = "True black",
-                        icon = R.drawable.ic_contrast,
-                        shape = shape,
-                        tag = "true-black",
-                        checked = page.trueBlack,
-                        onCheckedChange = model::setTrueBlack,
-                        subtitle = "Black backgrounds in dark mode",
-                    )
-                }
-            }
-        }
-    if (rows.isNotEmpty()) SettingsGroup(rows)
+            },
+            GroupRow(page.trueBlackShown) { shape ->
+                SettingsSwitchRow(
+                    title = "True black",
+                    icon = R.drawable.ic_contrast,
+                    shape = shape,
+                    tag = "true-black",
+                    checked = page.trueBlack,
+                    onCheckedChange = model::setTrueBlack,
+                    subtitle = "Black backgrounds in dark mode",
+                )
+            },
+        )
+    )
 }
 
 @Composable

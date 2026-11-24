@@ -1,30 +1,48 @@
 package app.koma.ui
 
-import androidx.activity.compose.BackHandler
+import androidx.activity.compose.PredictiveBackHandler
+import androidx.compose.animation.AnimatedContent
+import androidx.compose.animation.AnimatedContentTransitionScope
+import androidx.compose.animation.ContentTransform
+import androidx.compose.animation.EnterExitState
+import androidx.compose.animation.SizeTransform
+import androidx.compose.animation.core.SeekableTransitionState
+import androidx.compose.animation.core.rememberTransition
+import androidx.compose.animation.fadeIn
+import androidx.compose.animation.fadeOut
+import androidx.compose.animation.scaleIn
+import androidx.compose.animation.slideInHorizontally
+import androidx.compose.animation.slideOutHorizontally
+import androidx.compose.animation.togetherWith
 import androidx.compose.foundation.layout.Box
 import androidx.compose.foundation.layout.PaddingValues
 import androidx.compose.foundation.layout.WindowInsets
 import androidx.compose.foundation.layout.WindowInsetsSides
 import androidx.compose.foundation.layout.fillMaxSize
-import androidx.compose.foundation.layout.navigationBars
 import androidx.compose.foundation.layout.only
 import androidx.compose.foundation.layout.padding
 import androidx.compose.foundation.layout.safeDrawing
 import androidx.compose.foundation.layout.windowInsetsPadding
+import androidx.compose.material3.MaterialTheme
+import androidx.compose.material3.MotionScheme
 import androidx.compose.material3.Surface
 import androidx.compose.runtime.Composable
 import androidx.compose.runtime.CompositionLocalProvider
+import androidx.compose.runtime.LaunchedEffect
 import androidx.compose.runtime.getValue
 import androidx.compose.runtime.mutableStateOf
 import androidx.compose.runtime.remember
+import androidx.compose.runtime.rememberCoroutineScope
 import androidx.compose.runtime.saveable.rememberSaveable
 import androidx.compose.runtime.saveable.rememberSaveableStateHolder
 import androidx.compose.runtime.setValue
 import androidx.compose.ui.Alignment
 import androidx.compose.ui.Modifier
+import androidx.compose.ui.input.nestedscroll.nestedScroll
 import androidx.compose.ui.layout.onSizeChanged
 import androidx.compose.ui.platform.LocalDensity
 import androidx.compose.ui.platform.testTag
+import androidx.compose.ui.unit.IntOffset
 import androidx.compose.ui.unit.dp
 import androidx.lifecycle.compose.collectAsStateWithLifecycle
 import androidx.lifecycle.viewmodel.compose.viewModel
@@ -43,11 +61,15 @@ import app.koma.update.UpdatePill
 import app.koma.update.UpdateViewModel
 import dev.chrisbanes.haze.hazeSource
 import dev.chrisbanes.haze.rememberHazeState
+import kotlinx.coroutines.CancellationException
+import kotlinx.coroutines.launch
 
 enum class Tab(
     val route: String,
     override val title: String,
     override val icon: Int,
+    override val selectedIcon: Int,
+    override val motion: IconMotion,
     val emptyTitle: String = "",
     val emptyMessage: String = "",
 ) : TabItem {
@@ -55,6 +77,8 @@ enum class Tab(
         "library",
         "Library",
         R.drawable.ic_book,
+        R.drawable.ic_book_filled,
+        IconMotion.Hop,
         "Your library is empty",
         "The titles you track on MangaBaka show up here.",
     ),
@@ -62,6 +86,8 @@ enum class Tab(
         "updates",
         "Updates",
         R.drawable.ic_notifications,
+        R.drawable.ic_notifications_filled,
+        IconMotion.Ring,
         "No new chapters",
         "New chapters of the titles you follow show up here.",
     ),
@@ -69,6 +95,8 @@ enum class Tab(
         "history",
         "History",
         R.drawable.ic_history,
+        R.drawable.ic_history,
+        IconMotion.Rewind,
         "Nothing read yet",
         "The chapters you read show up here.",
     ),
@@ -76,17 +104,54 @@ enum class Tab(
         "discover",
         "Discover",
         R.drawable.ic_auto_awesome,
+        R.drawable.ic_auto_awesome,
+        IconMotion.Twinkle,
         "Nothing to discover yet",
         "Trending, top-rated and popular titles show up here.",
     ),
-    Settings("settings", "Settings", R.drawable.ic_settings);
+    Settings(
+        "settings",
+        "Settings",
+        R.drawable.ic_settings,
+        R.drawable.ic_settings_filled,
+        IconMotion.Turn,
+    );
 
     override val tag: String
         get() = "tab-$route"
 }
 
-// Room under the content for the floating tab bar, which the content scrolls under.
-private val TabBarSpace = 104.dp
+/** What the app shows: a tab, and the Settings page opened over it. */
+private data class Screen(val tab: Tab, val page: SettingsPage?) {
+    val route: String
+        get() = page?.route ?: tab.route
+
+    val title: String
+        get() = page?.title ?: tab.title
+}
+
+/**
+ * Tabs fade through one another. A page opened over a tab slides in along the horizontal axis, and
+ * slides back out the way it came.
+ */
+private fun AnimatedContentTransitionScope<Screen>.screenChange(
+    motion: MotionScheme
+): ContentTransform {
+    val spatial = motion.defaultSpatialSpec<IntOffset>()
+    val effects = motion.defaultEffectsSpec<Float>()
+    return when {
+        initialState.tab != targetState.tab ->
+            fadeIn(effects) +
+                scaleIn(motion.defaultSpatialSpec(), initialScale = 0.94f) togetherWith
+                fadeOut(motion.fastEffectsSpec())
+        targetState.page != null ->
+            slideInHorizontally(spatial) { it / 4 } + fadeIn(effects) togetherWith
+                slideOutHorizontally(spatial) { -it / 4 } + fadeOut(effects)
+        else ->
+            slideInHorizontally(spatial) { -it / 4 } + fadeIn(effects) togetherWith
+                slideOutHorizontally(spatial) { it / 4 } + fadeOut(effects)
+    } using SizeTransform(clip = false)
+}
 
 @Composable
 fun KomaApp(container: AppContainer) {
@@ -99,80 +164,110 @@ fun KomaApp(container: AppContainer) {
     var tab by rememberSaveable { mutableStateOf(Tab.Library) }
     var settingsPage by rememberSaveable { mutableStateOf<SettingsPage?>(null) }
     val page = settingsPage.takeIf { tab == Tab.Settings }
+    val screen = Screen(tab, page)
     val openSignIn = {
         tab = Tab.Settings
         settingsPage = SettingsPage.MangaBaka
     }
-    // Keeps each tab's shelf and scroll position while another tab shows.
-    val tabs = rememberSaveableStateHolder()
+    // Keeps each screen's shelf and scroll position while another one shows.
+    val saved = rememberSaveableStateHolder()
     val haze = rememberHazeState()
     val backdrop = remember { HeaderBackdrop() }
-    // The header floats over the content, which leaves it this much room at its start.
+    // The header and the bar float over the content, which leaves them this much room at its ends.
     var headerHeight by remember { mutableStateOf(0.dp) }
+    var barHeight by remember { mutableStateOf(0.dp) }
     val density = LocalDensity.current
-    BackHandler(enabled = page != null) { settingsPage = null }
+
+    val screens = remember { SeekableTransitionState(screen) }
+    LaunchedEffect(screen) { screens.animateTo(screen) }
+    val scope = rememberCoroutineScope()
+    // The back gesture drags the page back over its tab, which it opens once released.
+    PredictiveBackHandler(enabled = page != null) { progress ->
+        try {
+            progress.collect { screens.seekTo(it.progress, Screen(tab, null)) }
+            settingsPage = null
+        } catch (e: CancellationException) {
+            scope.launch { screens.animateTo(screens.currentState) }
+            throw e
+        }
+    }
+    val transition = rememberTransition(screens, label = "screen")
 
     KomaTheme(theme) {
+        val motion = MaterialTheme.motionScheme
+        val bars =
+            remember(density, motion) {
+                HidingBars(with(density) { BarsDistance.toPx() }, motion.defaultEffectsSpec())
+            }
+        LaunchedEffect(screen) { bars.show() }
         Surface(Modifier.fillMaxSize().testTag("root")) {
             Box(Modifier.fillMaxSize()) {
-                val contentPadding = PaddingValues(top = headerHeight, bottom = TabBarSpace)
+                val contentPadding = PaddingValues(top = headerHeight, bottom = barHeight)
                 Box(
                     Modifier.fillMaxSize()
                         .hazeSource(haze)
+                        .nestedScroll(bars)
                         .windowInsetsPadding(
                             WindowInsets.safeDrawing.only(WindowInsetsSides.Horizontal)
                         )
                 ) {
-                    CompositionLocalProvider(LocalHeaderBackdrop provides backdrop) {
-                        tabs.SaveableStateProvider(
-                            page?.let { "settings-${it.route}" } ?: tab.route
+                    transition.AnimatedContent(transitionSpec = { screenChange(motion) }) { shown ->
+                        val entering = this.transition.targetState == EnterExitState.Visible
+                        CompositionLocalProvider(
+                            LocalHeaderBackdrop provides backdrop.takeIf { entering }
                         ) {
-                            when {
-                                tab == Tab.Settings ->
-                                    SettingsView(
-                                        container = container,
-                                        page = page,
-                                        onOpen = { settingsPage = it },
-                                        account =
-                                            Account(
-                                                signedIn = session.signedIn,
-                                                userName = userName,
-                                                busy = signIn.busy,
-                                                error = signIn.error,
-                                            ),
-                                        onSignIn = sessionModel::signIn,
-                                        onSignOut = sessionModel::signOut,
-                                        onLoadUserName = sessionModel::loadUserName,
-                                        contentPadding = contentPadding,
-                                    )
-                                tab == Tab.Library && session.signedIn ->
-                                    LibraryView(container, contentPadding)
-                                tab == Tab.Library ->
-                                    SignInPrompt(
-                                        message = "Koma shows the titles you track on MangaBaka.",
-                                        tag = "signed-out",
-                                        buttonTag = "sign-in",
-                                        contentPadding = contentPadding,
-                                        onSignIn = openSignIn,
-                                    )
-                                tab == Tab.History && session.signedIn ->
-                                    HistoryView(container, contentPadding)
-                                tab == Tab.History ->
-                                    SignInPrompt(
-                                        message = "Koma shows the chapters you read on MangaBaka.",
-                                        tag = "history-signed-out",
-                                        buttonTag = "history-sign-in",
-                                        contentPadding = contentPadding,
-                                        onSignIn = openSignIn,
-                                    )
-                                else ->
-                                    EmptyState(
-                                        tab.icon,
-                                        tab.emptyTitle,
-                                        tab.emptyMessage,
-                                        Modifier.padding(contentPadding)
-                                            .testTag("empty-${tab.route}"),
-                                    )
+                            saved.SaveableStateProvider(
+                                shown.page?.let { "settings-${it.route}" } ?: shown.tab.route
+                            ) {
+                                when {
+                                    shown.tab == Tab.Settings ->
+                                        SettingsView(
+                                            container = container,
+                                            page = shown.page,
+                                            onOpen = { settingsPage = it },
+                                            account =
+                                                Account(
+                                                    signedIn = session.signedIn,
+                                                    userName = userName,
+                                                    busy = signIn.busy,
+                                                    error = signIn.error,
+                                                ),
+                                            onSignIn = sessionModel::signIn,
+                                            onSignOut = sessionModel::signOut,
+                                            onLoadUserName = sessionModel::loadUserName,
+                                            contentPadding = contentPadding,
+                                        )
+                                    shown.tab == Tab.Library && session.signedIn ->
+                                        LibraryView(container, contentPadding)
+                                    shown.tab == Tab.Library ->
+                                        SignInPrompt(
+                                            message =
+                                                "Koma shows the titles you track on MangaBaka.",
+                                            tag = "signed-out",
+                                            buttonTag = "sign-in",
+                                            contentPadding = contentPadding,
+                                            onSignIn = openSignIn,
+                                        )
+                                    shown.tab == Tab.History && session.signedIn ->
+                                        HistoryView(container, contentPadding)
+                                    shown.tab == Tab.History ->
+                                        SignInPrompt(
+                                            message =
+                                                "Koma shows the chapters you read on MangaBaka.",
+                                            tag = "history-signed-out",
+                                            buttonTag = "history-sign-in",
+                                            contentPadding = contentPadding,
+                                            onSignIn = openSignIn,
+                                        )
+                                    else ->
+                                        EmptyState(
+                                            shown.tab.icon,
+                                            shown.tab.emptyTitle,
+                                            shown.tab.emptyMessage,
+                                            Modifier.padding(contentPadding)
+                                                .testTag("empty-${shown.tab.route}"),
+                                        )
+                                }
                             }
                         }
                     }
@@ -180,17 +275,23 @@ fun KomaApp(container: AppContainer) {
                 GlassHeader(
                     haze,
                     backdrop,
-                    Modifier.onSizeChanged { headerHeight = with(density) { it.height.toDp() } },
+                    hidden = { bars.hidden },
+                    onHeight = { headerHeight = with(density) { it.toDp() } },
                 ) {
-                    ScreenHeader(
-                        title = page?.title ?: tab.title,
-                        titleTag = "title-${page?.route ?: tab.route}",
-                        onBack = page?.let { { settingsPage = null } },
-                    ) {
-                        UpdatePill(updateModel)
+                    ScreenHeader(actions = { UpdatePill(updateModel) }) {
+                        transition.AnimatedContent(
+                            transitionSpec = { screenChange(motion) },
+                            contentAlignment = Alignment.CenterStart,
+                        ) { shown ->
+                            ScreenTitle(
+                                title = shown.title,
+                                titleTag = "title-${shown.route}",
+                                onBack = shown.page?.let { { settingsPage = null } },
+                            )
+                        }
                     }
                 }
-                FloatingTabBar(
+                NavigationBar(
                     tabs = Tab.entries,
                     selected = tab,
                     onSelect = {
@@ -199,13 +300,17 @@ fun KomaApp(container: AppContainer) {
                         tab = it
                     },
                     haze = haze,
+                    hidden = { bars.hidden },
                     modifier =
-                        Modifier.align(Alignment.BottomCenter)
-                            .windowInsetsPadding(WindowInsets.navigationBars)
-                            .padding(start = 16.dp, end = 16.dp, bottom = 12.dp),
+                        Modifier.align(Alignment.BottomCenter).onSizeChanged {
+                            barHeight = with(density) { it.height.toDp() }
+                        },
                 )
                 UpdateDialog(updateModel)
             }
         }
     }
 }
+
+// How far the content scrolls to slide the bars all the way out.
+private val BarsDistance = 72.dp

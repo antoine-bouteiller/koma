@@ -1,9 +1,17 @@
 package app.koma.settings
 
+import androidx.compose.animation.AnimatedContent
+import androidx.compose.animation.SizeTransform
+import androidx.compose.animation.fadeIn
+import androidx.compose.animation.fadeOut
+import androidx.compose.animation.scaleIn
+import androidx.compose.animation.scaleOut
+import androidx.compose.animation.togetherWith
 import androidx.compose.foundation.layout.Arrangement
 import androidx.compose.foundation.layout.Column
 import androidx.compose.foundation.layout.PaddingValues
 import androidx.compose.foundation.layout.fillMaxSize
+import androidx.compose.foundation.layout.fillMaxWidth
 import androidx.compose.foundation.layout.padding
 import androidx.compose.foundation.layout.size
 import androidx.compose.foundation.rememberScrollState
@@ -14,12 +22,14 @@ import androidx.compose.material3.MaterialTheme
 import androidx.compose.material3.Text
 import androidx.compose.runtime.Composable
 import androidx.compose.runtime.LaunchedEffect
+import androidx.compose.ui.Alignment
 import androidx.compose.ui.Modifier
 import androidx.compose.ui.platform.testTag
 import androidx.compose.ui.unit.dp
 import app.koma.AppContainer
 import app.koma.R
 import app.koma.ui.Chevron
+import app.koma.ui.GroupRow
 import app.koma.ui.SettingsGroup
 import app.koma.ui.SettingsRow
 import app.koma.ui.SettingsSection
@@ -52,7 +62,7 @@ private fun SettingsRoot(account: Account, onOpen: (SettingsPage) -> Unit) {
     SettingsSection("General", R.drawable.ic_settings) {
         SettingsGroup(
             listOf(
-                { shape ->
+                GroupRow { shape ->
                     SettingsRow(
                         title = "Theme",
                         icon = R.drawable.ic_dark_mode,
@@ -62,7 +72,7 @@ private fun SettingsRoot(account: Account, onOpen: (SettingsPage) -> Unit) {
                         onClick = { onOpen(SettingsPage.Theme) },
                     )
                 },
-                { shape ->
+                GroupRow { shape ->
                     SettingsRow(
                         title = "MangaBaka",
                         icon = R.drawable.ic_person,
@@ -77,62 +87,109 @@ private fun SettingsRoot(account: Account, onOpen: (SettingsPage) -> Unit) {
     }
 }
 
-@OptIn(ExperimentalMaterial3ExpressiveApi::class)
 @Composable
 private fun MangaBakaSettings(account: Account, onSignIn: () -> Unit, onSignOut: () -> Unit) {
-    if (account.signedIn) {
+    val motion = MaterialTheme.motionScheme
+    AnimatedContent(
+        account.signedIn,
+        transitionSpec = {
+            fadeIn(motion.defaultEffectsSpec()) togetherWith
+                fadeOut(motion.fastEffectsSpec()) using
+                SizeTransform { _, _ -> motion.defaultSpatialSpec() }
+        },
+        label = "account",
+    ) { signedIn ->
+        if (signedIn) SignedIn(account, onSignOut) else SignedOut(account, onSignIn)
+    }
+}
+
+@Composable
+private fun SignedIn(account: Account, onSignOut: () -> Unit) {
+    SettingsGroup(
+        listOf(
+            GroupRow { shape ->
+                SettingsRow(
+                    title = account.userName?.ifEmpty { null } ?: "MangaBaka account",
+                    icon = R.drawable.ic_person,
+                    shape = shape,
+                    tag = "account",
+                    subtitle = "Signed in to MangaBaka",
+                )
+            },
+            GroupRow { shape ->
+                SettingsRow(
+                    title = "Sign out",
+                    icon = R.drawable.ic_logout,
+                    shape = shape,
+                    tag = "sign-out",
+                    onClick = onSignOut,
+                    color = MaterialTheme.colorScheme.error,
+                    trailing = {},
+                )
+            },
+        )
+    )
+}
+
+@OptIn(ExperimentalMaterial3ExpressiveApi::class)
+@Composable
+private fun SignedOut(account: Account, onSignIn: () -> Unit) {
+    val motion = MaterialTheme.motionScheme
+    Column(verticalArrangement = Arrangement.spacedBy(8.dp)) {
         SettingsGroup(
             listOf(
-                { shape ->
+                GroupRow { shape ->
                     SettingsRow(
-                        title = account.userName?.ifEmpty { null } ?: "MangaBaka account",
-                        icon = R.drawable.ic_person,
+                        title = "Sign in",
+                        icon = R.drawable.ic_login,
                         shape = shape,
-                        tag = "account",
-                        subtitle = "Signed in to MangaBaka",
+                        tag = "mangabaka-sign-in",
+                        subtitle = "Koma shows the titles you track and the chapters you read.",
+                        onClick = onSignIn,
+                        enabled = !account.busy,
+                        trailing = {
+                            AnimatedContent(
+                                account.busy,
+                                transitionSpec = {
+                                    fadeIn(motion.fastEffectsSpec()) +
+                                        scaleIn(motion.fastSpatialSpec()) togetherWith
+                                        fadeOut(motion.fastEffectsSpec()) +
+                                            scaleOut(motion.fastSpatialSpec())
+                                },
+                                contentAlignment = Alignment.Center,
+                                label = "sign-in-busy",
+                            ) { busy ->
+                                if (busy) {
+                                    LoadingIndicator(Modifier.size(32.dp).testTag("sign-in-busy"))
+                                } else {
+                                    Chevron()
+                                }
+                            }
+                        },
                     )
-                },
-                { shape ->
-                    SettingsRow(
-                        title = "Sign out",
-                        icon = R.drawable.ic_logout,
-                        shape = shape,
-                        tag = "sign-out",
-                        onClick = onSignOut,
-                        color = MaterialTheme.colorScheme.error,
-                        trailing = {},
-                    )
-                },
+                }
             )
         )
-    } else {
-        SettingsGroup(
-            listOf { shape ->
-                SettingsRow(
-                    title = "Sign in",
-                    icon = R.drawable.ic_login,
-                    shape = shape,
-                    tag = "mangabaka-sign-in",
-                    subtitle = "Koma shows the titles you track and the chapters you read.",
-                    onClick = onSignIn,
-                    enabled = !account.busy,
-                    trailing = {
-                        if (account.busy) {
-                            LoadingIndicator(Modifier.size(32.dp).testTag("sign-in-busy"))
-                        } else {
-                            Chevron()
-                        }
-                    },
+        AnimatedContent(
+            account.error,
+            transitionSpec = {
+                fadeIn(motion.defaultEffectsSpec()) togetherWith
+                    fadeOut(motion.fastEffectsSpec()) using
+                    SizeTransform { _, _ -> motion.defaultSpatialSpec() }
+            },
+            label = "sign-in-error",
+        ) { error ->
+            if (error.isNotEmpty()) {
+                Text(
+                    error,
+                    color = MaterialTheme.colorScheme.error,
+                    style = MaterialTheme.typography.bodySmall,
+                    modifier =
+                        Modifier.fillMaxWidth()
+                            .padding(horizontal = 16.dp)
+                            .testTag("sign-in-error"),
                 )
             }
-        )
-        if (account.error.isNotEmpty()) {
-            Text(
-                account.error,
-                color = MaterialTheme.colorScheme.error,
-                style = MaterialTheme.typography.bodySmall,
-                modifier = Modifier.padding(horizontal = 16.dp).testTag("sign-in-error"),
-            )
         }
     }
 }

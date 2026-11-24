@@ -11,8 +11,10 @@ import androidx.compose.foundation.layout.fillMaxSize
 import androidx.compose.foundation.layout.fillMaxWidth
 import androidx.compose.foundation.layout.padding
 import androidx.compose.foundation.lazy.grid.GridCells
+import androidx.compose.foundation.lazy.grid.LazyGridState
 import androidx.compose.foundation.lazy.grid.LazyVerticalGrid
 import androidx.compose.foundation.lazy.grid.items
+import androidx.compose.foundation.lazy.grid.rememberLazyGridState
 import androidx.compose.foundation.pager.HorizontalPager
 import androidx.compose.foundation.pager.rememberPagerState
 import androidx.compose.foundation.shape.RoundedCornerShape
@@ -30,6 +32,7 @@ import androidx.compose.runtime.rememberCoroutineScope
 import androidx.compose.ui.Alignment
 import androidx.compose.ui.Modifier
 import androidx.compose.ui.draw.clip
+import androidx.compose.ui.graphics.Color
 import androidx.compose.ui.layout.ContentScale
 import androidx.compose.ui.platform.LocalLayoutDirection
 import androidx.compose.ui.platform.testTag
@@ -37,11 +40,13 @@ import androidx.compose.ui.text.style.TextOverflow
 import androidx.compose.ui.unit.dp
 import app.koma.R
 import app.koma.ui.EmptyState
+import app.koma.ui.HeaderAccessory
+import app.koma.ui.TrackHeaderBackdrop
 import coil3.ImageLoader
 import coil3.compose.AsyncImage
 import kotlinx.coroutines.launch
 
-/** The shelves' tabs over a pager of their cover grids. */
+/** The shelves' tabs, shown in the screen header, over a pager of their cover grids. */
 @OptIn(ExperimentalMaterial3Api::class, ExperimentalMaterial3ExpressiveApi::class)
 @Composable
 fun ShelfPager(
@@ -52,12 +57,12 @@ fun ShelfPager(
 ) {
     val pager = rememberPagerState { state.shelves.size }
     val scope = rememberCoroutineScope()
-    // The tabs sit under the header, so the grids scroll under them rather than under the header.
-    val below = PaddingValues(bottom = contentPadding.calculateBottomPadding())
-    Column(Modifier.fillMaxSize().padding(top = contentPadding.calculateTopPadding())) {
+    HeaderAccessory {
         PrimaryScrollableTabRow(
             selectedTabIndex = pager.currentPage,
             edgePadding = 0.dp,
+            containerColor = Color.Transparent,
+            divider = {},
             modifier = Modifier.testTag("shelves"),
         ) {
             state.shelves.forEachIndexed { index, shelf ->
@@ -69,48 +74,58 @@ fun ShelfPager(
                 )
             }
         }
-        HorizontalPager(
-            state = pager,
-            modifier = Modifier.weight(1f).testTag("shelf-pager"),
-            beyondViewportPageCount = 1,
-            key = { state.shelves[it].id },
-        ) { page ->
-            val shelf = state.shelves[page]
-            if (shelf.items.isEmpty()) {
-                val (title, message) = emptyShelf(shelf.id)
-                EmptyState(
-                    R.drawable.ic_book,
-                    title,
-                    message,
-                    Modifier.padding(below)
-                        .testTag(if (shelf.id == "archived") "empty-archived" else "empty-library"),
-                )
-            } else {
-                val pull = rememberPullToRefreshState()
-                PullToRefreshBox(
-                    isRefreshing = state.refreshing,
-                    onRefresh = onRefresh,
-                    state = pull,
-                    indicator = {
-                        PullToRefreshDefaults.LoadingIndicator(
-                            state = pull,
-                            isRefreshing = state.refreshing,
-                            modifier = Modifier.align(Alignment.TopCenter),
-                        )
-                    },
-                ) {
-                    CoverGrid(shelf, images, below)
-                }
+    }
+    HorizontalPager(
+        state = pager,
+        modifier = Modifier.fillMaxSize().testTag("shelf-pager"),
+        beyondViewportPageCount = 1,
+        key = { state.shelves[it].id },
+    ) { page ->
+        val shelf = state.shelves[page]
+        if (shelf.items.isEmpty()) {
+            val (title, message) = emptyShelf(shelf.id)
+            EmptyState(
+                R.drawable.ic_book,
+                title,
+                message,
+                Modifier.padding(contentPadding)
+                    .testTag(if (shelf.id == "archived") "empty-archived" else "empty-library"),
+            )
+        } else {
+            val grid = rememberLazyGridState()
+            if (page == pager.currentPage) TrackHeaderBackdrop(grid)
+            val pull = rememberPullToRefreshState()
+            PullToRefreshBox(
+                isRefreshing = state.refreshing,
+                onRefresh = onRefresh,
+                state = pull,
+                indicator = {
+                    PullToRefreshDefaults.LoadingIndicator(
+                        state = pull,
+                        isRefreshing = state.refreshing,
+                        modifier =
+                            Modifier.align(Alignment.TopCenter)
+                                .padding(top = contentPadding.calculateTopPadding()),
+                    )
+                },
+            ) {
+                CoverGrid(shelf, images, grid, contentPadding)
             }
         }
     }
 }
 
 @Composable
-private fun CoverGrid(shelf: Shelf, images: ImageLoader, contentPadding: PaddingValues) {
+private fun CoverGrid(
+    shelf: Shelf,
+    images: ImageLoader,
+    grid: LazyGridState,
+    contentPadding: PaddingValues,
+) {
     val direction = LocalLayoutDirection.current
     LazyVerticalGrid(
         columns = GridCells.Fixed(3),
+        state = grid,
         modifier = Modifier.fillMaxSize().testTag("library-${shelf.id}"),
         contentPadding =
             PaddingValues(
@@ -124,7 +139,7 @@ private fun CoverGrid(shelf: Shelf, images: ImageLoader, contentPadding: Padding
     ) {
         items(shelf.items, key = { it.id }) { manga ->
             Column(
-                Modifier.testTag("manga-${manga.id}"),
+                Modifier.animateItem().testTag("manga-${manga.id}"),
                 verticalArrangement = Arrangement.spacedBy(6.dp),
             ) {
                 AsyncImage(

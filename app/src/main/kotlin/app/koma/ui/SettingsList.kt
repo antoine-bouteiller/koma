@@ -1,6 +1,11 @@
 package app.koma.ui
 
 import androidx.annotation.DrawableRes
+import androidx.compose.animation.AnimatedVisibility
+import androidx.compose.animation.expandVertically
+import androidx.compose.animation.fadeIn
+import androidx.compose.animation.fadeOut
+import androidx.compose.animation.shrinkVertically
 import androidx.compose.foundation.BorderStroke
 import androidx.compose.foundation.clickable
 import androidx.compose.foundation.layout.Arrangement
@@ -68,14 +73,36 @@ fun SettingsSection(
     }
 }
 
+/** A row of a [SettingsGroup], shown while [visible]. */
+class GroupRow(val visible: Boolean = true, val content: @Composable (Shape) -> Unit)
+
 /**
  * Rows that belong together, as one segmented card: rounded on the group's outer edges, nearly
- * square where two rows meet. Each row draws itself in the shape it is handed.
+ * square where two rows meet. Each row draws itself in the shape it is handed. A row unfolds into
+ * the group as it shows and folds away as it hides, its neighbors' corners following.
  */
 @Composable
-fun SettingsGroup(rows: List<@Composable (Shape) -> Unit>) {
-    Column(verticalArrangement = Arrangement.spacedBy(2.dp)) {
-        rows.forEachIndexed { index, row -> row(ConnectedShapes.Card.inColumn(index, rows.size)) }
+fun SettingsGroup(rows: List<GroupRow>) {
+    val motion = MaterialTheme.motionScheme
+    val count = rows.count { it.visible }
+    Column {
+        var position = 0
+        for (row in rows) {
+            val at = position
+            if (row.visible) position++
+            AnimatedVisibility(
+                row.visible,
+                enter =
+                    expandVertically(motion.defaultSpatialSpec(), Alignment.Top) +
+                        fadeIn(motion.defaultEffectsSpec()),
+                exit =
+                    shrinkVertically(motion.fastSpatialSpec(), Alignment.Top) +
+                        fadeOut(motion.fastEffectsSpec()),
+            ) {
+                val shape = morphingShape(ConnectedShapes.Card.inColumn(at, count), pressed = false)
+                Box(Modifier.padding(top = if (at > 0) 2.dp else 0.dp)) { row.content(shape) }
+            }
+        }
     }
 }
 

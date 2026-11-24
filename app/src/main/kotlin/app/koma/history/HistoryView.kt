@@ -1,5 +1,10 @@
 package app.koma.history
 
+import androidx.compose.animation.AnimatedContent
+import androidx.compose.animation.SizeTransform
+import androidx.compose.animation.fadeIn
+import androidx.compose.animation.fadeOut
+import androidx.compose.animation.togetherWith
 import androidx.compose.foundation.background
 import androidx.compose.foundation.layout.Arrangement
 import androidx.compose.foundation.layout.Box
@@ -56,32 +61,42 @@ fun HistoryView(container: AppContainer, contentPadding: PaddingValues) {
     val model = viewModel { HistoryViewModel(container) }
     LaunchedEffect(model) { model.sync() }
     val state by model.state.collectAsStateWithLifecycle()
-    when (val shown = state) {
-        is HistoryState.Rows ->
-            ReadList(shown, container.images, contentPadding, model::sync, model::loadOlder)
-        HistoryState.Failed ->
-            EmptyState(
-                R.drawable.ic_error,
-                "Can’t Load Your History",
-                "MangaBaka did not answer.",
-                Modifier.padding(contentPadding),
-            ) {
-                Button(onClick = model::sync, modifier = Modifier.testTag("history-retry")) {
-                    Text("Try Again")
+    val motion = MaterialTheme.motionScheme
+    AnimatedContent(
+        state,
+        transitionSpec = {
+            fadeIn(motion.defaultEffectsSpec()) togetherWith fadeOut(motion.fastEffectsSpec())
+        },
+        contentKey = { it::class },
+        label = "history",
+    ) { shown ->
+        when (shown) {
+            is HistoryState.Rows ->
+                ReadList(shown, container.images, contentPadding, model::sync, model::loadOlder)
+            HistoryState.Failed ->
+                EmptyState(
+                    R.drawable.ic_error,
+                    "Can’t Load Your History",
+                    "MangaBaka did not answer.",
+                    Modifier.padding(contentPadding),
+                ) {
+                    Button(onClick = model::sync, modifier = Modifier.testTag("history-retry")) {
+                        Text("Try Again")
+                    }
                 }
-            }
-        HistoryState.Loading ->
-            LoadingState(
-                "Loading your history…",
-                Modifier.padding(contentPadding).testTag("history-loading"),
-            )
-        HistoryState.Empty ->
-            EmptyState(
-                R.drawable.ic_history,
-                "Nothing read yet",
-                "The chapters you read show up here.",
-                Modifier.padding(contentPadding).testTag("empty-history"),
-            )
+            HistoryState.Loading ->
+                LoadingState(
+                    "Loading your history…",
+                    Modifier.padding(contentPadding).testTag("history-loading"),
+                )
+            HistoryState.Empty ->
+                EmptyState(
+                    R.drawable.ic_history,
+                    "Nothing read yet",
+                    "The chapters you read show up here.",
+                    Modifier.padding(contentPadding).testTag("empty-history"),
+                )
+        }
     }
 }
 
@@ -127,8 +142,8 @@ private fun ReadList(
         ) {
             items(rows.items, key = { it.id }) { item ->
                 when (item) {
-                    is HistoryItem.Day -> DayHeader(item)
-                    is HistoryItem.Read -> ReadRow(item, images)
+                    is HistoryItem.Day -> DayHeader(item, Modifier.animateItem())
+                    is HistoryItem.Read -> ReadRow(item, images, Modifier.animateItem())
                 }
             }
             item(key = "footer") { Footer(rows.footer, onEnd) }
@@ -137,22 +152,24 @@ private fun ReadList(
 }
 
 @Composable
-private fun DayHeader(day: HistoryItem.Day) {
+private fun DayHeader(day: HistoryItem.Day, modifier: Modifier) {
     Text(
         day.label,
         style = MaterialTheme.typography.titleSmall,
         color = MaterialTheme.colorScheme.onSurfaceVariant,
         modifier =
-            Modifier.padding(start = 16.dp, end = 16.dp, top = 16.dp, bottom = 4.dp)
+            modifier
+                .padding(start = 16.dp, end = 16.dp, top = 16.dp, bottom = 4.dp)
                 .semantics { heading() }
                 .testTag("history-day-${day.id}"),
     )
 }
 
 @Composable
-private fun ReadRow(read: HistoryItem.Read, images: ImageLoader) {
+private fun ReadRow(read: HistoryItem.Read, images: ImageLoader, modifier: Modifier) {
     Row(
-        Modifier.fillMaxWidth()
+        modifier
+            .fillMaxWidth()
             .padding(horizontal = 16.dp, vertical = 6.dp)
             .testTag("history-${read.id}"),
         horizontalArrangement = Arrangement.spacedBy(12.dp),
@@ -189,22 +206,34 @@ private fun ReadRow(read: HistoryItem.Read, images: ImageLoader) {
 @OptIn(ExperimentalMaterial3ExpressiveApi::class)
 @Composable
 private fun Footer(footer: HistoryState.Footer, onRetry: () -> Unit) {
-    Box(Modifier.fillMaxWidth().padding(16.dp), contentAlignment = Alignment.Center) {
-        when (footer) {
-            HistoryState.Footer.Loading ->
-                LoadingIndicator(
-                    Modifier.testTag("history-more-loading").semantics {
-                        contentDescription = "Loading older reads…"
+    val motion = MaterialTheme.motionScheme
+    AnimatedContent(
+        footer,
+        transitionSpec = {
+            fadeIn(motion.defaultEffectsSpec()) togetherWith
+                fadeOut(motion.fastEffectsSpec()) using
+                SizeTransform { _, _ -> motion.defaultSpatialSpec() }
+        },
+        contentAlignment = Alignment.Center,
+        label = "footer",
+    ) { shown ->
+        Box(Modifier.fillMaxWidth().padding(16.dp), contentAlignment = Alignment.Center) {
+            when (shown) {
+                HistoryState.Footer.Loading ->
+                    LoadingIndicator(
+                        Modifier.testTag("history-more-loading").semantics {
+                            contentDescription = "Loading older reads…"
+                        }
+                    )
+                HistoryState.Footer.Retry ->
+                    OutlinedButton(
+                        onClick = onRetry,
+                        modifier = Modifier.testTag("history-more-retry"),
+                    ) {
+                        Text("Load More")
                     }
-                )
-            HistoryState.Footer.Retry ->
-                OutlinedButton(
-                    onClick = onRetry,
-                    modifier = Modifier.testTag("history-more-retry"),
-                ) {
-                    Text("Load More")
-                }
-            HistoryState.Footer.None -> Unit
+                HistoryState.Footer.None -> Unit
+            }
         }
     }
 }

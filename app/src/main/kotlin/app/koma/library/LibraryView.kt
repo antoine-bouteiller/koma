@@ -1,8 +1,13 @@
 package app.koma.library
 
+import androidx.compose.animation.AnimatedContent
+import androidx.compose.animation.fadeIn
+import androidx.compose.animation.fadeOut
+import androidx.compose.animation.togetherWith
 import androidx.compose.foundation.layout.PaddingValues
 import androidx.compose.foundation.layout.padding
 import androidx.compose.material3.Button
+import androidx.compose.material3.MaterialTheme
 import androidx.compose.material3.Text
 import androidx.compose.runtime.Composable
 import androidx.compose.runtime.LaunchedEffect
@@ -22,23 +27,34 @@ fun LibraryView(container: AppContainer, contentPadding: PaddingValues) {
     val model = viewModel { LibraryViewModel(container) }
     LaunchedEffect(model) { model.open() }
     val state by model.state.collectAsStateWithLifecycle()
-    when (val shown = state) {
-        LibraryState.Failed ->
-            EmptyState(
-                R.drawable.ic_error,
-                "Can’t Load Your Library",
-                "MangaBaka did not answer.",
-                Modifier.padding(contentPadding),
-            ) {
-                Button(onClick = model::sync, modifier = Modifier.testTag("library-retry")) {
-                    Text("Try Again")
+    val motion = MaterialTheme.motionScheme
+    AnimatedContent(
+        state,
+        transitionSpec = {
+            fadeIn(motion.defaultEffectsSpec()) togetherWith fadeOut(motion.fastEffectsSpec())
+        },
+        contentKey = { it::class },
+        label = "library",
+    ) { shown ->
+        when (shown) {
+            LibraryState.Failed ->
+                EmptyState(
+                    R.drawable.ic_error,
+                    "Can’t Load Your Library",
+                    "MangaBaka did not answer.",
+                    Modifier.padding(contentPadding),
+                ) {
+                    Button(onClick = model::sync, modifier = Modifier.testTag("library-retry")) {
+                        Text("Try Again")
+                    }
                 }
-            }
-        LibraryState.Loading ->
-            LoadingState(
-                "Loading your library…",
-                Modifier.padding(contentPadding).testTag("library-loading"),
-            )
-        is LibraryState.Shelves -> ShelfPager(shown, container.images, contentPadding, model::sync)
+            LibraryState.Loading ->
+                LoadingState(
+                    "Loading your library…",
+                    Modifier.padding(contentPadding).testTag("library-loading"),
+                )
+            is LibraryState.Shelves ->
+                ShelfPager(shown, container.images, contentPadding, model::sync)
+        }
     }
 }

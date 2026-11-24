@@ -1,5 +1,10 @@
 package app.koma.ui
 
+import androidx.compose.animation.AnimatedContent
+import androidx.compose.animation.SizeTransform
+import androidx.compose.animation.fadeIn
+import androidx.compose.animation.fadeOut
+import androidx.compose.animation.togetherWith
 import androidx.compose.foundation.layout.Box
 import androidx.compose.foundation.layout.Column
 import androidx.compose.foundation.layout.ColumnScope
@@ -21,7 +26,10 @@ import androidx.compose.runtime.remember
 import androidx.compose.ui.Alignment
 import androidx.compose.ui.Modifier
 import androidx.compose.ui.draw.clip
+import androidx.compose.ui.draw.clipToBounds
 import androidx.compose.ui.graphics.graphicsLayer
+import androidx.compose.ui.layout.layout
+import androidx.compose.ui.layout.onSizeChanged
 import androidx.compose.ui.platform.testTag
 import androidx.compose.ui.semantics.heading
 import androidx.compose.ui.semantics.semantics
@@ -33,22 +41,28 @@ import app.koma.R
 import dev.chrisbanes.haze.HazeInput
 import dev.chrisbanes.haze.HazeState
 import dev.chrisbanes.haze.blur.hazeBlur
+import kotlin.math.roundToInt
 
 // Google Sans Flex cut to one instance: SemiBold, fully rounded, optical size 28.
 val TitleFont = FontFamily(Font(R.font.google_sans_flex_rounded_semibold, FontWeight.SemiBold))
 
+/** The header's row: the [title] of the screen shown, then [actions]. */
+@Composable
+fun ScreenHeader(actions: @Composable RowScope.() -> Unit = {}, title: @Composable () -> Unit) {
+    Row(
+        Modifier.fillMaxWidth().heightIn(min = 64.dp).padding(end = 8.dp),
+        verticalAlignment = Alignment.CenterVertically,
+    ) {
+        Box(Modifier.weight(1f)) { title() }
+        actions()
+    }
+}
+
 /** A screen's title, after a glass back button when [onBack] is set. */
 @Composable
-fun ScreenHeader(
-    title: String,
-    titleTag: String,
-    onBack: (() -> Unit)? = null,
-    actions: @Composable RowScope.() -> Unit = {},
-) {
+fun ScreenTitle(title: String, titleTag: String, onBack: (() -> Unit)? = null) {
     Row(
-        Modifier.fillMaxWidth()
-            .heightIn(min = 64.dp)
-            .padding(start = if (onBack != null) 12.dp else 16.dp, end = 8.dp),
+        Modifier.padding(start = if (onBack != null) 12.dp else 16.dp),
         verticalAlignment = Alignment.CenterVertically,
     ) {
         if (onBack != null) {
@@ -66,21 +80,25 @@ fun ScreenHeader(
                     fontFamily = TitleFont,
                     fontWeight = FontWeight.SemiBold,
                 ),
-            modifier = Modifier.weight(1f).semantics { heading() }.testTag(titleTag),
+            maxLines = 1,
+            modifier = Modifier.semantics { heading() }.testTag(titleTag),
         )
-        actions()
     }
 }
 
 /**
  * The header floating over the content marked as the [haze] source. Bare at rest, it lays down a
  * band of glass as the content [backdrop] tracks runs on under it, following the scroll rather than
- * a timer.
+ * a timer. Under [content] it shows the backdrop's accessory, which slides away under the title as
+ * [hidden] goes from 0 to 1. [onHeight] receives the header's height with the accessory out, so the
+ * content's start stays put while it slides.
  */
 @Composable
 fun GlassHeader(
     haze: HazeState,
     backdrop: HeaderBackdrop,
+    hidden: () -> Float,
+    onHeight: (Int) -> Unit,
     modifier: Modifier = Modifier,
     content: @Composable ColumnScope.() -> Unit,
 ) {
@@ -89,7 +107,9 @@ fun GlassHeader(
         remember(colors.onSurface, colors.surface) {
             glassBlurStyle(colors.onSurface.copy(alpha = 0.06f), colors.surface)
         }
-    Box(modifier.fillMaxWidth().testTag("header")) {
+    // Written while measuring, before the header's size is reported.
+    val slid = remember { IntArray(1) }
+    Box(modifier.fillMaxWidth().onSizeChanged { onHeight(it.height + slid[0]) }.testTag("header")) {
         Box(
             Modifier.matchParentSize()
                 .graphicsLayer {
@@ -101,9 +121,32 @@ fun GlassHeader(
         Column(
             Modifier.windowInsetsPadding(
                 WindowInsets.safeDrawing.only(WindowInsetsSides.Top + WindowInsetsSides.Horizontal)
-            ),
-            content = content,
-        )
+            )
+        ) {
+            content()
+            val effects = MaterialTheme.motionScheme.defaultEffectsSpec<Float>()
+            AnimatedContent(
+                backdrop.accessory,
+                transitionSpec = {
+                    fadeIn(effects) togetherWith fadeOut(effects) using SizeTransform(clip = true)
+                },
+                contentKey = { it != null },
+                label = "accessory",
+            ) { accessory ->
+                Box(
+                    Modifier.clipToBounds().layout { measurable, constraints ->
+                        val placeable = measurable.measure(constraints)
+                        val away = (placeable.height * hidden()).roundToInt()
+                        slid[0] = away
+                        layout(placeable.width, placeable.height - away) {
+                            placeable.place(0, -away)
+                        }
+                    }
+                ) {
+                    accessory?.invoke()
+                }
+            }
+        }
     }
 }
 
