@@ -12,7 +12,7 @@
       inputs.nixpkgs.follows = "nixpkgs";
     };
     bun-flake = {
-      url = "github:antoine-bouteiller/bun-flake/v1.4.4";
+      url = "github:antoine-bouteiller/bun-flake/v1.4.5";
       inputs.nixpkgs.follows = "nixpkgs";
     };
   };
