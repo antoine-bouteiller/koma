@@ -2,12 +2,10 @@ package app.koma.ui
 
 import androidx.activity.compose.BackHandler
 import androidx.compose.foundation.layout.Box
-import androidx.compose.foundation.layout.Column
 import androidx.compose.foundation.layout.PaddingValues
 import androidx.compose.foundation.layout.WindowInsets
 import androidx.compose.foundation.layout.WindowInsetsSides
 import androidx.compose.foundation.layout.fillMaxSize
-import androidx.compose.foundation.layout.fillMaxWidth
 import androidx.compose.foundation.layout.navigationBars
 import androidx.compose.foundation.layout.only
 import androidx.compose.foundation.layout.padding
@@ -15,13 +13,17 @@ import androidx.compose.foundation.layout.safeDrawing
 import androidx.compose.foundation.layout.windowInsetsPadding
 import androidx.compose.material3.Surface
 import androidx.compose.runtime.Composable
+import androidx.compose.runtime.CompositionLocalProvider
 import androidx.compose.runtime.getValue
 import androidx.compose.runtime.mutableStateOf
+import androidx.compose.runtime.remember
 import androidx.compose.runtime.saveable.rememberSaveable
 import androidx.compose.runtime.saveable.rememberSaveableStateHolder
 import androidx.compose.runtime.setValue
 import androidx.compose.ui.Alignment
 import androidx.compose.ui.Modifier
+import androidx.compose.ui.layout.onSizeChanged
+import androidx.compose.ui.platform.LocalDensity
 import androidx.compose.ui.platform.testTag
 import androidx.compose.ui.unit.dp
 import androidx.lifecycle.compose.collectAsStateWithLifecycle
@@ -83,7 +85,7 @@ enum class Tab(
 }
 
 // Room under the content for the floating tab bar, which the content scrolls under.
-private val TabBarSpace = PaddingValues(bottom = 104.dp)
+private val TabBarSpace = 104.dp
 
 @Composable
 fun KomaApp(container: AppContainer) {
@@ -103,27 +105,24 @@ fun KomaApp(container: AppContainer) {
     // Keeps each tab's shelf and scroll position while another tab shows.
     val tabs = rememberSaveableStateHolder()
     val haze = rememberHazeState()
+    val backdrop = remember { HeaderBackdrop() }
+    // The header floats over the content, which leaves it this much room at its start.
+    var headerHeight by remember { mutableStateOf(0.dp) }
+    val density = LocalDensity.current
     BackHandler(enabled = page != null) { settingsPage = null }
 
     KomaTheme(theme) {
         Surface(Modifier.fillMaxSize().testTag("root")) {
             Box(Modifier.fillMaxSize()) {
-                Column(
+                val contentPadding = PaddingValues(top = headerHeight, bottom = TabBarSpace)
+                Box(
                     Modifier.fillMaxSize()
                         .hazeSource(haze)
                         .windowInsetsPadding(
-                            WindowInsets.safeDrawing.only(
-                                WindowInsetsSides.Top + WindowInsetsSides.Horizontal
-                            )
+                            WindowInsets.safeDrawing.only(WindowInsetsSides.Horizontal)
                         )
                 ) {
-                    ScreenHeader(
-                        title = page?.title ?: tab.title,
-                        titleTag = "title-${page?.route ?: tab.route}",
-                        onBack = page?.let { { settingsPage = null } },
-                    )
-                    UpdateBanner(updateModel, container.openUrl)
-                    Box(Modifier.weight(1f).fillMaxWidth()) {
+                    CompositionLocalProvider(LocalHeaderBackdrop provides backdrop) {
                         tabs.SaveableStateProvider(
                             page?.let { "settings-${it.route}" } ?: tab.route
                         ) {
@@ -143,26 +142,26 @@ fun KomaApp(container: AppContainer) {
                                         onSignIn = sessionModel::signIn,
                                         onSignOut = sessionModel::signOut,
                                         onLoadUserName = sessionModel::loadUserName,
-                                        contentPadding = TabBarSpace,
+                                        contentPadding = contentPadding,
                                     )
                                 tab == Tab.Library && session.signedIn ->
-                                    LibraryView(container, TabBarSpace)
+                                    LibraryView(container, contentPadding)
                                 tab == Tab.Library ->
                                     SignInPrompt(
                                         message = "Koma shows the titles you track on MangaBaka.",
                                         tag = "signed-out",
                                         buttonTag = "sign-in",
-                                        contentPadding = TabBarSpace,
+                                        contentPadding = contentPadding,
                                         onSignIn = openSignIn,
                                     )
                                 tab == Tab.History && session.signedIn ->
-                                    HistoryView(container, TabBarSpace)
+                                    HistoryView(container, contentPadding)
                                 tab == Tab.History ->
                                     SignInPrompt(
                                         message = "Koma shows the chapters you read on MangaBaka.",
                                         tag = "history-signed-out",
                                         buttonTag = "history-sign-in",
-                                        contentPadding = TabBarSpace,
+                                        contentPadding = contentPadding,
                                         onSignIn = openSignIn,
                                     )
                                 else ->
@@ -170,11 +169,24 @@ fun KomaApp(container: AppContainer) {
                                         tab.icon,
                                         tab.emptyTitle,
                                         tab.emptyMessage,
-                                        Modifier.padding(TabBarSpace).testTag("empty-${tab.route}"),
+                                        Modifier.padding(contentPadding)
+                                            .testTag("empty-${tab.route}"),
                                     )
                             }
                         }
                     }
+                }
+                GlassHeader(
+                    haze,
+                    backdrop,
+                    Modifier.onSizeChanged { headerHeight = with(density) { it.height.toDp() } },
+                ) {
+                    ScreenHeader(
+                        title = page?.title ?: tab.title,
+                        titleTag = "title-${page?.route ?: tab.route}",
+                        onBack = page?.let { { settingsPage = null } },
+                    )
+                    UpdateBanner(updateModel, container.openUrl)
                 }
                 FloatingTabBar(
                     tabs = Tab.entries,

@@ -40,7 +40,11 @@ fun LibraryView(container: AppContainer, contentPadding: PaddingValues) {
             Text(
                 "Loading your library…",
                 textAlign = TextAlign.Center,
-                modifier = Modifier.fillMaxWidth().padding(16.dp).testTag("library-loading"),
+                modifier =
+                    Modifier.fillMaxWidth()
+                        .padding(contentPadding)
+                        .padding(16.dp)
+                        .testTag("library-loading"),
             )
         is LibraryState.Shelves -> ShelfPager(shown, container.images, contentPadding, model::sync)
     }

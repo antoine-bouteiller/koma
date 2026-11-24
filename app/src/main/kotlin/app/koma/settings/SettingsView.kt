@@ -19,6 +19,7 @@ import app.koma.R
 import app.koma.ui.SettingsGroup
 import app.koma.ui.SettingsRow
 import app.koma.ui.SettingsSection
+import app.koma.ui.TrackHeaderBackdrop
 
 /** The Settings tab: its list of pages, or the [page] opened from it. */
 @Composable
@@ -130,9 +131,11 @@ private fun SettingsColumn(
     tag: String,
     content: @Composable () -> Unit,
 ) {
+    val scroll = rememberScrollState()
+    TrackHeaderBackdrop(scroll)
     Column(
         Modifier.fillMaxSize()
-            .verticalScroll(rememberScrollState())
+            .verticalScroll(scroll)
             .padding(contentPadding)
             .padding(start = 16.dp, end = 16.dp, top = 8.dp, bottom = 16.dp)
             .testTag(tag),

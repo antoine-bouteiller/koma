@@ -33,7 +33,6 @@ import androidx.compose.ui.Alignment
 import androidx.compose.ui.Modifier
 import androidx.compose.ui.draw.clip
 import androidx.compose.ui.graphics.Color
-import androidx.compose.ui.graphics.compositeOver
 import androidx.compose.ui.graphics.graphicsLayer
 import androidx.compose.ui.graphics.luminance
 import androidx.compose.ui.layout.onPlaced
@@ -49,8 +48,6 @@ import androidx.compose.ui.unit.dp
 import androidx.compose.ui.unit.round
 import dev.chrisbanes.haze.HazeInput
 import dev.chrisbanes.haze.HazeState
-import dev.chrisbanes.haze.blur.HazeBlurStyle
-import dev.chrisbanes.haze.blur.HazeColorEffect
 import dev.chrisbanes.haze.blur.hazeBlur
 
 /** One tab of [FloatingTabBar]. */
@@ -74,16 +71,8 @@ fun <T : TabItem> FloatingTabBar(
 ) {
     val colors = MaterialTheme.colorScheme
     val dark = colors.surface.luminance() < 0.5f
-    val glass =
-        colors.surfaceVariant.copy(alpha = if (dark) 0.35f else 0.6f).compositeOver(colors.surface)
-    val glassStyle =
-        remember(glass, colors.surface) {
-            HazeBlurStyle {
-                backgroundColor(colors.surface)
-                colorEffects(listOf(HazeColorEffect.tint(glass.copy(alpha = 0.55f))))
-                fallbackColorEffect(HazeColorEffect.tint(glass))
-            }
-        }
+    val glass = colors.surfaceVariant.copy(alpha = if (dark) 0.35f else 0.6f)
+    val glassStyle = remember(glass, colors.surface) { glassBlurStyle(glass, colors.surface) }
     val bounds = remember { mutableStateMapOf<T, Pair<IntOffset, IntSize>>() }
     Box(
         modifier

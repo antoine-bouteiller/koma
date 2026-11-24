@@ -1,6 +1,8 @@
 package app.koma
 
+import androidx.compose.ui.test.getUnclippedBoundsInRoot
 import app.koma.testing.AppHarness
+import org.junit.Assert.assertTrue
 import org.junit.Rule
 import org.junit.Test
 import org.junit.runner.RunWith
@@ -41,5 +43,14 @@ class AppTest {
         app.launch()
         app.tap("tab-discover")
         app.has("empty-discover")
+    }
+
+    @Test
+    fun `a screen's content starts below the header floating over it`() {
+        app.launch()
+        app.tap("tab-settings")
+        val header = app.node("header").getUnclippedBoundsInRoot()
+        val first = app.node("settings-theme").getUnclippedBoundsInRoot()
+        assertTrue("${first.top} is under ${header.bottom}", first.top >= header.bottom)
     }
 }

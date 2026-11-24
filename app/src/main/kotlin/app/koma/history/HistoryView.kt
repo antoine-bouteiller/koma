@@ -21,6 +21,8 @@ import androidx.compose.material3.MaterialTheme
 import androidx.compose.material3.OutlinedButton
 import androidx.compose.material3.Text
 import androidx.compose.material3.pulltorefresh.PullToRefreshBox
+import androidx.compose.material3.pulltorefresh.PullToRefreshDefaults
+import androidx.compose.material3.pulltorefresh.rememberPullToRefreshState
 import androidx.compose.runtime.Composable
 import androidx.compose.runtime.LaunchedEffect
 import androidx.compose.runtime.derivedStateOf
@@ -41,6 +43,7 @@ import androidx.lifecycle.viewmodel.compose.viewModel
 import app.koma.AppContainer
 import app.koma.R
 import app.koma.ui.EmptyState
+import app.koma.ui.TrackHeaderBackdrop
 import coil3.ImageLoader
 import coil3.compose.AsyncImage
 
@@ -68,7 +71,11 @@ fun HistoryView(container: AppContainer, contentPadding: PaddingValues) {
             Text(
                 "Loading your history…",
                 textAlign = TextAlign.Center,
-                modifier = Modifier.fillMaxWidth().padding(16.dp).testTag("history-loading"),
+                modifier =
+                    Modifier.fillMaxWidth()
+                        .padding(contentPadding)
+                        .padding(16.dp)
+                        .testTag("history-loading"),
             )
         HistoryState.Empty ->
             EmptyState(
@@ -99,7 +106,22 @@ private fun ReadList(
     // Asked again at each change, as a load refused while a sync ran is due once it ends. A failed
     // load waits for its Load More button.
     LaunchedEffect(atEnd, rows) { if (atEnd && rows.footer == HistoryState.Footer.None) onEnd() }
-    PullToRefreshBox(isRefreshing = rows.refreshing, onRefresh = onRefresh) {
+    TrackHeaderBackdrop(list)
+    val pull = rememberPullToRefreshState()
+    PullToRefreshBox(
+        isRefreshing = rows.refreshing,
+        onRefresh = onRefresh,
+        state = pull,
+        indicator = {
+            PullToRefreshDefaults.Indicator(
+                state = pull,
+                isRefreshing = rows.refreshing,
+                modifier =
+                    Modifier.align(Alignment.TopCenter)
+                        .padding(top = contentPadding.calculateTopPadding()),
+            )
+        },
+    ) {
         LazyColumn(
             state = list,
             contentPadding = contentPadding,

@@ -48,7 +48,9 @@ fun ShelfPager(
 ) {
     val pager = rememberPagerState { state.shelves.size }
     val scope = rememberCoroutineScope()
-    Column(Modifier.fillMaxSize()) {
+    // The tabs sit under the header, so the grids scroll under them rather than under the header.
+    val below = PaddingValues(bottom = contentPadding.calculateBottomPadding())
+    Column(Modifier.fillMaxSize().padding(top = contentPadding.calculateTopPadding())) {
         PrimaryScrollableTabRow(
             selectedTabIndex = pager.currentPage,
             edgePadding = 0.dp,
@@ -76,12 +78,12 @@ fun ShelfPager(
                     R.drawable.ic_book,
                     title,
                     message,
-                    Modifier.padding(contentPadding)
+                    Modifier.padding(below)
                         .testTag(if (shelf.id == "archived") "empty-archived" else "empty-library"),
                 )
             } else {
                 PullToRefreshBox(isRefreshing = state.refreshing, onRefresh = onRefresh) {
-                    CoverGrid(shelf, images, contentPadding)
+                    CoverGrid(shelf, images, below)
                 }
             }
         }
