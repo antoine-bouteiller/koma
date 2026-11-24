@@ -43,8 +43,10 @@ sealed interface About {
     data class Loaded(
         /** Empty when MangaBaka names none. */
         val authors: String,
-        /** The publication status and the year it started, as "Ongoing · 2018"; may be empty. */
-        val release: String,
+        /** The publication status, as "Ongoing". */
+        val publication: String?,
+        /** The year publication started. */
+        val year: String?,
         val rating: String?,
         val summary: String,
         val tags: List<String>,
@@ -73,7 +75,8 @@ fun titleState(
                 details != null ->
                     About.Loaded(
                         authors = details.authors.joinToString(", "),
-                        release = release(details.status, details.startYear),
+                        publication = PUBLICATIONS[details.status],
+                        year = details.startYear?.toString(),
                         rating = details.rating?.roundToInt()?.toString(),
                         summary = details.description,
                         tags = shownTags(details.tags),
@@ -84,7 +87,7 @@ fun titleState(
     )
 }
 
-private val RELEASES =
+private val PUBLICATIONS =
     mapOf(
         "releasing" to "Ongoing",
         "completed" to "Completed",
@@ -92,9 +95,6 @@ private val RELEASES =
         "cancelled" to "Cancelled",
         "upcoming" to "Upcoming",
     )
-
-fun release(status: String, startYear: Int?): String =
-    listOfNotNull(RELEASES[status], startYear?.toString()).joinToString(" · ")
 
 private val WEIGHTS = listOf("core", "defining", "recurrent", "incidental", "unweighted")
 

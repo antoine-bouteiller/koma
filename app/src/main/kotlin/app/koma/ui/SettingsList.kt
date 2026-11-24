@@ -111,13 +111,20 @@ fun SettingsGroup(rows: List<GroupRow>) {
 fun SettingsCard(
     shape: Shape,
     modifier: Modifier = Modifier,
+    selected: Boolean = false,
     content: @Composable () -> Unit,
 ) {
+    val colors = MaterialTheme.colorScheme
     Surface(
         modifier.fillMaxWidth(),
         shape = shape,
-        color = MaterialTheme.colorScheme.surfaceContainer,
-        border = BorderStroke(1.dp, MaterialTheme.colorScheme.outlineVariant.copy(alpha = 0.6f)),
+        color = if (selected) colors.primaryContainer else colors.surfaceContainer,
+        border =
+            BorderStroke(
+                1.dp,
+                if (selected) colors.primary.copy(alpha = 0.45f)
+                else colors.outlineVariant.copy(alpha = 0.6f),
+            ),
         content = content,
     )
 }
@@ -133,20 +140,25 @@ fun SettingsRow(
     subtitle: String? = null,
     onClick: (() -> Unit)? = null,
     enabled: Boolean = true,
+    /** Marks the current choice among the rows of a group. */
+    selected: Boolean = false,
     /** Replaces the icon's and the title's colors, as the error color marks a destructive row. */
     color: Color? = null,
     trailing: @Composable () -> Unit = { if (onClick != null) Chevron() },
 ) {
+    val colors = MaterialTheme.colorScheme
     SettingsCard(
         shape,
-        modifier
-            .clip(shape)
-            .then(
-                if (onClick != null)
-                    Modifier.clickable(enabled = enabled, role = Role.Button, onClick = onClick)
-                else Modifier
-            )
-            .testTag(tag),
+        selected = selected,
+        modifier =
+            modifier
+                .clip(shape)
+                .then(
+                    if (onClick != null)
+                        Modifier.clickable(enabled = enabled, role = Role.Button, onClick = onClick)
+                    else Modifier
+                )
+                .testTag(tag),
     ) {
         Row(
             Modifier.padding(16.dp),
@@ -157,15 +169,20 @@ fun SettingsRow(
             Icon(
                 painterResource(icon),
                 contentDescription = null,
-                tint = (color ?: MaterialTheme.colorScheme.primary).copy(alpha = alpha),
+                tint =
+                    (color ?: if (selected) colors.onPrimaryContainer else colors.primary).copy(
+                        alpha = alpha
+                    ),
                 modifier = Modifier.size(24.dp),
             )
             Column(Modifier.weight(1f), verticalArrangement = Arrangement.spacedBy(2.dp)) {
                 Text(
                     title,
                     style = MaterialTheme.typography.bodyLarge,
-                    fontWeight = FontWeight.Medium,
-                    color = (color ?: MaterialTheme.colorScheme.onSurface).copy(alpha = alpha),
+                    color =
+                        (color ?: if (selected) colors.onPrimaryContainer else colors.onSurface)
+                            .copy(alpha = alpha),
+                    fontWeight = if (selected) FontWeight.SemiBold else FontWeight.Medium,
                     maxLines = 1,
                     overflow = TextOverflow.Ellipsis,
                     modifier = Modifier.testTag("$tag-title"),

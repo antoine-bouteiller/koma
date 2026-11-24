@@ -1,6 +1,7 @@
 package app.koma.title
 
 import androidx.compose.ui.test.assertContentDescriptionEquals
+import androidx.compose.ui.test.assertIsSelected
 import app.koma.testing.AppHarness
 import app.koma.testing.BATCH
 import app.koma.testing.CHANGES
@@ -54,7 +55,8 @@ class TitleTest {
         app.tap("manga-1")
         app.text("title-name", "Solo Leveling")
         app.text("title-authors", "Chu-Gong, Jang Sung-Lak")
-        app.text("title-release", "Completed · 2018")
+        app.text("title-publication", "Completed")
+        app.text("title-year", "2018")
         app.text("title-rating", "86")
         app.text("title-status", "Reading")
         app.text("title-summary", "Jinwoo levels up.")
@@ -77,6 +79,7 @@ class TitleTest {
         app.launch()
         app.tap("manga-1")
         app.tap("title-status")
+        app.node("status-reading").assertIsSelected()
         app.tap("status-completed")
         app.text("title-status", "Completed")
         val write = app.network.requests.single { it.url == "$LIBRARY/1" }

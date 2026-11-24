@@ -53,6 +53,8 @@ import androidx.compose.ui.layout.ContentScale
 import androidx.compose.ui.platform.testTag
 import androidx.compose.ui.res.painterResource
 import androidx.compose.ui.semantics.Role
+import androidx.compose.ui.semantics.selected
+import androidx.compose.ui.semantics.semantics
 import androidx.compose.ui.text.font.FontWeight
 import androidx.compose.ui.text.style.TextOverflow
 import androidx.compose.ui.unit.Dp
@@ -207,45 +209,50 @@ private fun Facts(state: TitleState, modifier: Modifier) {
                 modifier = Modifier.testTag("title-authors"),
             )
         }
-        Row(horizontalArrangement = Arrangement.spacedBy(6.dp)) {
-            if (about.rating != null) {
-                Fact(about.rating, "title-rating", R.drawable.ic_star)
+        val facts =
+            listOfNotNull(
+                about.rating?.let { Fact(it, "title-rating", R.drawable.ic_star) },
+                about.publication?.let { Fact(it, "title-publication") },
+                about.year?.let { Fact(it, "title-year") },
+            )
+        Row(
+            horizontalArrangement = Arrangement.spacedBy(6.dp),
+            verticalAlignment = Alignment.CenterVertically,
+        ) {
+            facts.forEachIndexed { index, fact ->
+                if (index > 0) {
+                    Text("·", style = MaterialTheme.typography.labelLarge, color = colors.outline)
+                }
+                FactText(fact)
             }
-            if (about.release.isNotEmpty()) Fact(about.release, "title-release")
         }
     }
 }
 
-/** A short fact of the series, in a tonal pill. */
+/** A short fact of the series. */
+private class Fact(val text: String, val tag: String, @DrawableRes val icon: Int? = null)
+
 @Composable
-private fun Fact(text: String, tag: String, @DrawableRes icon: Int? = null) {
+private fun FactText(fact: Fact) {
     val colors = MaterialTheme.colorScheme
     Row(
-        Modifier.clip(PillShape)
-            .background(colors.secondaryContainer)
-            .padding(
-                start = if (icon != null) 8.dp else 12.dp,
-                end = 12.dp,
-                top = 6.dp,
-                bottom = 6.dp,
-            ),
         horizontalArrangement = Arrangement.spacedBy(4.dp),
         verticalAlignment = Alignment.CenterVertically,
     ) {
-        if (icon != null) {
+        if (fact.icon != null) {
             Icon(
-                painterResource(icon),
+                painterResource(fact.icon),
                 contentDescription = null,
-                tint = colors.onSecondaryContainer,
+                tint = colors.primary,
                 modifier = Modifier.size(16.dp),
             )
         }
         Text(
-            text,
+            fact.text,
             style = MaterialTheme.typography.labelLarge,
-            color = colors.onSecondaryContainer,
+            color = colors.onSurfaceVariant,
             maxLines = 1,
-            modifier = Modifier.testTag(tag),
+            modifier = Modifier.testTag(fact.tag),
         )
     }
 }
@@ -313,27 +320,21 @@ private fun StatusSheet(current: Status?, onPick: (String) -> Unit, onDismiss: (
             )
             SettingsGroup(
                 STATUSES.map { status ->
+                    val chosen = status.state == current?.state
                     GroupRow { shape ->
                         SettingsRow(
                             title = status.label,
                             icon = status.icon,
-                            shape = shape,
+                            shape = if (chosen) PillShape else shape,
                             tag = "status-${status.state}",
+                            modifier = Modifier.semantics { selected = chosen },
+                            selected = chosen,
                             onClick = {
                                 scope
                                     .launch { sheet.hide() }
                                     .invokeOnCompletion { onPick(status.state) }
                             },
-                            trailing = {
-                                if (status.state == current?.state) {
-                                    Icon(
-                                        painterResource(R.drawable.ic_check),
-                                        contentDescription = "Current",
-                                        tint = MaterialTheme.colorScheme.primary,
-                                        modifier = Modifier.size(24.dp),
-                                    )
-                                }
-                            },
+                            trailing = {},
                         )
                     }
                 }
@@ -352,13 +353,15 @@ private fun Summary(text: String) {
             if (expanded) 180f else 0f,
             MaterialTheme.motionScheme.defaultSpatialSpec(),
         )
+    // The text sits inside the clip so its rounded corners never cut a letter.
     Column(
         Modifier.fillMaxWidth()
-            .padding(horizontal = 16.dp)
+            .padding(horizontal = 8.dp)
             .clip(RoundedCornerShape(16.dp))
             .clickable(enabled = expanded || overflows, role = Role.Button) {
                 expanded = !expanded
             }
+            .padding(8.dp)
             .animateContentSize(MaterialTheme.motionScheme.defaultSpatialSpec())
             .testTag("title-summary"),
         horizontalAlignment = Alignment.CenterHorizontally,
