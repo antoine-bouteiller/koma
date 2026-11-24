@@ -29,6 +29,9 @@ import androidx.compose.material3.pulltorefresh.PullToRefreshBox
 import androidx.compose.material3.pulltorefresh.PullToRefreshDefaults
 import androidx.compose.material3.pulltorefresh.rememberPullToRefreshState
 import androidx.compose.runtime.Composable
+import androidx.compose.runtime.derivedStateOf
+import androidx.compose.runtime.getValue
+import androidx.compose.runtime.remember
 import androidx.compose.runtime.rememberCoroutineScope
 import androidx.compose.ui.Alignment
 import androidx.compose.ui.Modifier
@@ -96,7 +99,11 @@ fun ShelfPager(
             )
         } else {
             val grid = rememberLazyGridState()
-            if (page == pager.currentPage) TrackHeaderBackdrop(grid)
+            val inView by remember {
+                derivedStateOf { pager.layoutInfo.visiblePagesInfo.any { it.index == page } }
+            }
+            // Mid-swipe, the shelf leaving may still run under the header.
+            if (inView) TrackHeaderBackdrop(grid)
             val pull = rememberPullToRefreshState()
             PullToRefreshBox(
                 isRefreshing = state.refreshing,

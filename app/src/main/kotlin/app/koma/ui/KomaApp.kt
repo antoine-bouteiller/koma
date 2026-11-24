@@ -36,6 +36,7 @@ import androidx.compose.runtime.rememberCoroutineScope
 import androidx.compose.runtime.saveable.rememberSaveable
 import androidx.compose.runtime.saveable.rememberSaveableStateHolder
 import androidx.compose.runtime.setValue
+import androidx.compose.runtime.snapshotFlow
 import androidx.compose.ui.Alignment
 import androidx.compose.ui.Modifier
 import androidx.compose.ui.input.nestedscroll.nestedScroll
@@ -211,6 +212,8 @@ fun KomaApp(container: AppContainer) {
                 HidingBars(with(density) { BarsDistance.toPx() }, motion.defaultEffectsSpec())
             }
         LaunchedEffect(screen) { bars.show() }
+        // A scroll coming into view may sit at its top, where it could never bring the bars back.
+        LaunchedEffect(backdrop, bars) { snapshotFlow { backdrop.tracked }.collect { bars.show() } }
         Surface(Modifier.fillMaxSize().testTag("root")) {
             Box(Modifier.fillMaxSize()) {
                 val contentPadding = PaddingValues(top = headerHeight, bottom = barHeight)

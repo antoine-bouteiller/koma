@@ -6,6 +6,7 @@ import androidx.compose.ui.test.getUnclippedBoundsInRoot
 import androidx.compose.ui.test.performClick
 import androidx.compose.ui.test.performTouchInput
 import androidx.compose.ui.test.swipeDown
+import androidx.compose.ui.test.swipeLeft
 import androidx.compose.ui.test.swipeUp
 import androidx.compose.ui.unit.Dp
 import app.koma.testing.AppHarness
@@ -73,6 +74,37 @@ class LibraryTest {
         app.awaitIdle()
         assertTrue(barTop() < rootBottom())
         app.node("shelves").assertIsDisplayed()
+    }
+
+    @Test
+    fun `swiping to another shelf brings back the bars a scroll hid`() {
+        app.signedIn()
+        app.network.answer(
+            "$CHANGES?limit=1000",
+            200,
+            changes(
+                "c1",
+                false,
+                *(1..30).map { upsert(it, "reading", "2026-01-01T00:00:00Z") }.toTypedArray(),
+                upsert(31, "completed", "2026-01-01T00:00:00Z"),
+            ),
+        )
+        app.network.answer(
+            BATCH,
+            200,
+            batch(*(1..31).map { series(it, "Title $it") }.toTypedArray()),
+        )
+        app.launch()
+        app.node("library-reading").performTouchInput {
+            swipeUp(centerY + height / 4, centerY - height / 4)
+        }
+        app.awaitIdle()
+        app.node("shelves").assertIsNotDisplayed()
+        app.node("shelf-pager").performTouchInput { swipeLeft() }
+        app.awaitIdle()
+        app.node("manga-31").assertIsDisplayed()
+        app.node("shelves").assertIsDisplayed()
+        assertTrue(barTop() < rootBottom())
     }
 
     @Test

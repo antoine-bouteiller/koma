@@ -8,6 +8,7 @@ import androidx.compose.runtime.Composable
 import androidx.compose.runtime.DisposableEffect
 import androidx.compose.runtime.Stable
 import androidx.compose.runtime.getValue
+import androidx.compose.runtime.mutableStateListOf
 import androidx.compose.runtime.mutableStateOf
 import androidx.compose.runtime.rememberUpdatedState
 import androidx.compose.runtime.setValue
@@ -19,33 +20,25 @@ import androidx.compose.runtime.staticCompositionLocalOf
  */
 @Stable
 class HeaderBackdrop {
-    private var source by mutableStateOf<ScrollableState?>(null)
+    private val sources = mutableStateListOf<ScrollableState>()
 
     var accessory by mutableStateOf<(@Composable () -> Unit)?>(null)
         private set
 
     /** How far the content runs on under the header; none while no scroll is tracked. */
     val scrolledPast: Float
-        get() =
-            when (val state = source) {
-                null -> 0f
-                is ScrollState -> state.value.toFloat()
-                // A lazy layout measures only the items in view, so one out of sight counts as far.
-                is LazyListState ->
-                    if (state.firstVisibleItemIndex > 0) Float.MAX_VALUE
-                    else state.firstVisibleItemScrollOffset.toFloat()
-                is LazyGridState ->
-                    if (state.firstVisibleItemIndex > 0) Float.MAX_VALUE
-                    else state.firstVisibleItemScrollOffset.toFloat()
-                else -> if (state.canScrollBackward) Float.MAX_VALUE else 0f
-            }
+        get() = sources.maxOfOrNull { it.scrolledPast() } ?: 0f
+
+    /** The scrolls in view, which change as a shelf swipes in or another screen opens. */
+    internal val tracked: List<ScrollableState>
+        get() = sources.toList()
 
     internal fun track(state: ScrollableState) {
-        source = state
+        sources.add(state)
     }
 
     internal fun release(state: ScrollableState) {
-        if (source === state) source = null
+        sources.remove(state)
     }
 
     internal fun show(slot: @Composable () -> Unit) {
@@ -57,10 +50,26 @@ class HeaderBackdrop {
     }
 }
 
+// A lazy layout measures only the items in view, so one out of sight counts as far.
+private fun ScrollableState.scrolledPast(): Float =
+    when (this) {
+        is ScrollState -> value.toFloat()
+        is LazyListState ->
+            if (firstVisibleItemIndex > 0) Float.MAX_VALUE
+            else firstVisibleItemScrollOffset.toFloat()
+        is LazyGridState ->
+            if (firstVisibleItemIndex > 0) Float.MAX_VALUE
+            else firstVisibleItemScrollOffset.toFloat()
+        else -> if (canScrollBackward) Float.MAX_VALUE else 0f
+    }
+
 /** The backdrop of the screen shown; null on a screen leaving, which hands the header nothing. */
 val LocalHeaderBackdrop = staticCompositionLocalOf<HeaderBackdrop?> { null }
 
-/** Hands [state], the scroll of the content shown, to the screen header floating over it. */
+/**
+ * Hands [state], a scroll in view, to the screen header floating over it. The band follows the
+ * furthest of the scrolls tracked at once.
+ */
 @Composable
 fun TrackHeaderBackdrop(state: ScrollableState) {
     val backdrop = LocalHeaderBackdrop.current ?: return
