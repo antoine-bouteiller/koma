@@ -2,7 +2,7 @@ package app.koma
 
 import android.app.Application
 import android.content.Intent
-import androidx.core.net.toUri
+import androidx.core.content.FileProvider
 import app.cash.sqldelight.driver.android.AndroidSqliteDriver
 import app.koma.auth.CustomTabBrowser
 import app.koma.auth.KeystoreSecretStore
@@ -34,9 +34,14 @@ class KomaApplication : Application() {
             clock = Clock.systemUTC(),
             zone = { ZoneId.systemDefault() },
             installedVersion = BuildConfig.VERSION_NAME,
-            openUrl = { url ->
+            installApk = { apk ->
+                val uri = FileProvider.getUriForFile(this, "$packageName.update", apk)
                 startActivity(
-                    Intent(Intent.ACTION_VIEW, url.toUri()).addFlags(Intent.FLAG_ACTIVITY_NEW_TASK)
+                    Intent(Intent.ACTION_VIEW)
+                        .setDataAndType(uri, "application/vnd.android.package-archive")
+                        .addFlags(
+                            Intent.FLAG_GRANT_READ_URI_PERMISSION or Intent.FLAG_ACTIVITY_NEW_TASK
+                        )
                 )
             },
         )

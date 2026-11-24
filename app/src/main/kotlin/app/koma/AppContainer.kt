@@ -9,6 +9,7 @@ import app.koma.data.MangaBakaApi
 import app.koma.data.Store
 import app.koma.ui.theme.ThemePreferences
 import coil3.ImageLoader
+import java.io.File
 import java.time.Clock
 import java.time.ZoneId
 import kotlinx.coroutines.CoroutineDispatcher
@@ -47,7 +48,8 @@ class AppContainer(
     val clock: Clock,
     val zone: () -> ZoneId,
     val installedVersion: String,
-    val openUrl: (String) -> Unit,
+    /** Hands a downloaded APK to Android's installer, which asks the user to install it. */
+    val installApk: (File) -> Unit,
     /**
      * Runs the blocking network and database work. Tests pass the main dispatcher, which Compose's
      * idling waits for.

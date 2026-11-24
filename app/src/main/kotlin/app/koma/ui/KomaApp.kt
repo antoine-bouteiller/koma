@@ -38,7 +38,8 @@ import app.koma.settings.Account
 import app.koma.settings.SettingsPage
 import app.koma.settings.SettingsView
 import app.koma.ui.theme.KomaTheme
-import app.koma.update.UpdateBanner
+import app.koma.update.UpdateDialog
+import app.koma.update.UpdatePill
 import app.koma.update.UpdateViewModel
 import dev.chrisbanes.haze.hazeSource
 import dev.chrisbanes.haze.rememberHazeState
@@ -185,8 +186,9 @@ fun KomaApp(container: AppContainer) {
                         title = page?.title ?: tab.title,
                         titleTag = "title-${page?.route ?: tab.route}",
                         onBack = page?.let { { settingsPage = null } },
-                    )
-                    UpdateBanner(updateModel, container.openUrl)
+                    ) {
+                        UpdatePill(updateModel)
+                    }
                 }
                 FloatingTabBar(
                     tabs = Tab.entries,
@@ -202,6 +204,7 @@ fun KomaApp(container: AppContainer) {
                             .windowInsetsPadding(WindowInsets.navigationBars)
                             .padding(start = 16.dp, end = 16.dp, bottom = 12.dp),
                 )
+                UpdateDialog(updateModel)
             }
         }
     }

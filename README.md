@@ -13,7 +13,7 @@ Koma is a Kotlin and Jetpack Compose app in one Gradle module, `app/`, with pack
 | `app.koma.auth` | MangaBaka sign-in (OAuth with PKCE in a Custom Tab), the Keystore secret store |
 | `app.koma.library` | The library sync, its shelves and their screen |
 | `app.koma.history` | The reading history sync and its screen |
-| `app.koma.update` | The banner offering a newer release |
+| `app.koma.update` | The header pill offering a newer release, its download and its hand-off to the installer |
 | `app.koma.settings` | The Settings tab: the Theme and MangaBaka pages |
 | `app.koma.ui` | The app shell: tabs, header, empty states, settings rows, option groups, theme |
 | `app.koma.version` | `versionCode`, also compiled by `buildSrc` for the build |
@@ -88,8 +88,9 @@ Commit messages follow [Conventional Commits](https://www.conventionalcommits.or
 
 Install Koma from
 <https://github.com/antoine-bouteiller/koma/releases/latest/download/koma.apk>. At each launch the
-app asks GitHub for the latest stable release; when it is newer, a banner offers to download it, and
-Android's installer installs it over the current one.
+app asks GitHub for the latest stable release; when it is newer, an Update pill in the header
+offers it. Its dialog downloads the APK inside the app and opens Android's installer on it, which
+asks to install it over the current one. The first time, Android asks to let Koma install apps.
 
 The publish job reads these repository secrets: `EXACT_KEYSTORE_BASE64`,
 `EXACT_KEYSTORE_PASSWORD`, `EXACT_KEY_ALIAS` and `EXACT_KEY_PASSWORD` (the release upload key). It

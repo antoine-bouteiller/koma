@@ -30,6 +30,7 @@ import coil3.intercept.Interceptor
 import coil3.request.ErrorResult
 import coil3.request.ImageResult
 import coil3.serviceLoaderEnabled
+import java.io.File
 import java.io.IOException
 import java.time.Clock
 import java.time.Instant
@@ -60,7 +61,8 @@ class AppHarness : TestRule {
     val secrets = MemorySecretStore()
     val preferences = MemoryPreferenceStore()
     val browser = FakeBrowser()
-    val opened = mutableListOf<String>()
+    /** The APKs handed to Android's installer. */
+    val installed = mutableListOf<File>()
     /** The image URLs the app asked for; no image is ever loaded. */
     val images = CopyOnWriteArrayList<String>()
 
@@ -121,7 +123,7 @@ class AppHarness : TestRule {
             clock = Clock.fixed(epoch, ZoneOffset.UTC),
             zone = { zone },
             installedVersion = "0.1.0",
-            openUrl = { opened += it },
+            installApk = { installed += it },
             work = Dispatchers.Main,
         )
     }

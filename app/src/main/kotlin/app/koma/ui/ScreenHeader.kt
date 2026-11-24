@@ -35,8 +35,7 @@ import dev.chrisbanes.haze.HazeState
 import dev.chrisbanes.haze.blur.hazeBlur
 
 // Google Sans Flex cut to one instance: SemiBold, fully rounded, optical size 28.
-private val TitleFont =
-    FontFamily(Font(R.font.google_sans_flex_rounded_semibold, FontWeight.SemiBold))
+val TitleFont = FontFamily(Font(R.font.google_sans_flex_rounded_semibold, FontWeight.SemiBold))
 
 /** A screen's title, after a glass back button when [onBack] is set. */
 @Composable

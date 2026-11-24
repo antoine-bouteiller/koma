@@ -3,6 +3,7 @@ package app.koma.ui
 import androidx.annotation.DrawableRes
 import androidx.compose.animation.core.animateFloatAsState
 import androidx.compose.foundation.background
+import androidx.compose.foundation.border
 import androidx.compose.foundation.clickable
 import androidx.compose.foundation.interaction.MutableInteractionSource
 import androidx.compose.foundation.interaction.collectIsPressedAsState
@@ -22,12 +23,16 @@ import androidx.compose.runtime.remember
 import androidx.compose.ui.Alignment
 import androidx.compose.ui.Modifier
 import androidx.compose.ui.draw.clip
+import androidx.compose.ui.graphics.Color
 import androidx.compose.ui.res.painterResource
 import androidx.compose.ui.semantics.Role
 import androidx.compose.ui.text.style.TextOverflow
 import androidx.compose.ui.unit.dp
 
-/** A tonal pill whose corners round down while pressed, in place of a ripple. */
+/**
+ * A tonal pill whose corners round down while pressed, in place of a ripple. An [outlined] pill is
+ * the quieter choice beside a tonal one.
+ */
 @Composable
 fun PillButton(
     label: String,
@@ -35,6 +40,7 @@ fun PillButton(
     modifier: Modifier = Modifier,
     @DrawableRes icon: Int? = null,
     enabled: Boolean = true,
+    outlined: Boolean = false,
 ) {
     val colors = MaterialTheme.colorScheme
     val source = remember { MutableInteractionSource() }
@@ -45,14 +51,25 @@ fun PillButton(
             MaterialTheme.motionScheme.fastSpatialSpec(),
         )
     val shape = RoundedCornerShape(Height / 2 * rounding)
-    val container = if (enabled) colors.primaryContainer else colors.onSurface.copy(alpha = 0.1f)
-    val content = if (enabled) colors.onPrimaryContainer else colors.onSurface.copy(alpha = 0.38f)
+    val container =
+        when {
+            outlined -> Color.Transparent
+            enabled -> colors.primaryContainer
+            else -> colors.onSurface.copy(alpha = 0.1f)
+        }
+    val content =
+        when {
+            !enabled -> colors.onSurface.copy(alpha = 0.38f)
+            outlined -> colors.primary
+            else -> colors.onPrimaryContainer
+        }
     Row(
         modifier
             .height(Height)
             .widthIn(min = 80.dp)
             .clip(shape)
             .background(container)
+            .then(if (outlined) Modifier.border(1.dp, colors.outlineVariant, shape) else Modifier)
             .clickable(
                 source,
                 indication = null,
