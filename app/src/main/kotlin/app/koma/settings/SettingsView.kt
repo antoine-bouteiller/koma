@@ -5,8 +5,11 @@ import androidx.compose.foundation.layout.Column
 import androidx.compose.foundation.layout.PaddingValues
 import androidx.compose.foundation.layout.fillMaxSize
 import androidx.compose.foundation.layout.padding
+import androidx.compose.foundation.layout.size
 import androidx.compose.foundation.rememberScrollState
 import androidx.compose.foundation.verticalScroll
+import androidx.compose.material3.ExperimentalMaterial3ExpressiveApi
+import androidx.compose.material3.LoadingIndicator
 import androidx.compose.material3.MaterialTheme
 import androidx.compose.material3.Text
 import androidx.compose.runtime.Composable
@@ -16,6 +19,7 @@ import androidx.compose.ui.platform.testTag
 import androidx.compose.ui.unit.dp
 import app.koma.AppContainer
 import app.koma.R
+import app.koma.ui.Chevron
 import app.koma.ui.SettingsGroup
 import app.koma.ui.SettingsRow
 import app.koma.ui.SettingsSection
@@ -73,6 +77,7 @@ private fun SettingsRoot(account: Account, onOpen: (SettingsPage) -> Unit) {
     }
 }
 
+@OptIn(ExperimentalMaterial3ExpressiveApi::class)
 @Composable
 private fun MangaBakaSettings(account: Account, onSignIn: () -> Unit, onSignOut: () -> Unit) {
     if (account.signedIn) {
@@ -111,6 +116,13 @@ private fun MangaBakaSettings(account: Account, onSignIn: () -> Unit, onSignOut:
                     subtitle = "Koma shows the titles you track and the chapters you read.",
                     onClick = onSignIn,
                     enabled = !account.busy,
+                    trailing = {
+                        if (account.busy) {
+                            LoadingIndicator(Modifier.size(32.dp).testTag("sign-in-busy"))
+                        } else {
+                            Chevron()
+                        }
+                    },
                 )
             }
         )

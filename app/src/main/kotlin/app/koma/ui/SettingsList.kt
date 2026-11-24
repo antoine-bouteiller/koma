@@ -191,8 +191,9 @@ fun SettingsSwitchRow(
     }
 }
 
+/** The trailing mark of a row that opens something. */
 @Composable
-private fun Chevron() {
+fun Chevron() {
     Icon(
         painterResource(R.drawable.ic_chevron_right),
         contentDescription = null,

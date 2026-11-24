@@ -17,6 +17,8 @@ import androidx.compose.foundation.lazy.rememberLazyListState
 import androidx.compose.foundation.shape.RoundedCornerShape
 import androidx.compose.material3.Button
 import androidx.compose.material3.ExperimentalMaterial3Api
+import androidx.compose.material3.ExperimentalMaterial3ExpressiveApi
+import androidx.compose.material3.LoadingIndicator
 import androidx.compose.material3.MaterialTheme
 import androidx.compose.material3.OutlinedButton
 import androidx.compose.material3.Text
@@ -33,9 +35,9 @@ import androidx.compose.ui.Modifier
 import androidx.compose.ui.draw.clip
 import androidx.compose.ui.layout.ContentScale
 import androidx.compose.ui.platform.testTag
+import androidx.compose.ui.semantics.contentDescription
 import androidx.compose.ui.semantics.heading
 import androidx.compose.ui.semantics.semantics
-import androidx.compose.ui.text.style.TextAlign
 import androidx.compose.ui.text.style.TextOverflow
 import androidx.compose.ui.unit.dp
 import androidx.lifecycle.compose.collectAsStateWithLifecycle
@@ -43,6 +45,7 @@ import androidx.lifecycle.viewmodel.compose.viewModel
 import app.koma.AppContainer
 import app.koma.R
 import app.koma.ui.EmptyState
+import app.koma.ui.LoadingState
 import app.koma.ui.TrackHeaderBackdrop
 import coil3.ImageLoader
 import coil3.compose.AsyncImage
@@ -68,14 +71,9 @@ fun HistoryView(container: AppContainer, contentPadding: PaddingValues) {
                 }
             }
         HistoryState.Loading ->
-            Text(
+            LoadingState(
                 "Loading your history…",
-                textAlign = TextAlign.Center,
-                modifier =
-                    Modifier.fillMaxWidth()
-                        .padding(contentPadding)
-                        .padding(16.dp)
-                        .testTag("history-loading"),
+                Modifier.padding(contentPadding).testTag("history-loading"),
             )
         HistoryState.Empty ->
             EmptyState(
@@ -87,7 +85,7 @@ fun HistoryView(container: AppContainer, contentPadding: PaddingValues) {
     }
 }
 
-@OptIn(ExperimentalMaterial3Api::class)
+@OptIn(ExperimentalMaterial3Api::class, ExperimentalMaterial3ExpressiveApi::class)
 @Composable
 private fun ReadList(
     rows: HistoryState.Rows,
@@ -113,7 +111,7 @@ private fun ReadList(
         onRefresh = onRefresh,
         state = pull,
         indicator = {
-            PullToRefreshDefaults.Indicator(
+            PullToRefreshDefaults.LoadingIndicator(
                 state = pull,
                 isRefreshing = rows.refreshing,
                 modifier =
@@ -188,12 +186,17 @@ private fun ReadRow(read: HistoryItem.Read, images: ImageLoader) {
     }
 }
 
+@OptIn(ExperimentalMaterial3ExpressiveApi::class)
 @Composable
 private fun Footer(footer: HistoryState.Footer, onRetry: () -> Unit) {
     Box(Modifier.fillMaxWidth().padding(16.dp), contentAlignment = Alignment.Center) {
         when (footer) {
             HistoryState.Footer.Loading ->
-                Text("Loading…", modifier = Modifier.testTag("history-more-loading"))
+                LoadingIndicator(
+                    Modifier.testTag("history-more-loading").semantics {
+                        contentDescription = "Loading older reads…"
+                    }
+                )
             HistoryState.Footer.Retry ->
                 OutlinedButton(
                     onClick = onRetry,

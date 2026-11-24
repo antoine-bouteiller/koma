@@ -17,13 +17,17 @@ import androidx.compose.foundation.pager.HorizontalPager
 import androidx.compose.foundation.pager.rememberPagerState
 import androidx.compose.foundation.shape.RoundedCornerShape
 import androidx.compose.material3.ExperimentalMaterial3Api
+import androidx.compose.material3.ExperimentalMaterial3ExpressiveApi
 import androidx.compose.material3.MaterialTheme
 import androidx.compose.material3.PrimaryScrollableTabRow
 import androidx.compose.material3.Tab
 import androidx.compose.material3.Text
 import androidx.compose.material3.pulltorefresh.PullToRefreshBox
+import androidx.compose.material3.pulltorefresh.PullToRefreshDefaults
+import androidx.compose.material3.pulltorefresh.rememberPullToRefreshState
 import androidx.compose.runtime.Composable
 import androidx.compose.runtime.rememberCoroutineScope
+import androidx.compose.ui.Alignment
 import androidx.compose.ui.Modifier
 import androidx.compose.ui.draw.clip
 import androidx.compose.ui.layout.ContentScale
@@ -38,7 +42,7 @@ import coil3.compose.AsyncImage
 import kotlinx.coroutines.launch
 
 /** The shelves' tabs over a pager of their cover grids. */
-@OptIn(ExperimentalMaterial3Api::class)
+@OptIn(ExperimentalMaterial3Api::class, ExperimentalMaterial3ExpressiveApi::class)
 @Composable
 fun ShelfPager(
     state: LibraryState.Shelves,
@@ -82,7 +86,19 @@ fun ShelfPager(
                         .testTag(if (shelf.id == "archived") "empty-archived" else "empty-library"),
                 )
             } else {
-                PullToRefreshBox(isRefreshing = state.refreshing, onRefresh = onRefresh) {
+                val pull = rememberPullToRefreshState()
+                PullToRefreshBox(
+                    isRefreshing = state.refreshing,
+                    onRefresh = onRefresh,
+                    state = pull,
+                    indicator = {
+                        PullToRefreshDefaults.LoadingIndicator(
+                            state = pull,
+                            isRefreshing = state.refreshing,
+                            modifier = Modifier.align(Alignment.TopCenter),
+                        )
+                    },
+                ) {
                     CoverGrid(shelf, images, below)
                 }
             }
