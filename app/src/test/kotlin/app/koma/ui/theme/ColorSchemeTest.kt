@@ -1,12 +1,15 @@
 package app.koma.ui.theme
 
+import androidx.compose.material3.ColorScheme
 import androidx.compose.material3.darkColorScheme
 import androidx.compose.material3.lightColorScheme
 import androidx.compose.ui.graphics.Color
+import androidx.compose.ui.graphics.luminance
 import androidx.compose.ui.graphics.toArgb
 import androidx.core.graphics.ColorUtils
 import org.junit.Assert.assertEquals
 import org.junit.Assert.assertNotEquals
+import org.junit.Assert.assertTrue
 import org.junit.Test
 import org.junit.runner.RunWith
 import org.robolectric.RobolectricTestRunner
@@ -22,6 +25,18 @@ class ColorSchemeTest {
         assertEquals(Color.Black, colorScheme(settings, dark = true, null).surface)
         assertEquals(Color.Black, colorScheme(settings, dark = true, null).background)
         assertEquals(lightColorScheme().surface, colorScheme(settings, dark = false, null).surface)
+    }
+
+    @Test
+    fun `true black darkens containers and pills but keeps them off the background`() {
+        val dark = colorScheme(ThemeSettings(style = ColorStyle.Default), dark = true, null)
+        val black =
+            colorScheme(ThemeSettings(style = ColorStyle.Default, trueBlack = true), true, null)
+        for (role in
+            listOf<(ColorScheme) -> Color>({ it.surfaceContainer }, { it.surfaceVariant })) {
+            assertTrue(role(black).luminance() < role(dark).luminance())
+            assertNotEquals(Color.Black, role(black))
+        }
     }
 
     @Test

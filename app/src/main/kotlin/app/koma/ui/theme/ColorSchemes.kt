@@ -27,16 +27,25 @@ fun colorScheme(settings: ThemeSettings, dark: Boolean, wallpaper: ColorScheme?)
             scheme = scheme.withNeutrals { (_, s, l) -> hsl(hue, s, l) }
         }
     }
-    if (dark && settings.trueBlack) {
-        scheme =
-            scheme.copy(
-                background = Color.Black,
-                surface = Color.Black,
-                surfaceDim = Color.Black,
-                surfaceContainerLowest = Color.Black,
-            )
-    }
+    if (dark && settings.trueBlack) scheme = scheme.trueBlack()
     return scheme
+}
+
+/** Black background, with the containers on it darkened yet still apart from it. */
+private fun ColorScheme.trueBlack(): ColorScheme {
+    fun Color.darker() = hslOf(this).let { (h, s, l) -> hsl(h, s, l * 0.5f) }
+    return copy(
+        background = Color.Black,
+        surface = Color.Black,
+        surfaceDim = Color.Black,
+        surfaceContainerLowest = Color.Black,
+        surfaceContainerLow = surfaceContainerLow.darker(),
+        surfaceContainer = surfaceContainer.darker(),
+        surfaceContainerHigh = surfaceContainerHigh.darker(),
+        surfaceContainerHighest = surfaceContainerHighest.darker(),
+        surfaceBright = surfaceBright.darker(),
+        surfaceVariant = surfaceVariant.darker(),
+    )
 }
 
 /** Primary, secondary and tertiary roles from one hue, at the lightness each role takes. */
