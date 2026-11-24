@@ -5,7 +5,6 @@ import androidx.compose.foundation.layout.PaddingValues
 import androidx.compose.foundation.layout.fillMaxSize
 import androidx.compose.foundation.layout.fillMaxWidth
 import androidx.compose.foundation.layout.padding
-import androidx.compose.material3.Button
 import androidx.compose.material3.MaterialTheme
 import androidx.compose.material3.Text
 import androidx.compose.runtime.Composable
@@ -15,6 +14,7 @@ import androidx.compose.ui.text.style.TextAlign
 import androidx.compose.ui.unit.dp
 import app.koma.R
 import app.koma.ui.EmptyState
+import app.koma.ui.PillButton
 
 /** Asks to sign in to MangaBaka; [errorShown] also shows why the last sign-in failed. */
 @Composable
@@ -34,13 +34,13 @@ fun SignInPrompt(
             message = message,
             modifier = Modifier.weight(1f),
         ) {
-            Button(
+            PillButton(
+                label = "Sign In",
                 onClick = onSignIn,
+                icon = R.drawable.ic_login,
                 enabled = !view.busy,
-                modifier = Modifier.testTag(buttonTag),
-            ) {
-                Text("Sign In")
-            }
+                modifier = Modifier.fillMaxWidth(0.5f).testTag(buttonTag),
+            )
         }
         if (errorShown && view.error.isNotEmpty()) {
             Text(

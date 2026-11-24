@@ -35,6 +35,8 @@ import app.koma.library.LibraryView
 import app.koma.ui.theme.KomaTheme
 import app.koma.update.UpdateBanner
 import app.koma.update.UpdateViewModel
+import dev.chrisbanes.haze.hazeSource
+import dev.chrisbanes.haze.rememberHazeState
 
 enum class Tab(
     val route: String,
@@ -88,12 +90,14 @@ fun KomaApp(container: AppContainer) {
     var tab by rememberSaveable { mutableStateOf(Tab.Library) }
     // Keeps each tab's shelf and scroll position while another tab shows.
     val tabs = rememberSaveableStateHolder()
+    val haze = rememberHazeState()
 
     KomaTheme {
         Surface(Modifier.fillMaxSize().testTag("root")) {
             Box(Modifier.fillMaxSize()) {
                 Column(
                     Modifier.fillMaxSize()
+                        .hazeSource(haze)
                         .windowInsetsPadding(
                             WindowInsets.safeDrawing.only(
                                 WindowInsetsSides.Top + WindowInsetsSides.Horizontal
@@ -148,10 +152,11 @@ fun KomaApp(container: AppContainer) {
                     tabs = Tab.entries,
                     selected = tab,
                     onSelect = { tab = it },
+                    haze = haze,
                     modifier =
                         Modifier.align(Alignment.BottomCenter)
                             .windowInsetsPadding(WindowInsets.navigationBars)
-                            .padding(bottom = 16.dp),
+                            .padding(start = 16.dp, end = 16.dp, bottom = 12.dp),
                 )
             }
         }
