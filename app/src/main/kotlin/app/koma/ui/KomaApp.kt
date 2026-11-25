@@ -19,6 +19,7 @@ import androidx.compose.foundation.layout.PaddingValues
 import androidx.compose.foundation.layout.WindowInsets
 import androidx.compose.foundation.layout.WindowInsetsSides
 import androidx.compose.foundation.layout.fillMaxSize
+import androidx.compose.foundation.layout.fillMaxWidth
 import androidx.compose.foundation.layout.only
 import androidx.compose.foundation.layout.padding
 import androidx.compose.foundation.layout.safeDrawing
@@ -134,6 +135,13 @@ private data class Screen(val tab: Tab, val page: SettingsPage?, val series: Med
 
     val nested: Boolean
         get() = page != null || series != null
+
+    /** Keys the screen's saved state and its header accessory. */
+    val key: String
+        get() =
+            page?.let { "settings-${it.route}" }
+                ?: series?.let { "series-${it.backend}-${it.id}" }
+                ?: tab.route
 }
 
 /**
@@ -194,7 +202,8 @@ fun KomaApp(container: AppContainer) {
     // Keeps each screen's shelf and scroll position while another one shows.
     val saved = rememberSaveableStateHolder()
     val backdrop = remember { HeaderBackdrop() }
-    // The header and the bar float over the content, which leaves them this much room at its ends.
+    // The header, without its accessory, and the bar float over the content, which leaves them this
+    // much room at its ends.
     var headerHeight by remember { mutableStateOf(0.dp) }
     var barHeight by remember { mutableStateOf(0.dp) }
     val density = LocalDensity.current
@@ -236,13 +245,11 @@ fun KomaApp(container: AppContainer) {
                     transition.AnimatedContent(transitionSpec = { screenChange(motion) }) { shown ->
                         val entering = this.transition.targetState == EnterExitState.Visible
                         CompositionLocalProvider(
-                            LocalHeaderBackdrop provides backdrop.takeIf { entering }
+                            LocalHeaderBackdrop provides backdrop.takeIf { entering },
+                            LocalHeaderScreen provides
+                                remember(shown.key) { HeaderScreen(backdrop, shown.key) },
                         ) {
-                            saved.SaveableStateProvider(
-                                shown.page?.let { "settings-${it.route}" }
-                                    ?: shown.series?.let { "series-${it.backend}-${it.id}" }
-                                    ?: shown.tab.route
-                            ) {
+                            saved.SaveableStateProvider(shown.key) {
                                 when {
                                     shown.tab == Tab.Settings ->
                                         SettingsView(
@@ -307,6 +314,13 @@ fun KomaApp(container: AppContainer) {
                     backdrop,
                     hidden = { bars.hidden },
                     onHeight = { headerHeight = with(density) { it.toDp() } },
+                    accessory = {
+                        transition.AnimatedContent(transitionSpec = { screenChange(motion) }) {
+                            // An entering screen hands its accessory over a frame late, and a
+                            // slide sized on that empty frame would not move.
+                            Box(Modifier.fillMaxWidth()) { backdrop.accessory(it.key)?.invoke() }
+                        }
+                    },
                 ) {
                     ScreenHeader(actions = { UpdatePill(updateModel) }) {
                         transition.AnimatedContent(

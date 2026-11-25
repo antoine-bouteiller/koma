@@ -9,12 +9,15 @@ import androidx.compose.ui.test.swipeDown
 import androidx.compose.ui.test.swipeLeft
 import androidx.compose.ui.test.swipeUp
 import androidx.compose.ui.unit.Dp
+import androidx.compose.ui.unit.dp
 import app.koma.testing.AppHarness
 import app.koma.testing.BATCH
 import app.koma.testing.CHANGES
+import app.koma.testing.SERIES
 import app.koma.testing.batch
 import app.koma.testing.changes
 import app.koma.testing.delete
+import app.koma.testing.fullSeries
 import app.koma.testing.series
 import app.koma.testing.upsert
 import org.junit.Assert.assertEquals
@@ -107,13 +110,43 @@ class LibraryTest {
         assertTrue(barTop() < rootBottom())
     }
 
+    private fun shelvesLeft(): Dp = app.node("shelves").getUnclippedBoundsInRoot().left
+
     @Test
-    fun `the shelves' tabs leave the header at once when another tab opens`() {
+    fun `the shelves' tabs slide with the library as a title opens and closes`() {
         longShelf()
+        app.network.answer("$SERIES/1?schema=full", 200, fullSeries(1, "Title 1"))
         app.compose.mainClock.autoAdvance = false
-        app.node("tab-updates").performClick()
+        app.node("manga-1").performClick()
         app.compose.mainClock.advanceTimeBy(64)
+        assertTrue("${shelvesLeft()} slides out", shelvesLeft() < 0.dp)
+        app.compose.mainClock.autoAdvance = true
+        app.awaitIdle()
         app.missing("shelves")
+
+        app.compose.mainClock.autoAdvance = false
+        app.node("back").performClick()
+        app.compose.mainClock.advanceTimeBy(64)
+        assertTrue("${shelvesLeft()} slides in", shelvesLeft() < 0.dp)
+    }
+
+    @Test
+    fun `the grid holds still while a title opens over it and closes`() {
+        longShelf()
+        app.network.answer("$SERIES/1?schema=full", 200, fullSeries(1, "Title 1"))
+        fun top() = app.node("manga-1").getUnclippedBoundsInRoot().top
+        val top = top()
+        app.compose.mainClock.autoAdvance = false
+        app.node("manga-1").performClick()
+        app.compose.mainClock.advanceTimeBy(64)
+        assertEquals(top, top())
+        app.compose.mainClock.autoAdvance = true
+        app.awaitIdle()
+
+        app.compose.mainClock.autoAdvance = false
+        app.node("back").performClick()
+        app.compose.mainClock.advanceTimeBy(32)
+        assertEquals(top, top())
     }
 
     @Test

@@ -81,22 +81,25 @@ fun ScreenTitle(title: String, titleTag: String, onBack: (() -> Unit)? = null) {
 /**
  * The header floating over the content. Bare at rest, it lays down a solid band as the content
  * [backdrop] tracks runs on under it, following the scroll rather than a timer. Under [content] it
- * shows the backdrop's accessory, which slides away under the title as [hidden] goes from 0
- * to 1. [onHeight] receives the header's height with the accessory out, so the content's start
- * stays put while it slides.
+ * shows [accessory], which slides away under the title as [hidden] goes from 0 to 1. [onHeight]
+ * receives the header's height without the accessory, so each screen's start can add its own and
+ * stay put while the accessory slides or changes.
  */
 @Composable
 fun FloatingHeader(
     backdrop: HeaderBackdrop,
     hidden: () -> Float,
     onHeight: (Int) -> Unit,
+    accessory: @Composable () -> Unit,
     modifier: Modifier = Modifier,
     content: @Composable ColumnScope.() -> Unit,
 ) {
     val band = MaterialTheme.colorScheme.surfaceContainer
     // Written while measuring, before the header's size is reported.
-    val slid = remember { IntArray(1) }
-    Box(modifier.fillMaxWidth().onSizeChanged { onHeight(it.height + slid[0]) }.testTag("header")) {
+    val showing = remember { IntArray(1) }
+    Box(
+        modifier.fillMaxWidth().onSizeChanged { onHeight(it.height - showing[0]) }.testTag("header")
+    ) {
         Box(
             Modifier.matchParentSize()
                 .graphicsLayer {
@@ -114,11 +117,11 @@ fun FloatingHeader(
                 Modifier.clipToBounds().layout { measurable, constraints ->
                     val placeable = measurable.measure(constraints)
                     val away = (placeable.height * hidden()).roundToInt()
-                    slid[0] = away
-                    layout(placeable.width, placeable.height - away) { placeable.place(0, -away) }
+                    showing[0] = placeable.height - away
+                    layout(placeable.width, showing[0]) { placeable.place(0, -away) }
                 }
             ) {
-                backdrop.accessory?.invoke()
+                accessory()
             }
         }
     }

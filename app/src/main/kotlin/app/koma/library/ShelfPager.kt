@@ -46,8 +46,8 @@ import androidx.compose.ui.unit.dp
 import app.koma.R
 import app.koma.data.MediaRef
 import app.koma.ui.EmptyState
-import app.koma.ui.HeaderAccessory
 import app.koma.ui.TrackHeaderBackdrop
+import app.koma.ui.headerAccessory
 import coil3.ImageLoader
 import coil3.compose.AsyncImage
 import kotlinx.coroutines.launch
@@ -65,7 +65,7 @@ fun ShelfPager(
 ) {
     val pager = rememberPagerState { state.shelves.size }
     val scope = rememberCoroutineScope()
-    HeaderAccessory {
+    val tabs = headerAccessory {
         PrimaryScrollableTabRow(
             selectedTabIndex = pager.currentPage,
             edgePadding = 0.dp,
@@ -83,6 +83,14 @@ fun ShelfPager(
             }
         }
     }
+    val direction = LocalLayoutDirection.current
+    val padding =
+        PaddingValues(
+            start = contentPadding.calculateStartPadding(direction),
+            top = contentPadding.calculateTopPadding() + tabs,
+            end = contentPadding.calculateEndPadding(direction),
+            bottom = contentPadding.calculateBottomPadding(),
+        )
     HorizontalPager(
         state = pager,
         modifier = Modifier.fillMaxSize().testTag("shelf-pager"),
@@ -96,7 +104,7 @@ fun ShelfPager(
                 R.drawable.ic_book,
                 title,
                 message,
-                Modifier.padding(contentPadding)
+                Modifier.padding(padding)
                     .testTag(if (shelf.id == "archived") "empty-archived" else "empty-library"),
             )
         } else {
@@ -117,11 +125,11 @@ fun ShelfPager(
                         isRefreshing = state.refreshing,
                         modifier =
                             Modifier.align(Alignment.TopCenter)
-                                .padding(top = contentPadding.calculateTopPadding()),
+                                .padding(top = padding.calculateTopPadding()),
                     )
                 },
             ) {
-                CoverGrid(shelf, images, grid, contentPadding, onOpen)
+                CoverGrid(shelf, images, grid, padding, onOpen)
             }
         }
     }
