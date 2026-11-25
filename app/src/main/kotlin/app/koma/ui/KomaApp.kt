@@ -69,6 +69,7 @@ import app.koma.ui.theme.KomaTheme
 import app.koma.update.UpdateDialog
 import app.koma.update.UpdatePill
 import app.koma.update.UpdateViewModel
+import java.util.UUID
 import kotlinx.serialization.Serializable
 
 enum class Tab(
@@ -133,7 +134,11 @@ internal sealed interface Route : NavKey {
 
     @Serializable data class Page(val page: SettingsPage) : Route
 
-    @Serializable data class Title(val ref: MediaRef) : Route
+    /**
+     * [visit] tells apart two openings of a title. With equal keys, reopening a title as it closes
+     * would revive the closing screen instead of opening a new one.
+     */
+    @Serializable data class Title(val ref: MediaRef, val visit: String) : Route
 }
 
 // A title's own screen names it, under the header.
@@ -255,7 +260,9 @@ fun KomaApp(container: AppContainer) {
                                 contentPadding = contentPadding,
                             )
                         root == Tab.Library && session.signedIn ->
-                            LibraryView(container, contentPadding) { stack += Route.Title(it) }
+                            LibraryView(container, contentPadding) {
+                                stack += Route.Title(it, UUID.randomUUID().toString())
+                            }
                         root == Tab.Library ->
                             SignInPrompt(
                                 backend = sessionModel.backendName,

@@ -3,6 +3,7 @@ package app.koma.library
 import androidx.compose.ui.test.assertIsDisplayed
 import androidx.compose.ui.test.assertIsNotDisplayed
 import androidx.compose.ui.test.getUnclippedBoundsInRoot
+import androidx.compose.ui.test.onAllNodesWithTag
 import androidx.compose.ui.test.performClick
 import androidx.compose.ui.test.performTouchInput
 import androidx.compose.ui.test.swipeDown
@@ -131,6 +132,24 @@ class LibraryTest {
         app.node("back").performClick()
         app.compose.mainClock.advanceTimeBy(64)
         assertTrue("${shelvesLeft()} slides in", shelvesLeft() < 0.dp)
+    }
+
+    @Test
+    fun `a title reopened as it closes slides in anew`() {
+        longShelf()
+        app.network.answer("$SERIES/1?schema=full", 200, fullSeries(1, "Title 1"))
+        app.node("manga-1").performClick()
+        app.awaitIdle()
+        app.compose.mainClock.autoAdvance = false
+        app.node("back").performClick()
+        app.compose.mainClock.advanceTimeBy(96)
+        app.node("manga-1").performClick()
+        fun openingLeft() =
+            app.compose.onAllNodesWithTag("title").fetchSemanticsNodes().last().boundsInRoot.left
+        app.compose.mainClock.advanceTimeBy(32)
+        val start = openingLeft()
+        app.compose.mainClock.advanceTimeBy(32)
+        assertTrue("${openingLeft()} slides in from $start", openingLeft() < start)
     }
 
     @Test
