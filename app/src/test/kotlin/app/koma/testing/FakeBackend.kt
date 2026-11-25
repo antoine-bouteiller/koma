@@ -47,7 +47,7 @@ class FakeBackend(override val name: String = "Shelfie", signedIn: Boolean = tru
     /** [media] fails, as when the backend is unreachable. */
     var failMedia = false
 
-    /** Makes [member] (`changes`, `signOut` or `userName`) wait until the answer completes. */
+    /** Makes [member] wait until the answer completes. */
     fun hold(member: String): CompletableDeferred<Unit> =
         CompletableDeferred<Unit>().also { held[member] = it }
 
@@ -154,6 +154,9 @@ class FakeBackend(override val name: String = "Shelfie", signedIn: Boolean = tru
         return refs.mapNotNull { known[it]?.media }
     }
 
-    override suspend fun details(ref: MediaRef): MediaDetails =
-        known[ref] ?: throw IOException("${ref.id} is unknown.")
+    override suspend fun details(ref: MediaRef): MediaDetails {
+        calls += "details(${ref.id})"
+        waitFor("details")
+        return known[ref] ?: throw IOException("${ref.id} is unknown.")
+    }
 }

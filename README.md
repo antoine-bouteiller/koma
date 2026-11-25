@@ -53,8 +53,8 @@ Android Studio opens the repository as a Gradle project, with Compose previews a
 Tests run the whole app on the JVM through `app/src/test/kotlin/app/koma/testing/AppHarness.kt`:
 an in-memory secret store, a fake browser, a fixed clock, and `FakeNetwork`, an OkHttp interceptor
 that answers from stubs and fails the test on any request no stub answers. Work runs on the main
-looper there, so Compose's idling waits for it. Images are never loaded; the harness records the
-URLs asked for.
+looper there, so Compose's idling waits for it. The harness records image URLs and returns failures
+unless a test supplies a bitmap.
 
 ## MangaBaka sign-in
 

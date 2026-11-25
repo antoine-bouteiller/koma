@@ -69,7 +69,6 @@ import app.koma.settings.SettingsView
 import app.koma.settings.title
 import app.koma.title.TitleView
 import app.koma.ui.theme.KomaTheme
-import app.koma.ui.theme.easedColors
 import app.koma.update.UpdateDialog
 import app.koma.update.UpdatePill
 import app.koma.update.UpdateViewModel
@@ -363,8 +362,7 @@ private fun ScreenFrame(
     // A scroll coming into view may sit at its top, where it could never bring the bars back.
     LaunchedEffect(backdrop, bars) { snapshotFlow { backdrop.tracked }.collect { bars.show() } }
     val app = MaterialTheme.colorScheme
-    // Eased only on screens that pick colors, so the app's theme still switches at once.
-    val colors = if (backdrop.tinted) easedColors(backdrop.colors ?: app) else app
+    val colors = backdrop.colors ?: app
     MaterialTheme(colorScheme = colors, motionScheme = MaterialTheme.motionScheme) {
         CompositionLocalProvider(LocalContentColor provides colors.onSurface) {
             Box(

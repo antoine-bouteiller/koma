@@ -3,6 +3,7 @@ package app.koma.title
 import androidx.lifecycle.ViewModel
 import androidx.lifecycle.viewModelScope
 import app.koma.AppContainer
+import app.koma.data.CoverColors
 import app.koma.data.ListStatus
 import app.koma.data.MediaRef
 import app.koma.data.failed
@@ -10,25 +11,26 @@ import app.koma.ui.theme.seedColor
 import coil3.request.ImageRequest
 import coil3.request.allowHardware
 import coil3.toBitmap
-import kotlinx.coroutines.ExperimentalCoroutinesApi
 import kotlinx.coroutines.Job
 import kotlinx.coroutines.flow.MutableStateFlow
 import kotlinx.coroutines.flow.SharingStarted
 import kotlinx.coroutines.flow.StateFlow
 import kotlinx.coroutines.flow.combine
-import kotlinx.coroutines.flow.distinctUntilChanged
-import kotlinx.coroutines.flow.filter
-import kotlinx.coroutines.flow.map
-import kotlinx.coroutines.flow.mapLatest
+import kotlinx.coroutines.flow.first
 import kotlinx.coroutines.flow.stateIn
 import kotlinx.coroutines.launch
-import kotlinx.coroutines.withContext
 
 private data class Save(val saving: Change? = null, val failed: Change? = null)
 
+private data class Load(
+    val ready: Boolean = false,
+    val failed: Boolean = false,
+    val seed: Int? = null,
+)
+
 /** The title screen of [ref]. */
 class TitleViewModel(private val container: AppContainer, private val ref: MediaRef) : ViewModel() {
-    private val loadFailed = MutableStateFlow(false)
+    private val loaded = MutableStateFlow(Load())
     private val save = MutableStateFlow(Save())
     private var loading: Job? = null
 
@@ -39,10 +41,20 @@ class TitleViewModel(private val container: AppContainer, private val ref: Media
                 container.media.media(ref),
                 container.library.entry(ref),
                 container.media.details(ref),
-                loadFailed,
+                loaded,
                 save,
-            ) { media, entry, details, failed, s ->
-                titleState(backend, media, entry, details, failed, s.saving, s.failed)
+            ) { media, entry, details, load, s ->
+                titleState(
+                    backend,
+                    media,
+                    entry,
+                    details,
+                    load.failed,
+                    s.saving,
+                    s.failed,
+                    load.ready,
+                    load.seed,
+                )
             }
             // Stops watching the store once the screen is gone, as one model is kept per title.
             .stateIn(
@@ -56,24 +68,16 @@ class TitleViewModel(private val container: AppContainer, private val ref: Media
                     loadFailed = false,
                     saving = null,
                     saveFailed = null,
+                    colorsReady = false,
+                    seed = null,
                 ),
             )
-
-    /** The ARGB the screen's colors are drawn from: the cover's, null until it loads or if grey. */
-    @OptIn(ExperimentalCoroutinesApi::class)
-    val seed: StateFlow<Int?> =
-        state
-            .map { it.cover }
-            .filter { it.isNotEmpty() }
-            .distinctUntilChanged()
-            .mapLatest(::coverSeed)
-            .stateIn(viewModelScope, SharingStarted.WhileSubscribed(), null)
 
     init {
         load()
     }
 
-    private suspend fun coverSeed(cover: String): Int? {
+    private suspend fun coverColors(cover: String): CoverColors? {
         val request =
             ImageRequest.Builder(container.context)
                 .data(cover)
@@ -81,20 +85,32 @@ class TitleViewModel(private val container: AppContainer, private val ref: Media
                 .allowHardware(false)
                 .build()
         val bitmap = container.images.execute(request).image?.toBitmap() ?: return null
-        return withContext(container.work) {
-            val pixels = IntArray(bitmap.width * bitmap.height)
-            bitmap.getPixels(pixels, 0, bitmap.width, 0, 0, bitmap.width, bitmap.height)
-            seedColor(pixels)
-        }
+        val pixels = IntArray(bitmap.width * bitmap.height)
+        bitmap.getPixels(pixels, 0, bitmap.width, 0, 0, bitmap.width, bitmap.height)
+        return CoverColors(cover, seedColor(pixels))
     }
 
     /** Fetches the title's details, unless they are stored. */
     fun load() {
         if (loading?.isActive == true) return
-        loadFailed.value = false
+        loaded.value = Load()
         loading =
             viewModelScope.launch(container.work) {
-                loadFailed.value = failed { container.media.loadDetails(ref) }
+                val failed = failed {
+                    val details = container.media.loadDetails(ref)
+                    val cover =
+                        details.media.cover.ifEmpty {
+                            container.media.media(ref).first()?.cover.orEmpty()
+                        }
+                    val cached = container.media.coverColors(ref)?.takeIf { it.cover == cover }
+                    val colors =
+                        cached
+                            ?: if (cover.isEmpty()) CoverColors(cover, null) else coverColors(cover)
+                    if (cached == null && colors != null)
+                        container.media.cacheCoverColors(ref, colors)
+                    loaded.value = Load(ready = true, seed = colors?.seed)
+                }
+                if (failed) loaded.value = Load(ready = true, failed = true)
             }
     }
 

@@ -95,8 +95,22 @@ import kotlinx.coroutines.launch
 fun TitleView(container: AppContainer, ref: MediaRef, contentPadding: PaddingValues) {
     val model = viewModel(key = "title-${ref.backend}-${ref.id}") { TitleViewModel(container, ref) }
     val state by model.state.collectAsStateWithLifecycle()
-    val seed by model.seed.collectAsStateWithLifecycle()
-    ScreenColors(seededColors(seed))
+    Box(Modifier.fillMaxSize().testTag("title")) {
+        ScreenColors(seededColors(state.seed), waiting = { TitleLoading(contentPadding) }) {
+            if (state.ready) TitleContent(container, model, state, contentPadding)
+            else TitleLoading(contentPadding)
+        }
+    }
+}
+
+@OptIn(ExperimentalMaterial3ExpressiveApi::class)
+@Composable
+private fun TitleContent(
+    container: AppContainer,
+    model: TitleViewModel,
+    state: TitleState,
+    contentPadding: PaddingValues,
+) {
     var picking by rememberSaveable { mutableStateOf(false) }
     var rating by rememberSaveable { mutableStateOf(false) }
     val list = rememberLazyListState()
@@ -105,7 +119,7 @@ fun TitleView(container: AppContainer, ref: MediaRef, contentPadding: PaddingVal
         state = list,
         contentPadding = PaddingValues(bottom = contentPadding.calculateBottomPadding() + 16.dp),
         verticalArrangement = Arrangement.spacedBy(16.dp),
-        modifier = Modifier.fillMaxSize().testTag("title"),
+        modifier = Modifier.fillMaxSize(),
     ) {
         item(key = "header") {
             Header(state, container.images, contentPadding.calculateTopPadding())
@@ -114,12 +128,7 @@ fun TitleView(container: AppContainer, ref: MediaRef, contentPadding: PaddingVal
             StatusButton(state, onPick = { picking = true }, onRate = { rating = true })
         }
         when (val about = state.about) {
-            About.Loading ->
-                item(key = "loading") {
-                    Box(Modifier.fillMaxWidth(), contentAlignment = Alignment.Center) {
-                        LoadingIndicator(Modifier.size(48.dp).testTag("title-loading"))
-                    }
-                }
+            About.Loading -> Unit
             About.Failed ->
                 item(key = "failed") {
                     Column(
@@ -166,6 +175,17 @@ fun TitleView(container: AppContainer, ref: MediaRef, contentPadding: PaddingVal
             },
             onDismiss = { rating = false },
         )
+    }
+}
+
+@OptIn(ExperimentalMaterial3ExpressiveApi::class)
+@Composable
+private fun TitleLoading(contentPadding: PaddingValues) {
+    Box(
+        Modifier.fillMaxSize().padding(contentPadding),
+        contentAlignment = Alignment.Center,
+    ) {
+        LoadingIndicator(Modifier.size(48.dp).testTag("title-loading"))
     }
 }
 

@@ -90,11 +90,12 @@ MangaBaka without a manual step. Koma is a personal Android app in Kotlin and Je
 | ~~`[KD-19]` Chapter deduplication~~ | ~~Atsumaru lists one upload per scanlator. Its adapter keeps one chapter per number: the upload whose scanlator has the highest `score`, then the latest upload.~~ | ~~Same rule as keiyoushi's Atsumaru extension.~~ |
 | `[KD-19.1]` Chapter deduplication | The source's own. Atsumaru lists one upload per scanlator, and the copied extension keeps one chapter per number: the upload whose scanlator has the highest `score`, then the latest upload. | Mihon's `SChapter` carries no scanlator score, so only the extension can rank uploads. |
 | `[KD-20]` Backend | One interface, `Backend` (`[CT-1.4]`). MangaBaka implements it as `MangaBakaBackend` in `app.koma.data.mangabaka`, with its sign-in. `KomaApplication` builds it and passes it to `AppContainer`; nothing else imports that package. | Koma is built as a client of this service, so "tracker", Mihon's word for a sync target added afterwards, misnames it. A name ending in `Service` would be confused with Android's component. One interface, not one per capability: `[NG-5]` allows one backend at a time, and library entries reference the backend's own media ids. |
-| `[KD-21]` Repositories | `MediaRepository`, `LibraryRepository`, `HistoryRepository` and `AccountRepository` in `app.koma.data`, one instance each, built by `AppContainer` (`[CT-10.2]`). Library and history sync run inside them. | Android's data-layer guidance: one repository per kind of data, over the network and the database. Any screen reuses the same data. |
+| `[KD-21]` Repositories | `MediaRepository`, `LibraryRepository`, `HistoryRepository` and `AccountRepository` in `app.koma.data`, one instance each, built by `AppContainer` (`[CT-10.3]`). Library and history sync run inside them. | Android's data-layer guidance: one repository per kind of data, over the network and the database. Any screen reuses the same data. |
 | `[KD-22]` Backend name in copy | UI strings that name the backend read `Backend.name`. | Replacing the backend touches no screen. |
 | `[KD-23]` Rating | The title screen's status button splits once the library holds the title: its trailing half shows the user's rating and opens a gauge from 0 to 5 in half points. 0 clears the rating. | MangaBaka rates out of 100 and stores 0 as none. Half points keep a drag along the gauge's arc precise. |
 | `[KD-24]` Navigation | Navigation 3. Each tab keeps its own back stack of `@Serializable` routes, restored after process death. Another tab's stack shows over the Library's, so back from its root opens the Library, and back from the Library's root leaves the app. Each screen draws its own floating header. | Popped screens drop their ViewModels and saved state, and predictive back works at any depth. A shared header would need its own copy of `NavDisplay`'s transition. |
-| `[KD-25]` Title colors | A title screen, its header included, takes a Material "Content" scheme seeded by its cover's most suitable color (MaterialKolor's `material-color-utilities`: Celebi quantizer, then `Score`). The colors ease in once the cover loads. A grey cover, or the Monochrome style, keeps the app's colors; True Black still applies. | The Content scheme is what Android builds from album art, so the cover itself sits on its own colors. A seed read from a 96 px copy costs little after the grid has cached the cover. |
+| ~~`[KD-25]` Title colors~~ | ~~The cover's Material "Content" colors ease in once the cover loads.~~ | ~~A 96 px sample costs little after the grid has cached the cover.~~ |
+| `[KD-25.1]` Title colors | The first opening waits for the details and the final cover's color sample before showing the title's content. Its header and content use the final Material "Content" scheme immediately, without easing. Celebi and `Score` choose the seed from a 96 px copy. The seed, including a successful grey result, is stored alongside the details and reused across openings and restarts. A grey or missing cover, a failed image load, or Monochrome keeps the app's colors; True Black still applies. Failed image loads are not cached as grey. | Waiting prevents both partial content and a palette change after reveal. Storing the seed avoids decoding and quantizing the cover again. |
 
 ```mermaid
 flowchart TB
@@ -122,9 +123,12 @@ flowchart TB
   manga, manhwa and manhua, each card showing the MangaBaka rating. — demonstrated by `[VC-1.1]`
 - `[SO-2]` The Library tab is the signed-in user's MangaBaka library, grouped by status, and follows
   edits and removals made elsewhere. — demonstrated by `[VC-1.1]`, `[VC-8]`
-- `[SO-3]` A user can open a MangaBaka title and read it from Atsumaru without searching, when
+- ~~`[SO-3]` A user can open a MangaBaka title and read it from Atsumaru without searching, when
   Atsumaru carries that title's MangaBaka id. Each chapter number appears once. — demonstrated by
-  `[VC-3]`, `[VC-12.1]`, `[VC-13]`
+  `[VC-3]`, `[VC-12.1]`, `[VC-13]`~~
+- `[SO-3.1]` A title opens with its details and final cover colors ready, reusing both after a
+  restart. A user can read it from Atsumaru without searching when Atsumaru carries its MangaBaka
+  id. Each chapter number appears once. — demonstrated by `[VC-3]`, `[VC-12.1]`, `[VC-13]`, `[VC-15]`
 - `[SO-4]` Finishing a chapter raises MangaBaka progress without user action, and a chapter list
   shows as read every chapter the progress covers, decimal chapters included. — demonstrated by
   `[VC-4]`, `[VC-5]`
@@ -320,19 +324,25 @@ Atsumaru finder: defined for MangaBaka media only. It searches each title varian
 `client` for the top three hits not yet read, and answers the first whose `mangaBakaId` equals
 `media.ref.id`.
 
-### [CT-4.3] Local store
+### [CT-4.4] Local store
 
 Kind: schema · Anchor: null
 
 ~~`[CT-4]` Local store~~: reconciled with the shipped tables, keyed by `MediaRef`.
 ~~`[CT-4.1]` Local store~~: `media.score` holds `[CT-1.3]`'s 0.0–5.0 scale.
 ~~`[CT-4.2]` Local store~~: `library_entry.score` holds the user's rating.
+~~`[CT-4.3]` Local store~~: title details now store their cover's sampled seed alongside the JSON.
 
 ```sql
 create table media (
   backend text not null, id text not null,
   title text not null, cover text not null, kind text not null,
   score real, adult integer not null, long_strip integer not null,
+  primary key (backend, id)
+);
+create table media_details (
+  backend text not null, id text not null, details text not null,
+  color_cover text, color_seed integer,
   primary key (backend, id)
 );
 create table library_entry (
@@ -370,11 +380,15 @@ create table cache (key text primary key, json text not null, fetched_at integer
 ```
 
 `status`, `kind` and `mode` hold enum names; `source` is Mihon's `Source.id`. The store holds no
-read flags (`[KD-13]`). `media` is public data kept across sign-outs; an empty `title` marks media
+read flags (`[KD-13]`). `media` and `media_details` are public data kept across sign-outs.
+`media_details.details` is the backend's JSON. A null `color_cover` means unsampled; otherwise
+`color_seed` is the sampled ARGB, or null for a cover with no suitable color. A cached sample is
+used only for the same cover URL. The additive migration preserves existing details; their seeds
+are sampled on the next opening. An empty `media.title` marks media
 the backend no longer answers, which screens leave out. `library_entry` mirrors the backend library
 and changes only through `changes()` or a successful `addEntry` or `updateEntry`. `meta` holds the library and
 history cursors and is cleared at sign-out with `library_entry` and `read_event`. `cache` holds
-details, feed pages and reading directions so the app opens offline. `[KD-10]` rewrites `media_id`
+feed pages and reading directions so the app opens offline. `[KD-10]` rewrites `media_id`
 in `binding`, `library_entry`, `progress_outbox` and `reading_mode`. A migration converts stored
 scores to the 0.0–5.0 scale. `library_entry.score` is null when the user has not rated the media.
 The migration that adds it drops the library cursor, so the next sync reads the library whole and
@@ -438,21 +452,26 @@ val mode = readingMode?.mode
 read when a title that is not a long strip first opens, and kept in `cache`. Paged right to left
 shows the first page at the right and advances leftward. Changing the mode keeps the current page.
 
-### [CT-10.2] Repositories
+### [CT-10.3] Repositories
 
 Kind: api · Anchor: null
 
 ~~`[CT-10]` Repositories~~: `entry` replaces `status`, and `setScore` rates a title.
 ~~`[CT-10.1]` Repositories~~: details are stored once fetched, and `synced` tells whether the
 history's first page is stored.
+~~`[CT-10.2]` Repositories~~: `loadDetails` returns the details and cover samples persist with them.
 
 ```kotlin
 package app.koma.data
 
+data class CoverColors(val cover: String, val seed: Int?)
+
 class MediaRepository(store: Store, backend: Backend) {
     fun media(ref: MediaRef): Flow<Media?>                         // from the store
     fun details(ref: MediaRef): Flow<MediaDetails?>               // from the store
-    suspend fun loadDetails(ref: MediaRef)                         // fetches unless stored
+    suspend fun loadDetails(ref: MediaRef): MediaDetails           // fetches unless stored
+    fun coverColors(ref: MediaRef): CoverColors?                  // null until sampled successfully
+    suspend fun cacheCoverColors(ref: MediaRef, colors: CoverColors)
     suspend fun cache(refs: Collection<MediaRef>)                  // looks up refs not stored yet
 }
 
@@ -501,15 +520,20 @@ data before ending the session. `loadUserName` asks once per session and drops a
 session that has ended. Koma calls it at launch, so a session MangaBaka no longer accepts ends
 before a screen syncs; an offline launch keeps it.
 
-Details, once stored, are never fetched again; they are public and kept across sign-outs. The
-history screen reads the first page on open while `synced` is false; newer events wait for a pull
+Details, once stored, are never fetched again; they are public and kept across sign-outs.
+The title waits for details and cover sampling, then reveals its content only once the palette
+also applies to the header. A failed details request reveals the cached name and a retry action.
+A failed cover request reveals the details with the app's colors and retries sampling on a later
+opening. A successful sample persists even when grey; theme settings still determine the palette.
+The history screen reads the first page on open while `synced` is false; newer events wait for a pull
 to refresh, or for the library's sync.
 
 ## Acceptance
 
 Tests run on the JVM under Robolectric. Backend tests stub MangaBaka's API and OAuth endpoints with
 `FakeNetwork`, the test harness's OkHttp interceptor, and source tests stub Atsumaru's API the same
-way, through the client sources share (`[CT-2.2]`). The harness records the image URLs the app asks for and loads none.
+way, through the client sources share (`[CT-2.2]`). The harness records image URLs and normally
+returns image failures. Color tests supply bitmaps through its image-loader seam.
 
 - ~~`[VC-1]` Given a stub returning distinct `trending_7d`, `score_desc` and library payloads, when
   the Discover and Library tabs open, then each shows the stub's titles in the stub's order, the
@@ -523,7 +547,7 @@ way, through the client sources share (`[CT-2.2]`). The harness records the imag
   stub's states. — demonstrates `[SO-1]`, `[SO-2]`
 - `[VC-3]` Given a title bound to the Atsumaru stub, when a chapter whose stubbed page list holds
   three images opens in the reader, then the reader shows those three images, loaded from the
-  stub's `/static/pages/…` URLs. — demonstrates `[SO-3]`
+  stub's `/static/pages/…` URLs. — demonstrates `[SO-3.1]`
 - `[VC-4]` Given remote progress 4 and stubbed chapters 1, 2, 4, 4.5, 5 and one without a number,
   when the chapter list opens, then 1, 2 and 4 show read, and 4.5, 5 and the unnumbered one show
   unread. — demonstrates `[SO-4]`
@@ -563,16 +587,23 @@ way, through the client sources share (`[CT-2.2]`). The harness records the imag
   an Atsumaru stub whose search answers `A` titled `Solo Leveling` with `mangaBakaId` `1`, then `B`
   titled `I Level Up Alone` with `mangaBakaId` `3397`, when the title is first read, then the
   Atsumaru finder binds it to `B` without a prompt; when neither hit carries `3397`, nothing is
-  bound and the title screen lists `A` and `B` as candidates. — demonstrates `[SO-3]`
+  bound and the title screen lists `A` and `B` as candidates. — demonstrates `[SO-3.1]`
 - `[VC-13]` Given an Atsumaru stub listing chapter 5 from scanlator `Y` (score 3, day 1), `Z`
   (score 3, day 2) and `X` (score 1, day 3), and chapter 4.5 from `X` alone, when the chapter list
   opens, then it shows one chapter 5, credited to `Z`, and chapter 4.5, credited to `X`.
-  — demonstrates `[SO-3]`
+  — demonstrates `[SO-3.1]`
 - `[VC-14]` Given a library entry with `rating: 87`, when its title screen opens, then the status
   button's rating half shows `4.4`; when the gauge moves to 3.5 and the rating is saved, the stub
   receives `PATCH /v1/my/library/{id}` with `rating: 70` and the half shows `3.5`; when the gauge
   moves to 0 instead, the stub receives `rating: 0` and the half offers to rate; when the stub
   answers 500, the half keeps the rating it showed. — demonstrates `[SO-8]`
+
+- `[VC-15]` Given delayed details and then a delayed colored cover, when the title opens, only a
+  loading indicator appears until both finish, and the first frame of its status button uses the
+  final cover palette. Given successfully sampled colorful and grey covers, reopening each and
+  restarting with unavailable images keeps its palette without waiting for sampling. A failed
+  first sample does not prevent a later opening from using a successful sample.
+  — demonstrates `[SO-3.1]`
 
 ## Caveats
 

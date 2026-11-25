@@ -32,6 +32,7 @@ import app.koma.ui.KomaApp
 import coil3.ImageLoader
 import coil3.intercept.Interceptor
 import coil3.request.ErrorResult
+import coil3.request.ImageRequest
 import coil3.request.ImageResult
 import coil3.serviceLoaderEnabled
 import java.io.File
@@ -68,8 +69,11 @@ class AppHarness : TestRule {
     val browser = FakeBrowser()
     /** The APKs handed to Android's installer. */
     val installed = mutableListOf<File>()
-    /** The image URLs the app asked for; no image is ever loaded. */
+    /** The image URLs the app asked for. */
     val images = CopyOnWriteArrayList<String>()
+    var image: suspend (ImageRequest) -> ImageResult = { request ->
+        ErrorResult(null, request, IOException("No images in tests."))
+    }
 
     var epoch: Instant = Instant.parse("2026-01-01T12:00:00Z")
     var zone: ZoneId = ZoneOffset.UTC
@@ -121,11 +125,7 @@ class AppHarness : TestRule {
                                     chain: Interceptor.Chain
                                 ): ImageResult {
                                     images += chain.request.data.toString()
-                                    return ErrorResult(
-                                        null,
-                                        chain.request,
-                                        IOException("No images in tests."),
-                                    )
+                                    return image(chain.request)
                                 }
                             }
                         )

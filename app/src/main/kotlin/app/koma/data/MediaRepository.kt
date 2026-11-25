@@ -36,6 +36,9 @@ internal fun mediaOf(
         longStrip != 0L,
     )
 
+/** A sampled cover's ARGB seed; null when the cover has no suitable color. */
+data class CoverColors(val cover: String, val seed: Int?)
+
 /** Public media data: stored across sign-outs, looked up once. */
 class MediaRepository(private val store: Store, private val backend: Backend) {
     /** Null until stored; an empty title marks media the backend no longer answers. */
@@ -53,14 +56,35 @@ class MediaRepository(private val store: Store, private val backend: Backend) {
     }
 
     /** Fetches and stores the details of [ref], unless they are stored. */
-    suspend fun loadDetails(ref: MediaRef) {
+    suspend fun loadDetails(ref: MediaRef): MediaDetails {
         val stored = store.read {
             mediaDetailsQueries.one(ref.backend.name, ref.id).executeAsOneOrNull()
         }
-        if (stored?.let(::decodeDetails) != null) return
+        stored?.let(::decodeDetails)?.let {
+            return it
+        }
         val details = backend.details(ref)
         store.write {
             mediaDetailsQueries.upsert(ref.backend.name, ref.id, json.encodeToString(details))
+        }
+        return details
+    }
+
+    /** Null until this title's cover has been sampled successfully. */
+    fun coverColors(ref: MediaRef): CoverColors? = store.read {
+        mediaDetailsQueries.colors(ref.backend.name, ref.id).executeAsOneOrNull()?.let { row ->
+            row.color_cover?.let { CoverColors(it, row.color_seed?.toInt()) }
+        }
+    }
+
+    suspend fun cacheCoverColors(ref: MediaRef, colors: CoverColors) {
+        store.write {
+            mediaDetailsQueries.cacheColors(
+                colors.cover,
+                colors.seed?.toLong(),
+                ref.backend.name,
+                ref.id,
+            )
         }
     }
 

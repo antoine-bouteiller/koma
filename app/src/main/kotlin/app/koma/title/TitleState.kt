@@ -52,6 +52,8 @@ data class TitleState(
     /** Why the last change was not saved. */
     val saveError: String?,
     val about: About,
+    val ready: Boolean,
+    val seed: Int?,
 )
 
 /** What the backend says of the title beyond its name and cover. */
@@ -81,6 +83,8 @@ fun titleState(
     loadFailed: Boolean,
     saving: Change?,
     saveFailed: Change?,
+    colorsReady: Boolean,
+    seed: Int?,
 ): TitleState =
     TitleState(
         title = details?.media?.title?.ifEmpty { null } ?: media?.title.orEmpty(),
@@ -109,6 +113,8 @@ fun titleState(
                 loadFailed -> About.Failed
                 else -> About.Loading
             },
+        ready = colorsReady && (details != null || loadFailed),
+        seed = seed,
     )
 
 private val PUBLICATIONS =

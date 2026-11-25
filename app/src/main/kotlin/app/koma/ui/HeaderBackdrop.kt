@@ -6,6 +6,7 @@ import androidx.compose.foundation.layout.Box
 import androidx.compose.foundation.lazy.LazyListState
 import androidx.compose.foundation.lazy.grid.LazyGridState
 import androidx.compose.material3.ColorScheme
+import androidx.compose.material3.MaterialTheme
 import androidx.compose.runtime.Composable
 import androidx.compose.runtime.DisposableEffect
 import androidx.compose.runtime.SideEffect
@@ -36,7 +37,7 @@ class HeaderBackdrop {
     var accessory by mutableStateOf<(@Composable () -> Unit)?>(null)
         private set
 
-    /** Whether the screen picks its own colors, which then ease from one to the next. */
+    /** Whether the screen picks its own colors. */
     var tinted by mutableStateOf(false)
         internal set
 
@@ -119,13 +120,18 @@ fun headerAccessory(content: @Composable () -> Unit): Dp {
     return with(LocalDensity.current) { height.toDp() }
 }
 
-/**
- * Shows the screen this is composed in, its header included, in [colors], or the app's while null.
- * [colors] must be the same instance until it changes, since each new one starts an easing.
- */
+/** Shows [content] once its colors also apply to the floating header. */
 @Composable
-fun ScreenColors(colors: ColorScheme?) {
-    val backdrop = LocalHeaderBackdrop.current ?: return
+fun ScreenColors(
+    colors: ColorScheme?,
+    waiting: @Composable () -> Unit,
+    content: @Composable () -> Unit,
+) {
+    val backdrop = LocalHeaderBackdrop.current
+    if (backdrop == null) {
+        MaterialTheme(colorScheme = colors ?: MaterialTheme.colorScheme, content = content)
+        return
+    }
     SideEffect {
         backdrop.tinted = true
         backdrop.colors = colors
@@ -136,4 +142,5 @@ fun ScreenColors(colors: ColorScheme?) {
             backdrop.colors = null
         }
     }
+    if (colors == null || MaterialTheme.colorScheme === colors) content() else waiting()
 }

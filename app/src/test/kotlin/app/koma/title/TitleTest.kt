@@ -1,9 +1,14 @@
 package app.koma.title
 
+import android.graphics.Bitmap
+import androidx.compose.ui.graphics.Color
+import androidx.compose.ui.graphics.toPixelMap
 import androidx.compose.ui.semantics.SemanticsActions
 import androidx.compose.ui.test.assertContentDescriptionEquals
 import androidx.compose.ui.test.assertIsNotEnabled
 import androidx.compose.ui.test.assertIsSelected
+import androidx.compose.ui.test.captureToImage
+import androidx.compose.ui.test.onAllNodesWithTag
 import androidx.compose.ui.test.performSemanticsAction
 import app.koma.data.ListStatus
 import app.koma.testing.AppHarness
@@ -20,6 +25,16 @@ import app.koma.testing.profile
 import app.koma.testing.series
 import app.koma.testing.tag
 import app.koma.testing.upsert
+import app.koma.ui.theme.ColorStyle
+import app.koma.ui.theme.ThemeMode
+import app.koma.ui.theme.ThemeSettings
+import app.koma.ui.theme.colorScheme
+import app.koma.ui.theme.seededColorScheme
+import coil3.asImage
+import coil3.decode.DataSource
+import coil3.request.ImageRequest
+import coil3.request.SuccessResult
+import kotlinx.coroutines.CompletableDeferred
 import kotlinx.coroutines.runBlocking
 import org.junit.Assert.assertEquals
 import org.junit.Assert.assertNull
@@ -76,6 +91,57 @@ class TitleTest {
 
         app.tap("back")
         app.has("library-reading")
+    }
+
+    @Test
+    fun `a title waits for its details before showing its content`() {
+        val backend = FakeBackend()
+        val ref = backend.add("alpha", "Alpha")
+        backend.file(ref, ListStatus.Reading)
+        val details = backend.hold("details")
+        app.backend = backend
+        app.launch()
+        app.tap("manga-alpha")
+        app.has("title-loading")
+        app.missing("title-name")
+        app.missing("title-status")
+
+        app.compose.runOnIdle { details.complete(Unit) }
+        app.awaitIdle()
+        app.text("title-name", "Alpha")
+        app.missing("title-loading")
+    }
+
+    @GraphicsMode(GraphicsMode.Mode.NATIVE)
+    @Test
+    fun `a title waits for its cover colors and reveals its final palette`() {
+        library(upsert(1, "reading"))
+        app.network.answer("$SERIES/1?schema=full", 200, fullSeries(1, "Solo Leveling"))
+        app.launch()
+        val colors = CompletableDeferred<Unit>()
+        val argb = 0xFF43A047.toInt()
+        app.image = { request ->
+            colors.await()
+            solidCover(request, argb)
+        }
+        app.tap("manga-1")
+        app.has("title-loading")
+        app.missing("title-name")
+        app.missing("title-status")
+
+        app.compose.mainClock.autoAdvance = false
+        app.compose.runOnIdle { colors.complete(Unit) }
+        app.compose.waitUntil(timeoutMillis = 5_000) {
+            app.compose.mainClock.advanceTimeByFrame()
+            app.compose.onAllNodesWithTag("title-status").fetchSemanticsNodes().isNotEmpty()
+        }
+        val expected = seededColorScheme(ThemeSettings(), dark = false, argb)!!.secondaryContainer
+        assertEquals(expected, statusColor())
+        app.compose.mainClock.autoAdvance = true
+        app.awaitIdle()
+        assertEquals(expected, statusColor())
+        app.text("title-name", "Solo Leveling")
+        app.missing("title-loading")
     }
 
     @Test
@@ -246,8 +312,9 @@ class TitleTest {
         app.node("title-summary").assertContentDescriptionEquals("Show less")
     }
 
+    @GraphicsMode(GraphicsMode.Mode.NATIVE)
     @Test
-    fun `a title's details are asked for once, then open offline`() {
+    fun `cached details open offline and a failed cover sample can be retried`() {
         library(upsert(1, "reading"))
         app.network.answer(
             "$SERIES/1?schema=full",
@@ -258,12 +325,80 @@ class TitleTest {
         app.tap("manga-1")
         app.text("title-authors", "Chu-Gong")
         app.network.fail("$SERIES/1?schema=full")
+        val argb = 0xFF43A047.toInt()
+        app.image = { request -> solidCover(request, argb) }
+        val expected = seededColorScheme(ThemeSettings(), dark = false, argb)!!.secondaryContainer
         app.tap("back")
         app.tap("manga-1")
         app.text("title-authors", "Chu-Gong")
+        assertEquals(expected, statusColor())
         app.reload()
         app.text("title-authors", "Chu-Gong")
+        assertEquals(expected, statusColor())
         assertEquals(1, app.network.requested("$SERIES/1?schema=full").size)
+    }
+
+    @GraphicsMode(GraphicsMode.Mode.NATIVE)
+    @Test
+    fun `colorful and grey covers reuse their colors after reopening and restarting`() {
+        val backend = FakeBackend()
+        val green = backend.add("green", "Green")
+        val grey = backend.add("grey", "Grey")
+        backend.file(green, ListStatus.Reading)
+        backend.file(grey, ListStatus.Reading)
+        app.backend = backend
+        app.preferences.set("theme.mode", "Light")
+        app.preferences.set("theme.style", "Default")
+        app.launch()
+        val argb = 0xFF43A047.toInt()
+        app.image = { request ->
+            solidCover(
+                request,
+                if (request.data.toString().contains("green")) argb else 0xFF808080.toInt(),
+            )
+        }
+        val settings = ThemeSettings(mode = ThemeMode.Light, style = ColorStyle.Default)
+        val containers =
+            mapOf(
+                "green" to seededColorScheme(settings, dark = false, argb)!!.secondaryContainer,
+                "grey" to colorScheme(settings, dark = false, wallpaper = null).secondaryContainer,
+            )
+        for ((id, expected) in containers) {
+            app.tap("manga-$id")
+            assertEquals(expected, statusColor())
+            app.tap("back")
+        }
+
+        val unavailable = CompletableDeferred<Unit>()
+        val missingImage = app.image
+        app.image = { request ->
+            unavailable.await()
+            missingImage(request)
+        }
+        for ((id, expected) in containers) {
+            app.tap("manga-$id")
+            app.has("title-name")
+            app.missing("title-loading")
+            assertEquals(expected, statusColor())
+            app.reload()
+            app.has("title-name")
+            app.missing("title-loading")
+            assertEquals(expected, statusColor())
+            app.tap("back")
+        }
+        app.compose.runOnIdle { unavailable.complete(Unit) }
+        app.awaitIdle()
+    }
+
+    private fun solidCover(request: ImageRequest, color: Int): SuccessResult {
+        val bitmap = Bitmap.createBitmap(8, 8, Bitmap.Config.ARGB_8888)
+        bitmap.eraseColor(color)
+        return SuccessResult(bitmap.asImage(), request, DataSource.MEMORY_CACHE)
+    }
+
+    private fun statusColor(): Color {
+        val pixels = app.node("title-status").captureToImage().toPixelMap()
+        return pixels[pixels.width / 2, 2]
     }
 
     @Test
