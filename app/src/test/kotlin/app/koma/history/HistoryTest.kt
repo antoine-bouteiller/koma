@@ -107,12 +107,12 @@ class HistoryTest {
         // No page is left to ask for.
         assertEquals(
             listOf(RECENT_EVENTS, "$RECENT_EVENTS&cursor=older"),
-            app.network.requested(EVENTS),
+            app.network.requested(RECENT_EVENTS),
         )
     }
 
     @Test
-    fun `each visit to the history asks only for newer events, and it opens offline`() {
+    fun `only the first visit to the history asks for newer events, and it opens offline`() {
         signedInWithEmptyLibrary()
         app.network.answer(
             RECENT_EVENTS,
@@ -136,6 +136,8 @@ class HistoryTest {
         )
         app.tap("tab-library")
         app.tap("tab-history")
+        app.missing("history-8")
+        app.reload()
         app.text("history-chapters-8", "Ch. 6 · 11:00 AM")
         app.text("history-chapters-6", "Ch. 15 · 10:00 AM")
         app.network.fail("$EVENTS?event_type=progress_update&created_at_lower")

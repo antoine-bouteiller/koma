@@ -35,6 +35,7 @@ class HistoryViewModel(private val container: AppContainer) : ViewModel() {
     private var stored = History(synced = false, reads = emptyList(), hasNext = false)
     private var newer: Job? = null
     private var older: Job? = null
+    private var openedFor: Int? = null
 
     val backend: String = container.account.backendName
 
@@ -64,6 +65,14 @@ class HistoryViewModel(private val container: AppContainer) : ViewModel() {
                 tick.value = Tick(container.clock.instant(), container.zone())
             }
         }
+    }
+
+    /** Syncs once per sign-in, when the history first shows. */
+    fun open() {
+        val session = container.account.signIns
+        if (openedFor == session) return
+        openedFor = session
+        sync()
     }
 
     /** Asks for the events since the newest stored one. */

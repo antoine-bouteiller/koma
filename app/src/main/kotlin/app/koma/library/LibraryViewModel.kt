@@ -43,6 +43,8 @@ class LibraryViewModel(private val container: AppContainer) : ViewModel() {
         lastFailed.value = false
         job =
             viewModelScope.launch(container.work) {
+                // Newer reads reorder the shelves; without them, they keep their order.
+                launch { failed { container.history.syncNewer() } }
                 lastFailed.value = failed { container.library.sync() }
                 syncing.value = false
             }

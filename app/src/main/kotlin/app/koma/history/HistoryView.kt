@@ -55,11 +55,11 @@ import app.koma.ui.TrackHeaderBackdrop
 import coil3.ImageLoader
 import coil3.compose.AsyncImage
 
-/** The chapters read, newest first. Each visit asks for newer reads. */
+/** The chapters read, newest first. The first visit after a sign-in asks for newer reads. */
 @Composable
 fun HistoryView(container: AppContainer, contentPadding: PaddingValues) {
     val model = viewModel { HistoryViewModel(container) }
-    LaunchedEffect(model) { model.sync() }
+    LaunchedEffect(model) { model.open() }
     val state by model.state.collectAsStateWithLifecycle()
     val motion = MaterialTheme.motionScheme
     AnimatedContent(

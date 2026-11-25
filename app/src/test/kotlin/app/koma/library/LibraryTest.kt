@@ -13,10 +13,13 @@ import androidx.compose.ui.unit.dp
 import app.koma.testing.AppHarness
 import app.koma.testing.BATCH
 import app.koma.testing.CHANGES
+import app.koma.testing.RECENT_EVENTS
 import app.koma.testing.SERIES
 import app.koma.testing.batch
 import app.koma.testing.changes
 import app.koma.testing.delete
+import app.koma.testing.event
+import app.koma.testing.events
 import app.koma.testing.fullSeries
 import app.koma.testing.series
 import app.koma.testing.upsert
@@ -190,6 +193,51 @@ class LibraryTest {
         app.text("manga-4", "Monster")
         app.missing("manga-1")
         app.missing("manga-5")
+    }
+
+    @Test
+    fun `a shelf lists titles by their last read, else by their last update`() {
+        app.signedIn()
+        app.network.answer(
+            CHANGES,
+            200,
+            changes(
+                "c1",
+                false,
+                upsert(1, "reading", "2026-01-05T00:00:00Z"),
+                upsert(2, "reading", "2026-01-03T00:00:00Z"),
+                upsert(3, "plan_to_read", "2026-01-04T00:00:00Z"),
+                upsert(4, "reading", "2026-01-01T00:00:00Z"),
+            ),
+        )
+        app.network.answer(
+            BATCH,
+            200,
+            batch(
+                series(1, "Berserk"),
+                series(2, "Vagabond"),
+                series(3, "Pluto"),
+                series(4, "Monster"),
+            ),
+        )
+        app.network.answer(
+            RECENT_EVENTS,
+            200,
+            events(
+                50,
+                "end",
+                false,
+                // Lowered progress is not a read.
+                event(13, 4, 12, 10, "2026-01-06T00:00:00.000Z"),
+                event(12, 2, 4, 5, "2026-01-03T00:00:00.000Z"),
+                event(11, 1, 7, 8, "2026-01-02T00:00:00.000Z"),
+            ),
+        )
+        app.launch()
+        assertEquals(
+            listOf("manga-3", "manga-2", "manga-1", "manga-4"),
+            app.childTags("library-reading"),
+        )
     }
 
     @Test

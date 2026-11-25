@@ -7,7 +7,7 @@ import app.koma.data.MediaRef
 
 data class Manga(val ref: MediaRef, val title: String, val cover: String)
 
-/** A tab of the library: most recently updated first. */
+/** A tab of the library, in [Library.items]' order. */
 data class Shelf(val id: String, val title: String, val items: List<Manga>)
 
 private class ShelfRule(val id: String, val title: String, val statuses: Set<ListStatus>)

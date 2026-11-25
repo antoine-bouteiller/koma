@@ -86,9 +86,9 @@ class SignInTest {
         app.signedIn()
         app.network.answer(CHANGES, 200, changes("c1", false, upsert(1, "reading")))
         app.network.answer(BATCH, 200, batch(series(1, "Berserk"), series(7, "Pluto")))
-        app.network.answer(EVENTS, 401, """{"status":401}""")
         app.launch()
         app.text("manga-1", "Berserk")
+        app.network.answer(EVENTS, 401, """{"status":401}""")
         // The history's 401 refreshes, and MangaBaka refuses the refresh token.
         app.tap("tab-history")
         app.has("history-sign-in")

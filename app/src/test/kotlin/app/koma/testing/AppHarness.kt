@@ -92,6 +92,8 @@ class AppHarness : TestRule {
                     override fun evaluate() {
                         // GitHub has no release unless a test says otherwise.
                         network.answer(RELEASES, 404, """{"message":"Not Found"}""")
+                        // Nor has MangaBaka any read.
+                        network.answer(EVENTS, 200, events(50, "end", false))
                         base.evaluate()
                         assertEquals("unstubbed requests", emptyList<String>(), network.unstubbed)
                     }

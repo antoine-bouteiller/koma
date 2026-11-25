@@ -1,13 +1,18 @@
 package app.koma.data
 
 import kotlinx.coroutines.flow.Flow
+import kotlinx.coroutines.sync.Mutex
+import kotlinx.coroutines.sync.withLock
 
 // Continues the walk back through older events; it keeps working across launches.
 private const val BACK_CURSOR = "history_back_cursor"
 private const val COMPLETE = "history_complete"
 private const val PAGE = 50
 
-/** A chapter read raises progress; a lowered or volume-only progress is not a read. */
+/**
+ * A chapter read raises progress; a lowered or volume-only progress is not a read. Keep in sync
+ * with `shelved` in LibraryEntry.sq.
+ */
 internal fun isRead(from: Double?, to: Double?): Boolean = to != null && to > (from ?: 0.0)
 
 /** A read of [media], from chapter [from] to [to], at [at] (epoch ms). */
@@ -28,6 +33,7 @@ class HistoryRepository(
     private val backend: Backend,
     private val media: MediaRepository,
 ) {
+    private val syncing = Mutex()
     private val name = backend.id.name
 
     /** Reads newest first, without media the backend no longer answers. */
@@ -67,6 +73,11 @@ class HistoryRepository(
     /** Reads the events newer than the newest stored one, or the first page when none is stored. */
     suspend fun syncNewer() {
         val generation = store.generation
+        syncing.withLock { syncNewer(generation) }
+    }
+
+    private suspend fun syncNewer(generation: Int) {
+        if (generation != store.generation) return
         val started = store.meta(BACK_CURSOR) != null
         val newest = store.read { readEventQueries.newest(name).executeAsOne().newest }
         if (!started || newest == null) {
@@ -86,7 +97,10 @@ class HistoryRepository(
     }
 
     /** Reads older pages until one adds a read or the history ends. */
-    suspend fun loadOlder() = readOlder(store.generation)
+    suspend fun loadOlder() {
+        val generation = store.generation
+        syncing.withLock { readOlder(generation) }
+    }
 
     private suspend fun readOlder(generation: Int) {
         while (true) {

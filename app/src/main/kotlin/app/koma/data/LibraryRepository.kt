@@ -11,7 +11,8 @@ private const val CURSOR = "library_cursor"
 data class LibraryItem(val media: Media, val status: ListStatus, val updatedAt: Long)
 
 /**
- * [synced] once the library has been read from the backend; [items] most recently updated first.
+ * [synced] once the library has been read from the backend; [items] most recently read first, by
+ * their newest stored read, else by their last update.
  */
 data class Library(val synced: Boolean, val items: List<LibraryItem>)
 
