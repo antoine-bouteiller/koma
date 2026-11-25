@@ -61,6 +61,8 @@ android {
     lint {
         warningsAsErrors = true
         abortOnError = true
+        // Version checks depend on what was published today; Renovate owns upgrades.
+        disable += setOf("AndroidGradlePluginVersion", "GradleDependency", "NewerVersionAvailable")
     }
 }
 
