@@ -97,6 +97,7 @@ private class Entry(
     @SerialName("series_id") val seriesId: Long,
     val state: String = "",
     @SerialName("progress_chapter") val progress: Double? = null,
+    val rating: Double? = null,
     @SerialName("updated_at") val updatedAt: String = "",
 )
 
@@ -130,6 +131,8 @@ private val STATES =
 
 /** MangaBaka rates out of 100. Halving first keeps whole ratings exact before rounding. */
 private fun outOfFive(rating: Double): Double = (rating / 2).roundToInt() / 10.0
+
+private fun outOfHundred(score: Double): Int = (score * 20).roundToInt()
 
 private val RANKS = mapOf("core" to 100, "defining" to 75, "recurrent" to 50, "incidental" to 25)
 
@@ -215,7 +218,13 @@ class MangaBakaBackend(
                 val updatedAt =
                     entry.updatedAt.takeIf { it.isNotEmpty() }?.let { Instant.parse(it) }
                 ListChange.Upsert(
-                    ListEntry(ref, status, entry.progress, null, updatedAt?.toEpochMilli() ?: 0)
+                    ListEntry(
+                        ref,
+                        status,
+                        entry.progress,
+                        entry.rating?.let(::outOfFive),
+                        updatedAt?.toEpochMilli() ?: 0,
+                    )
                 )
             }
         CursorPage(changes, body.pagination.cursor, body.pagination.more)
@@ -226,24 +235,27 @@ class MangaBakaBackend(
         status: ListStatus,
         progress: Double?,
         score: Double?,
-    ) = write("POST", ref, status, progress)
+    ) = write("POST", ref, status, progress, score)
 
     override suspend fun updateEntry(
         ref: MediaRef,
         status: ListStatus?,
         progress: Double?,
         score: Double?,
-    ) = write("PATCH", ref, status, progress)
+    ) = write("PATCH", ref, status, progress, score)
 
     private suspend fun write(
         method: String,
         ref: MediaRef,
         status: ListStatus?,
         progress: Double?,
+        score: Double?,
     ) = readable {
         val body = buildJsonObject {
             if (status != null) put("state", stateOf(status))
             if (progress != null) put("progress_chapter", progress)
+            // MangaBaka stores a rating of 0 as none.
+            if (score != null) put("rating", outOfHundred(score))
         }
         auth.send(method, "$API/v1/my/library/${seriesId(ref)}", body.toString())
     }

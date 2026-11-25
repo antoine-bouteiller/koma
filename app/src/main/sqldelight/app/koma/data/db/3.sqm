@@ -1,0 +1,4 @@
+-- Entries now keep the user's rating. Dropping the cursor makes the next sync read the library
+-- whole, which fills it in.
+ALTER TABLE library_entry ADD COLUMN score REAL;
+DELETE FROM meta WHERE key = 'library_cursor';

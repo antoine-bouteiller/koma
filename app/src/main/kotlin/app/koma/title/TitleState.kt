@@ -2,11 +2,13 @@ package app.koma.title
 
 import androidx.annotation.DrawableRes
 import app.koma.R
+import app.koma.data.ListEntry
 import app.koma.data.ListStatus
 import app.koma.data.Media
 import app.koma.data.MediaDetails
 import app.koma.data.Publication
 import app.koma.data.Tag
+import kotlin.math.round
 
 /** A library status the title can be filed under. */
 data class Status(val status: ListStatus, val label: String, @DrawableRes val icon: Int)
@@ -22,14 +24,33 @@ val STATUSES =
         Status(ListStatus.Dropped, "Dropped", R.drawable.ic_block),
     )
 
+/** The user's rating of a title in the library. */
+data class Rating(
+    /** From 0 to 5; 0 when unrated. */
+    val score: Double,
+    /** As "4.5", or "Rate" when unrated. */
+    val label: String,
+    @DrawableRes val icon: Int,
+)
+
+/** What the title screen writes to the library. */
+enum class Change {
+    Status,
+    Rating,
+}
+
 /** The title screen. */
 data class TitleState(
     val title: String,
     val cover: String,
     /** Null when the title is not in the library. */
     val status: Status?,
-    val saving: Boolean,
-    val saveFailed: Boolean,
+    /** Null when the title is not in the library. */
+    val rating: Rating?,
+    /** The change being saved. */
+    val saving: Change?,
+    /** Why the last change was not saved. */
+    val saveError: String?,
     val about: About,
 )
 
@@ -53,19 +74,27 @@ sealed interface About {
 }
 
 fun titleState(
+    backend: String,
     media: Media?,
-    status: ListStatus?,
+    entry: ListEntry?,
     details: MediaDetails?,
     loadFailed: Boolean,
-    saving: Boolean,
-    saveFailed: Boolean,
+    saving: Change?,
+    saveFailed: Change?,
 ): TitleState =
     TitleState(
         title = details?.media?.title?.ifEmpty { null } ?: media?.title.orEmpty(),
         cover = details?.media?.cover?.ifEmpty { null } ?: media?.cover.orEmpty(),
-        status = status?.let { s -> STATUSES.first { it.status == s } },
+        status = entry?.let { e -> STATUSES.first { it.status == e.status } },
+        rating =
+            entry?.let {
+                val score = it.score ?: 0.0
+                if (score > 0) Rating(score, score.toString(), R.drawable.ic_star)
+                else Rating(score, "Rate", R.drawable.ic_star_outline)
+            },
         saving = saving,
-        saveFailed = saveFailed,
+        saveError =
+            saveFailed?.let { "$backend did not save the ${it.name.lowercase()}. Try again." },
         about =
             when {
                 details != null ->
@@ -98,3 +127,21 @@ fun shownTags(tags: List<Tag>): List<String> =
         .sortedWith(compareBy({ !it.genre }, { -(it.rank ?: -1) }))
         .map { it.name }
         .distinct()
+
+/** The step a rating moves by on the gauge. */
+const val RATING_STEP = 0.5
+
+/** [value] on the gauge, to the nearest step from 0 to 5. */
+fun snapRating(value: Float): Double = (round(value / RATING_STEP) * RATING_STEP).coerceIn(0.0, 5.0)
+
+/** What a rating says, as "Liked it". */
+fun ratingWord(score: Double): String =
+    when {
+        score <= 0 -> "Not rated"
+        score <= 1 -> "Hated it"
+        score <= 2 -> "Didn't like it"
+        score <= 3 -> "It was okay"
+        score <= 4 -> "Liked it"
+        score < 5 -> "Really liked it"
+        else -> "Loved it"
+    }

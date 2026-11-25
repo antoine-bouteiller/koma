@@ -27,6 +27,7 @@ private fun KomaDatabase.apply(changes: List<ListChange>) {
                         ref.id,
                         status.name,
                         progress,
+                        score,
                         updatedAt,
                     )
                 }
@@ -74,9 +75,13 @@ class LibraryRepository(
         }
 
     /** Null when the stored library does not hold [ref]. */
-    fun status(ref: MediaRef): Flow<ListStatus?> =
-        store.watch({ listOf(libraryEntryQueries.status(ref.backend.name, ref.id)) }) {
-            storedStatus(ref)
+    fun entry(ref: MediaRef): Flow<ListEntry?> =
+        store.watch({ listOf(libraryEntryQueries.entry(ref.backend.name, ref.id)) }) {
+            val row =
+                libraryEntryQueries.entry(ref.backend.name, ref.id).executeAsOneOrNull()
+                    ?: return@watch null
+            val status = ListStatus.entries.find { it.name == row.status } ?: return@watch null
+            ListEntry(ref, status, row.progress, row.score, row.updated_at)
         }
 
     /** Brings the stored library up to date: a full read the first time, then only what changed. */
@@ -136,21 +141,40 @@ class LibraryRepository(
         val generation = store.generation
         val stored = store.read { storedStatus(ref) }
         media.cache(listOf(ref))
-        try {
+        syncIfRefused {
             if (stored == null) backend.addEntry(ref, status) else backend.updateEntry(ref, status)
+        }
+        val now = clock.millis()
+        store.write(generation) {
+            if (stored == null) {
+                libraryEntryQueries.upsert(ref.backend.name, ref.id, status.name, null, null, now)
+            } else {
+                libraryEntryQueries.setStatus(status.name, now, ref.backend.name, ref.id)
+            }
+        }
+    }
+
+    /**
+     * Rates [ref], which the library holds, out of 5 on the backend, then in the stored library. A
+     * [score] of 0 clears the rating. A refused write syncs the library.
+     */
+    suspend fun setScore(ref: MediaRef, score: Double) {
+        val generation = store.generation
+        syncIfRefused { backend.updateEntry(ref, score = score) }
+        val now = clock.millis()
+        store.write(generation) {
+            libraryEntryQueries.setScore(score.takeIf { it > 0 }, now, ref.backend.name, ref.id)
+        }
+    }
+
+    private suspend fun syncIfRefused(write: suspend () -> Unit) {
+        try {
+            write()
         } catch (e: IOException) {
             try {
                 sync()
             } catch (_: IOException) {}
             throw e
-        }
-        val now = clock.millis()
-        store.write(generation) {
-            if (stored == null) {
-                libraryEntryQueries.upsert(ref.backend.name, ref.id, status.name, null, now)
-            } else {
-                libraryEntryQueries.setStatus(status.name, now, ref.backend.name, ref.id)
-            }
         }
     }
 }

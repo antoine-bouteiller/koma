@@ -17,7 +17,7 @@ import kotlinx.coroutines.launch
 
 private data class Fetch(val details: MediaDetails? = null, val failed: Boolean = false)
 
-private data class Save(val saving: Boolean = false, val failed: Boolean = false)
+private data class Save(val saving: Change? = null, val failed: Change? = null)
 
 /** The title screen of [ref]. */
 class TitleViewModel(private val container: AppContainer, private val ref: MediaRef) : ViewModel() {
@@ -30,23 +30,24 @@ class TitleViewModel(private val container: AppContainer, private val ref: Media
     val state: StateFlow<TitleState> =
         combine(
                 container.media.media(ref),
-                container.library.status(ref),
+                container.library.entry(ref),
                 fetch,
                 save,
-            ) { media, status, f, s ->
-                titleState(media, status, f.details, f.failed, s.saving, s.failed)
+            ) { media, entry, f, s ->
+                titleState(backend, media, entry, f.details, f.failed, s.saving, s.failed)
             }
             // Stops watching the store once the screen is gone, as one model is kept per title.
             .stateIn(
                 viewModelScope,
                 SharingStarted.WhileSubscribed(),
                 titleState(
+                    backend,
                     null,
                     null,
                     null,
                     loadFailed = false,
-                    saving = false,
-                    saveFailed = false,
+                    saving = null,
+                    saveFailed = null,
                 ),
             )
 
@@ -66,11 +67,23 @@ class TitleViewModel(private val container: AppContainer, private val ref: Media
     }
 
     fun setStatus(status: ListStatus) {
-        if (status == state.value.status?.status || save.value.saving) return
-        save.value = Save(saving = true)
+        if (status == state.value.status?.status) return
+        save(Change.Status) { container.library.setStatus(ref, status) }
+    }
+
+    /** Rates the title out of 5; 0 clears the rating. */
+    fun setRating(score: Double) {
+        val rating = state.value.rating ?: return
+        if (score == rating.score) return
+        save(Change.Rating) { container.library.setScore(ref, score) }
+    }
+
+    private fun save(change: Change, write: suspend () -> Unit) {
+        if (save.value.saving != null) return
+        save.value = Save(saving = change)
         viewModelScope.launch(container.work) {
-            val failed = failed { container.library.setStatus(ref, status) }
-            save.value = Save(failed = failed)
+            val failed = failed { write() }
+            save.value = Save(failed = change.takeIf { failed })
         }
     }
 }

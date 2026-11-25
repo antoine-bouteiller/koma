@@ -14,8 +14,9 @@ fun upsert(
     state: String,
     updatedAt: String = "2026-01-01T00:00:00Z",
     revision: Int = seriesId,
+    rating: Number? = null,
 ) =
-    """{"type":"entry","action":"upsert","revision":$revision,"current":{"id":$seriesId,"series_id":$seriesId,"user_id":"u","state":"$state","progress_chapter":null,"created_at":null,"updated_at":"$updatedAt","list_ids":[]}}"""
+    """{"type":"entry","action":"upsert","revision":$revision,"current":{"id":$seriesId,"series_id":$seriesId,"user_id":"u","state":"$state","progress_chapter":null,"rating":$rating,"created_at":null,"updated_at":"$updatedAt","list_ids":[]}}"""
 
 fun delete(seriesId: Int) =
     """{"type":"entry","action":"delete","revision":99,"current":{"series_id":$seriesId}}"""

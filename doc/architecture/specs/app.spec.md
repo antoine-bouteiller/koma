@@ -89,9 +89,10 @@ MangaBaka without a manual step. Koma is a personal Android app in Kotlin and Je
 | `[KD-18.2]` Sources | Mihon's extension API, at the version keiyoushi's extensions build against. Koma ships the `eu.kanade.tachiyomi.source` and `eu.kanade.tachiyomi.network` packages, and the keiyoushi helper packages a copied extension imports. v1 copies the extensions it uses from `keiyoushi/extensions-source` into `app/src/main/kotlin/eu/kanade/tachiyomi/extension/`, and lists them in `app/src/main/kotlin/app/koma/source/Sources.kt`. v1 lists Atsumaru only. | A copied extension builds with few or no edits and stays comparable with upstream. The same API can later load installed extension APKs (`[NG-3.1]`). Atsumaru's JSON API answers plain HTTPS with no Cloudflare challenge, and its 33,632 series (2026-11-18) cover the titles the user reads. |
 | ~~`[KD-19]` Chapter deduplication~~ | ~~Atsumaru lists one upload per scanlator. Its adapter keeps one chapter per number: the upload whose scanlator has the highest `score`, then the latest upload.~~ | ~~Same rule as keiyoushi's Atsumaru extension.~~ |
 | `[KD-19.1]` Chapter deduplication | The source's own. Atsumaru lists one upload per scanlator, and the copied extension keeps one chapter per number: the upload whose scanlator has the highest `score`, then the latest upload. | Mihon's `SChapter` carries no scanlator score, so only the extension can rank uploads. |
-| `[KD-20]` Backend | One interface, `Backend` (`[CT-1.3]`). MangaBaka implements it as `MangaBakaBackend` in `app.koma.data.mangabaka`, with its sign-in. `KomaApplication` builds it and passes it to `AppContainer`; nothing else imports that package. | Koma is built as a client of this service, so "tracker", Mihon's word for a sync target added afterwards, misnames it. A name ending in `Service` would be confused with Android's component. One interface, not one per capability: `[NG-5]` allows one backend at a time, and library entries reference the backend's own media ids. |
-| `[KD-21]` Repositories | `MediaRepository`, `LibraryRepository`, `HistoryRepository` and `AccountRepository` in `app.koma.data`, one instance each, built by `AppContainer` (`[CT-10]`). Library and history sync run inside them. | Android's data-layer guidance: one repository per kind of data, over the network and the database. Any screen reuses the same data. |
+| `[KD-20]` Backend | One interface, `Backend` (`[CT-1.4]`). MangaBaka implements it as `MangaBakaBackend` in `app.koma.data.mangabaka`, with its sign-in. `KomaApplication` builds it and passes it to `AppContainer`; nothing else imports that package. | Koma is built as a client of this service, so "tracker", Mihon's word for a sync target added afterwards, misnames it. A name ending in `Service` would be confused with Android's component. One interface, not one per capability: `[NG-5]` allows one backend at a time, and library entries reference the backend's own media ids. |
+| `[KD-21]` Repositories | `MediaRepository`, `LibraryRepository`, `HistoryRepository` and `AccountRepository` in `app.koma.data`, one instance each, built by `AppContainer` (`[CT-10.1]`). Library and history sync run inside them. | Android's data-layer guidance: one repository per kind of data, over the network and the database. Any screen reuses the same data. |
 | `[KD-22]` Backend name in copy | UI strings that name the backend read `Backend.name`. | Replacing the backend touches no screen. |
+| `[KD-23]` Rating | The title screen's status button splits once the library holds the title: its trailing half shows the user's rating and opens a gauge from 0 to 5 in half points. 0 clears the rating. | MangaBaka rates out of 100 and stores 0 as none. Half points keep a drag along the gauge's arc precise. |
 
 ```mermaid
 flowchart TB
@@ -132,16 +133,21 @@ flowchart TB
 - `[SO-7]` The reader opens a long-strip title as a vertical strip and any other title paged, in the
   direction the backend gives, else right to left for manga and left to right otherwise. The user
   can override the mode per title. — demonstrated by `[VC-11]`
+- `[SO-8]` A user rates a library title from its screen, in half points from 0.5 to 5, or clears
+  the rating. The rating is MangaBaka's and follows edits made elsewhere. — demonstrated by
+  `[VC-14]`
 
 ## Contracts
 
-### [CT-1.3] Backend
+### [CT-1.4] Backend
 
 Kind: api · Anchor: null
 
 ~~`[CT-1]` Tracker, as TypeScript~~ and ~~`[CT-1.1]` Tracker~~: renamed `Backend` (`[KD-20]`). It
 adds the account, details and history members, and `changes(null)` replaces `list()` (`[KD-8.1]`).
 ~~`[CT-1.2]` Backend~~: scores move from integers on 0–100 to one decimal on 0.0–5.0.
+~~`[CT-1.3]` Backend~~: an `updateEntry` score of 0 clears the rating, and MangaBaka maps the user's
+rating both ways.
 
 ```kotlin
 package app.koma.data
@@ -228,9 +234,10 @@ interface Backend {
 Every member throws an `IOException` for any failure, an unreadable reply included, so callers never
 see HTTP statuses or serialization. `changes(null)` pages through the whole library; a refused
 cursor throws `ExpiredCursorException`. A cursor is stored only after its page is applied.
-`addEntry` puts media in the library; `updateEntry` changes only the fields it is given. Either
-throws an `IOException` when the library already holds the entry, or does not hold it, as the call
-assumed. A backend whose API only upserts implements both the same way.
+`addEntry` puts media in the library; `updateEntry` changes only the fields it is given, and a
+`score` of 0 clears the rating. Either throws an `IOException` when the library already holds the
+entry, or does not hold it, as the call assumed. A backend whose API only upserts implements both
+the same way.
 `media` accepts any number of refs; a ref the backend no longer answers is missing
 from the result. `readEvents` answers newest first; `since` keeps events at or after that instant
 (epoch ms), and a cursor is valid only with the filters that made it. `discover` answers null when
@@ -248,6 +255,7 @@ MangaBaka mapping (`MangaBakaBackend`):
 | `Kind` | The series `type`: `manga`, `manhwa`, `manhua`, `oel`, `novel`; any other is `Other` |
 | `Publication` | `status`; any value outside the enum is `Unknown` |
 | `Media.score` | `rating` (0–100) divided by 20, rounded to one decimal |
+| `ListEntry.score` | The entry's `rating`, scaled as `Media.score` |
 | `Media.adult` | `content_rating` of `erotica` or `pornographic` |
 | `Media.longStrip` | `tags_v2` holds tag 93 (`Work Info > Page Layout > Longstrip`) |
 | `MediaDetails.tags` | Genres (`is_genre`) and tags weighted `core`; the others are dropped |
@@ -256,7 +264,7 @@ MangaBaka mapping (`MangaBakaBackend`):
 | `details` | `GET /v2/series/{id}?schema=full`, unauthenticated |
 | `search`, `discover` | `GET /v1/series/search`, `discover` with `sort_by` `trending_7d`, `score_desc` or `popularity_desc`; `type_not=novel` on every call (`[NG-6]`) |
 | `changes` | `GET /v2/my/library/changes?limit=1000`; a 400 to a request with a cursor throws `ExpiredCursorException`. Lists and unknown item kinds are skipped. |
-| `addEntry`, `updateEntry` | `POST` and `PATCH /v1/my/library/{id}`, sending `state` and `progress_chapter` |
+| `addEntry`, `updateEntry` | `POST` and `PATCH /v1/my/library/{id}`, sending `state`, `progress_chapter` and `rating`, the score times 20 rounded to an integer; MangaBaka stores a `rating` of 0 as none |
 | `readEvents` | `GET /v2/my/library/events?event_type=progress_update`; undated events are dropped |
 | `userName` | `GET /v1/my/profile`: `preferred_username`, else `nickname`, else empty |
 | `readingDirection` | `GET /v1/series/{id}/collections`: the `reading` of the first collection whose language is the series' `original_language`, else of the first collection, else `null` |
@@ -309,12 +317,13 @@ Atsumaru finder: defined for MangaBaka media only. It searches each title varian
 `client` for the top three hits not yet read, and answers the first whose `mangaBakaId` equals
 `media.ref.id`.
 
-### [CT-4.2] Local store
+### [CT-4.3] Local store
 
 Kind: schema · Anchor: null
 
 ~~`[CT-4]` Local store~~: reconciled with the shipped tables, keyed by `MediaRef`.
 ~~`[CT-4.1]` Local store~~: `media.score` holds `[CT-1.3]`'s 0.0–5.0 scale.
+~~`[CT-4.2]` Local store~~: `library_entry.score` holds the user's rating.
 
 ```sql
 create table media (
@@ -325,7 +334,7 @@ create table media (
 );
 create table library_entry (
   backend text not null, media_id text not null,
-  status text not null, progress real, updated_at integer not null,
+  status text not null, progress real, updated_at integer not null, score real,
   primary key (backend, media_id)
 );
 create table read_event (
@@ -364,7 +373,9 @@ and changes only through `changes()` or a successful `addEntry` or `updateEntry`
 history cursors and is cleared at sign-out with `library_entry` and `read_event`. `cache` holds
 details, feed pages and reading directions so the app opens offline. `[KD-10]` rewrites `media_id`
 in `binding`, `library_entry`, `progress_outbox` and `reading_mode`. A migration converts stored
-scores to the 0.0–5.0 scale.
+scores to the 0.0–5.0 scale. `library_entry.score` is null when the user has not rated the media.
+The migration that adds it drops the library cursor, so the next sync reads the library whole and
+fills it in.
 
 ### [CT-5.1] Read state
 
@@ -424,9 +435,11 @@ val mode = readingMode?.mode
 read when a title that is not a long strip first opens, and kept in `cache`. Paged right to left
 shows the first page at the right and advances leftward. Changing the mode keeps the current page.
 
-### [CT-10] Repositories
+### [CT-10.1] Repositories
 
 Kind: api · Anchor: null
+
+~~`[CT-10]` Repositories~~: `entry` replaces `status`, and `setScore` rates a title.
 
 ```kotlin
 package app.koma.data
@@ -442,9 +455,10 @@ data class Library(val synced: Boolean, val items: List<LibraryItem>)
 
 class LibraryRepository(store: Store, backend: Backend, media: MediaRepository, clock: Clock) {
     val library: Flow<Library>
-    fun status(ref: MediaRef): Flow<ListStatus?>
+    fun entry(ref: MediaRef): Flow<ListEntry?>
     suspend fun sync()
     suspend fun setStatus(ref: MediaRef, status: ListStatus)
+    suspend fun setScore(ref: MediaRef, score: Double)          // 0 clears the rating
 }
 
 data class Read(val id: String, val media: Media, val at: Long, val from: Double?, val to: Double)
@@ -474,8 +488,10 @@ that raise progress. Grouping into shelves and hiding `Kind.Novel` are the libra
 functions. A sync or write started before a sign-out drops what it fetched (`Store.generation`).
 `setStatus` calls `addEntry` when the stored library lacks the media, else `updateEntry`, then
 writes the store. When that call fails, it syncs the library, so a retry picks the member that
-matches the backend. `signOut` clears user data before ending the
-session. `loadUserName` asks once per session and drops a reply for a session that has ended.
+matches the backend. `setScore` calls `updateEntry(ref, score = score)` on media the library
+holds, then writes the store, and syncs the same way when that call fails. `signOut` clears user
+data before ending the session. `loadUserName` asks once per session and drops a reply for a
+session that has ended.
 
 ## Acceptance
 
@@ -540,6 +556,11 @@ way, through the client sources share (`[CT-2.2]`). The harness records the imag
   (score 3, day 2) and `X` (score 1, day 3), and chapter 4.5 from `X` alone, when the chapter list
   opens, then it shows one chapter 5, credited to `Z`, and chapter 4.5, credited to `X`.
   — demonstrates `[SO-3]`
+- `[VC-14]` Given a library entry with `rating: 87`, when its title screen opens, then the status
+  button's rating half shows `4.4`; when the gauge moves to 3.5 and the rating is saved, the stub
+  receives `PATCH /v1/my/library/{id}` with `rating: 70` and the half shows `3.5`; when the gauge
+  moves to 0 instead, the stub receives `rating: 0` and the half offers to rate; when the stub
+  answers 500, the half keeps the rating it showed. — demonstrates `[SO-8]`
 
 ## Caveats
 

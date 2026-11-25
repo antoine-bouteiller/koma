@@ -136,7 +136,10 @@ interface Backend {
         score: Double? = null,
     )
 
-    /** Changes only the fields given; throws when the library does not hold [ref]. */
+    /**
+     * Changes only the fields given; a [score] of 0 clears the rating. Throws when the library does
+     * not hold [ref].
+     */
     suspend fun updateEntry(
         ref: MediaRef,
         status: ListStatus? = null,

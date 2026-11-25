@@ -2,10 +2,18 @@ package app.koma.title
 
 import android.os.Build
 import androidx.annotation.DrawableRes
+import androidx.compose.animation.AnimatedVisibility
 import androidx.compose.animation.animateContentSize
+import androidx.compose.animation.core.animateDpAsState
 import androidx.compose.animation.core.animateFloatAsState
+import androidx.compose.animation.expandHorizontally
+import androidx.compose.animation.fadeIn
+import androidx.compose.animation.fadeOut
+import androidx.compose.animation.shrinkHorizontally
 import androidx.compose.foundation.background
 import androidx.compose.foundation.clickable
+import androidx.compose.foundation.interaction.MutableInteractionSource
+import androidx.compose.foundation.interaction.collectIsPressedAsState
 import androidx.compose.foundation.layout.Arrangement
 import androidx.compose.foundation.layout.Box
 import androidx.compose.foundation.layout.Column
@@ -18,6 +26,7 @@ import androidx.compose.foundation.layout.heightIn
 import androidx.compose.foundation.layout.padding
 import androidx.compose.foundation.layout.size
 import androidx.compose.foundation.layout.width
+import androidx.compose.foundation.layout.widthIn
 import androidx.compose.foundation.lazy.LazyColumn
 import androidx.compose.foundation.lazy.LazyRow
 import androidx.compose.foundation.lazy.items
@@ -65,6 +74,7 @@ import app.koma.AppContainer
 import app.koma.R
 import app.koma.data.ListStatus
 import app.koma.data.MediaRef
+import app.koma.ui.ConnectedShapes
 import app.koma.ui.GroupRow
 import app.koma.ui.PillButton
 import app.koma.ui.PillShape
@@ -72,6 +82,7 @@ import app.koma.ui.SettingsGroup
 import app.koma.ui.SettingsRow
 import app.koma.ui.TitleFont
 import app.koma.ui.TrackHeaderBackdrop
+import app.koma.ui.morphingShape
 import coil3.ImageLoader
 import coil3.compose.AsyncImage
 import kotlinx.coroutines.launch
@@ -83,6 +94,7 @@ fun TitleView(container: AppContainer, ref: MediaRef, contentPadding: PaddingVal
     val model = viewModel(key = "title-${ref.backend}-${ref.id}") { TitleViewModel(container, ref) }
     val state by model.state.collectAsStateWithLifecycle()
     var picking by rememberSaveable { mutableStateOf(false) }
+    var rating by rememberSaveable { mutableStateOf(false) }
     val list = rememberLazyListState()
     TrackHeaderBackdrop(list)
     LazyColumn(
@@ -95,7 +107,7 @@ fun TitleView(container: AppContainer, ref: MediaRef, contentPadding: PaddingVal
             Header(state, container.images, contentPadding.calculateTopPadding())
         }
         item(key = "status") {
-            StatusButton(state, model.backend, onClick = { picking = true })
+            StatusButton(state, onPick = { picking = true }, onRate = { rating = true })
         }
         when (val about = state.about) {
             About.Loading ->
@@ -138,6 +150,17 @@ fun TitleView(container: AppContainer, ref: MediaRef, contentPadding: PaddingVal
                 model.setStatus(it)
             },
             onDismiss = { picking = false },
+        )
+    }
+    val score = state.rating?.score
+    if (rating && score != null) {
+        RatingSheet(
+            score,
+            onRate = {
+                rating = false
+                model.setRating(it)
+            },
+            onDismiss = { rating = false },
         )
     }
 }
@@ -261,40 +284,101 @@ private fun FactText(fact: Fact) {
     }
 }
 
-/** The series' library status; it opens [StatusSheet] to change it. */
+/**
+ * The series' library status and, once the library holds it, the user's rating, as one split
+ * button. A pressed half widens at the other's expense.
+ */
 @OptIn(ExperimentalMaterial3ExpressiveApi::class)
 @Composable
-private fun StatusButton(state: TitleState, backend: String, onClick: () -> Unit) {
+private fun StatusButton(state: TitleState, onPick: () -> Unit, onRate: () -> Unit) {
+    val motion = MaterialTheme.motionScheme
+    val height = ButtonDefaults.MediumContainerHeight
+    val iconSize = ButtonDefaults.iconSizeFor(height)
+    val textStyle = ButtonDefaults.textStyleFor(height)
+    val statusSource = remember { MutableInteractionSource() }
+    val ratingSource = remember { MutableInteractionSource() }
+    val statusPressed by statusSource.collectIsPressedAsState()
+    val ratingPressed by ratingSource.collectIsPressedAsState()
+    val rating = state.rating
     Column(
         Modifier.padding(horizontal = 16.dp),
         verticalArrangement = Arrangement.spacedBy(8.dp),
     ) {
-        val height = ButtonDefaults.MediumContainerHeight
-        FilledTonalButton(
-            onClick = onClick,
-            shapes = ButtonDefaults.shapesFor(height),
-            enabled = !state.saving,
-            contentPadding = ButtonDefaults.contentPaddingFor(height),
-            modifier = Modifier.fillMaxWidth().heightIn(min = height).testTag("title-status"),
+        Row(
+            Modifier.fillMaxWidth(),
+            horizontalArrangement = Arrangement.spacedBy(2.dp),
         ) {
-            if (state.saving) {
-                LoadingIndicator(Modifier.size(ButtonDefaults.iconSizeFor(height)))
-            } else {
-                Icon(
-                    painterResource(state.status?.icon ?: R.drawable.ic_bookmark),
-                    contentDescription = null,
-                    modifier = Modifier.size(ButtonDefaults.iconSizeFor(height)),
+            FilledTonalButton(
+                onClick = onPick,
+                shape =
+                    morphingShape(
+                        if (rating == null) PillShape else ConnectedShapes.Pill.inRow(0, 2),
+                        statusPressed,
+                    ),
+                enabled = state.saving == null,
+                contentPadding = ButtonDefaults.contentPaddingFor(height),
+                interactionSource = statusSource,
+                modifier = Modifier.weight(1f).heightIn(min = height).testTag("title-status"),
+            ) {
+                if (state.saving == Change.Status) {
+                    LoadingIndicator(Modifier.size(iconSize))
+                } else {
+                    Icon(
+                        painterResource(state.status?.icon ?: R.drawable.ic_bookmark),
+                        contentDescription = null,
+                        modifier = Modifier.size(iconSize),
+                    )
+                }
+                Text(
+                    state.status?.label ?: "Add to Library",
+                    style = textStyle,
+                    modifier = Modifier.padding(start = ButtonDefaults.iconSpacingFor(height)),
                 )
             }
-            Text(
-                state.status?.label ?: "Add to Library",
-                style = ButtonDefaults.textStyleFor(height),
-                modifier = Modifier.padding(start = ButtonDefaults.iconSpacingFor(height)),
-            )
+            AnimatedVisibility(
+                rating != null,
+                enter = expandHorizontally(motion.defaultSpatialSpec()) + fadeIn(),
+                exit = shrinkHorizontally(motion.fastSpatialSpec()) + fadeOut(),
+            ) {
+                val width by
+                    animateDpAsState(
+                        when {
+                            ratingPressed -> RatingWidth * 1.15f
+                            statusPressed -> RatingWidth * 0.85f
+                            else -> RatingWidth
+                        },
+                        motion.fastSpatialSpec(),
+                    )
+                FilledTonalButton(
+                    onClick = onRate,
+                    shape = morphingShape(ConnectedShapes.Pill.inRow(1, 2), ratingPressed),
+                    enabled = state.saving == null,
+                    contentPadding = PaddingValues(horizontal = 12.dp),
+                    interactionSource = ratingSource,
+                    modifier =
+                        Modifier.widthIn(min = width).heightIn(min = height).testTag("title-score"),
+                ) {
+                    if (state.saving == Change.Rating) {
+                        LoadingIndicator(Modifier.size(20.dp))
+                    } else {
+                        Icon(
+                            painterResource(rating?.icon ?: R.drawable.ic_star_outline),
+                            contentDescription = "Your rating",
+                            modifier = Modifier.size(20.dp),
+                        )
+                    }
+                    Text(
+                        rating?.label.orEmpty(),
+                        style = textStyle,
+                        maxLines = 1,
+                        modifier = Modifier.padding(start = 4.dp),
+                    )
+                }
+            }
         }
-        if (state.saveFailed) {
+        if (state.saveError != null) {
             Text(
-                "$backend did not save the status. Try again.",
+                state.saveError,
                 style = MaterialTheme.typography.bodySmall,
                 color = MaterialTheme.colorScheme.error,
                 modifier = Modifier.fillMaxWidth().testTag("title-status-error"),
@@ -302,6 +386,8 @@ private fun StatusButton(state: TitleState, backend: String, onClick: () -> Unit
         }
     }
 }
+
+private val RatingWidth = 96.dp
 
 @OptIn(ExperimentalMaterial3Api::class)
 @Composable

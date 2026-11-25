@@ -61,10 +61,26 @@ class MangaBakaBackendTest {
     }
 
     @Test
-    fun `a library change reads MangaBaka's state names`() = runTest {
-        network.answer(CHANGES, 200, changes("c1", false, upsert(1, "plan_to_read")))
+    fun `a rating is sent out of 100, and 0 clears it`() = runTest {
+        network.answer("$LIBRARY/1", 200, """{"status":200,"data":true}""")
+        backend.updateEntry(ref(1), score = 4.3)
+        backend.updateEntry(ref(1), score = 0.0)
+        assertEquals(
+            listOf("""{"rating":86}""", """{"rating":0}"""),
+            network.requests.map { it.body },
+        )
+    }
+
+    @Test
+    fun `a library change reads MangaBaka's state names and the rating out of five`() = runTest {
+        network.answer(
+            CHANGES,
+            200,
+            changes("c1", false, upsert(1, "plan_to_read", rating = 87)),
+        )
         val change = backend.changes(null).items.single() as ListChange.Upsert
         assertEquals(ListStatus.Planning, change.entry.status)
+        assertEquals(4.4, change.entry.score)
     }
 
     @Test

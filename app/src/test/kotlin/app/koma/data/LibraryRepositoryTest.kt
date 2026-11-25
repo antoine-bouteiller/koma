@@ -83,8 +83,8 @@ class LibraryRepositoryTest {
             listOf("updateEntry(α-1, Completed)", "addEntry(β-2, Planning)"),
             backend.calls.drop(1),
         )
-        assertEquals(ListStatus.Completed, library.status(alpha).first())
-        assertEquals(ListStatus.Planning, library.status(beta).first())
+        assertEquals(ListStatus.Completed, library.entry(alpha).first()?.status)
+        assertEquals(ListStatus.Planning, library.entry(beta).first()?.status)
     }
 
     @Test
@@ -122,6 +122,6 @@ class LibraryRepositoryTest {
             listOf("changes(null)", "addEntry(γ-3, Completed)", "changes(c1)"),
             backend.calls,
         )
-        assertEquals(ListStatus.Paused, library.status(gamma).first())
+        assertEquals(ListStatus.Paused, library.entry(gamma).first()?.status)
     }
 }

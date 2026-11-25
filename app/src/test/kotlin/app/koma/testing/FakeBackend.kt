@@ -79,8 +79,8 @@ class FakeBackend(override val name: String = "Shelfie", signedIn: Boolean = tru
     }
 
     /** Files [ref] in the library, as an edit made elsewhere would. */
-    fun file(ref: MediaRef, status: ListStatus, updatedAt: Long = 0) {
-        val entry = ListEntry(ref, status, null, null, updatedAt)
+    fun file(ref: MediaRef, status: ListStatus, updatedAt: Long = 0, score: Double? = null) {
+        val entry = ListEntry(ref, status, null, score, updatedAt)
         entries[ref] = entry
         pending += ListChange.Upsert(entry)
     }
@@ -134,9 +134,10 @@ class FakeBackend(override val name: String = "Shelfie", signedIn: Boolean = tru
         progress: Double?,
         score: Double?,
     ) {
-        calls += "updateEntry(${ref.id}, $status)"
+        calls += "updateEntry(${ref.id}, $status${score?.let { ", $it" }.orEmpty()})"
         val entry = entries[ref] ?: throw IOException("${ref.id} is not in the library.")
-        file(ref, status ?: entry.status)
+        val rated = if (score == null) entry.score else score.takeIf { it > 0 }
+        file(ref, status ?: entry.status, score = rated)
     }
 
     override suspend fun readEvents(

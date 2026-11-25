@@ -1,7 +1,10 @@
 package app.koma.title
 
+import androidx.compose.ui.semantics.SemanticsActions
 import androidx.compose.ui.test.assertContentDescriptionEquals
+import androidx.compose.ui.test.assertIsNotEnabled
 import androidx.compose.ui.test.assertIsSelected
+import androidx.compose.ui.test.performSemanticsAction
 import app.koma.data.ListStatus
 import app.koma.testing.AppHarness
 import app.koma.testing.BATCH
@@ -122,6 +125,64 @@ class TitleTest {
         app.text("title-status", "Reading")
     }
 
+    private fun rate(score: Float) {
+        app.node("rating-gauge").performSemanticsAction(SemanticsActions.SetProgress) {
+            it(score)
+        }
+        app.awaitIdle()
+    }
+
+    @Test
+    fun `a rating set on the gauge is saved on MangaBaka`() {
+        library(upsert(1, "reading", rating = 87))
+        app.network.answer("$SERIES/1?schema=full", 200, fullSeries(1, "Solo Leveling"))
+        app.network.answer("$LIBRARY/1", 200, """{"status":200,"data":true}""")
+        app.launch()
+        app.tap("manga-1")
+        app.text("title-score", "4.4")
+        app.tap("title-score")
+        app.text("rating-score", "4.4")
+        app.node("rating-save").assertIsNotEnabled()
+        rate(3.4f)
+        app.text("rating-score", "3.5")
+        app.text("rating-word", "Liked it")
+        app.tap("rating-save")
+        app.text("title-score", "3.5")
+        val write = app.network.requests.single { it.url == "$LIBRARY/1" }
+        assertEquals("PATCH" to """{"rating":70}""", write.method to write.body)
+    }
+
+    @Test
+    fun `a rating taken back to 0 is cleared`() {
+        library(upsert(1, "reading", rating = 90))
+        app.network.answer("$SERIES/1?schema=full", 200, fullSeries(1, "Solo Leveling"))
+        app.network.answer("$LIBRARY/1", 200, """{"status":200,"data":true}""")
+        app.launch()
+        app.tap("manga-1")
+        app.tap("title-score")
+        rate(0f)
+        app.text("rating-word", "Not rated")
+        app.tap("rating-save")
+        app.text("title-score", "Rate")
+        assertEquals("""{"rating":0}""", app.network.requests.last().body)
+    }
+
+    @Test
+    fun `a rating MangaBaka refuses is not kept`() {
+        library(upsert(1, "reading"))
+        app.network.answer("$SERIES/1?schema=full", 200, fullSeries(1, "Solo Leveling"))
+        app.network.answer("$LIBRARY/1", 500, """{"status":500}""")
+        app.launch()
+        app.tap("manga-1")
+        app.text("title-score", "Rate")
+        app.tap("title-score")
+        rate(5f)
+        app.text("rating-word", "Loved it")
+        app.tap("rating-save")
+        app.text("title-status-error", "MangaBaka did not save the rating. Try again.")
+        app.text("title-score", "Rate")
+    }
+
     // Legacy graphics measure no text, so no summary would overflow.
     @GraphicsMode(GraphicsMode.Mode.NATIVE)
     @Test
@@ -169,6 +230,7 @@ class TitleTest {
         runBlocking { app.container.library.sync() }
         app.awaitIdle()
         app.text("title-status", "Add to Library")
+        app.missing("title-score")
         backend.file(gamma, ListStatus.Paused)
         backend.calls.clear()
 

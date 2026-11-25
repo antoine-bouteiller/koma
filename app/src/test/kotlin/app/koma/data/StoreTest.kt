@@ -63,6 +63,29 @@ class StoreTest {
     }
 
     @Test
+    fun `migrating to version 4 makes room for ratings and reads the library whole again`() {
+        val driver =
+            AndroidSqliteDriver(KomaDatabase.Schema, RuntimeEnvironment.getApplication(), null)
+        driver.execute(null, "DROP TABLE library_entry", 0)
+        driver.execute(
+            null,
+            "CREATE TABLE library_entry (backend TEXT NOT NULL, media_id TEXT NOT NULL, status TEXT NOT NULL, progress REAL, updated_at INTEGER NOT NULL, PRIMARY KEY (backend, media_id))",
+            0,
+        )
+        driver.execute(
+            null,
+            "INSERT INTO library_entry VALUES ('MangaBaka', '1', 'Reading', NULL, 0)",
+            0,
+        )
+        driver.execute(null, "INSERT INTO meta VALUES ('library_cursor', 'c1')", 0)
+        KomaDatabase.Schema.migrate(driver, 3, 4)
+        val db = KomaDatabase(driver)
+        val entry = db.libraryEntryQueries.entry("MangaBaka", "1").executeAsOne()
+        assertEquals("Reading" to null, entry.status to entry.score)
+        assertNull(db.metaQueries.value("library_cursor").executeAsOneOrNull())
+    }
+
+    @Test
     fun `a watch answers again after each write`() = runTest {
         val seen = mutableListOf<String?>()
         val watching =
