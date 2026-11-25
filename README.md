@@ -9,18 +9,20 @@ Koma is a Kotlin and Jetpack Compose app in one Gradle module, `app/`, with pack
 | Package | Holds |
 | --- | --- |
 | `app.koma` | `KomaApplication`, `MainActivity`, and `AppContainer`, which builds every dependency |
-| `app.koma.data` | The HTTP client, the MangaBaka API, and the SQLite store (SQLDelight, `app/src/main/sqldelight/`) |
-| `app.koma.auth` | MangaBaka sign-in (OAuth with PKCE in a Custom Tab), the Keystore secret store |
-| `app.koma.library` | The library sync, its shelves and their screen |
-| `app.koma.history` | The reading history sync and its screen |
-| `app.koma.title` | A series' screen: its MangaBaka facts, summary and tags, and its library status |
+| `app.koma.data` | The `Backend` interface, the media, library, history and account repositories, the HTTP client, and the SQLite store (SQLDelight, `app/src/main/sqldelight/`) |
+| `app.koma.data.mangabaka` | `MangaBakaBackend`: MangaBaka's API and its sign-in (OAuth with PKCE) |
+| `app.koma.auth` | The sign-in prompt and session state, the Custom Tab browser, the Keystore secret store |
+| `app.koma.library` | The library's shelves and their screen |
+| `app.koma.history` | The reading history's screen |
+| `app.koma.title` | A title's screen: the backend's facts, summary and tags, and its library status |
 | `app.koma.update` | The header pill offering a newer release, its download and its hand-off to the installer |
-| `app.koma.settings` | The Settings tab: the Theme and MangaBaka pages |
+| `app.koma.settings` | The Settings tab: the Theme and account pages |
 | `app.koma.ui` | The app shell: tabs, header, empty states, settings rows, option groups, theme |
 | `app.koma.version` | `versionCode`, also compiled by `buildSrc` for the build |
 
-A feature imports `data`, `ui` and `version`, never another feature. Only `ui/KomaApp.kt` and
-`MainActivity.kt` compose features. Screens render a ViewModel's state and decide nothing.
+A feature imports `data`, `ui` and `version`, never another feature nor `app.koma.data.mangabaka`,
+which only `KomaApplication` builds. Only `ui/KomaApp.kt` and `MainActivity.kt` compose features.
+Screens render a ViewModel's state and decide nothing.
 
 ## Setup
 
