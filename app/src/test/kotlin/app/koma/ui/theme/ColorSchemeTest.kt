@@ -85,6 +85,11 @@ class ColorSchemeTest {
     }
 
     @Test
+    fun `with cover colors off, a cover keeps the app's colors`() {
+        assertNull(seededColorScheme(ThemeSettings(coverColors = false), false, green.toArgb()))
+    }
+
+    @Test
     fun `true black holds under a cover's colors`() {
         val scheme =
             seededColorScheme(ThemeSettings(trueBlack = true), dark = true, green.toArgb())!!

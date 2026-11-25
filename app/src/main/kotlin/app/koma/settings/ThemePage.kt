@@ -15,6 +15,9 @@ data class ThemePage(
     val accent: Int?,
     val trueBlackShown: Boolean,
     val trueBlack: Boolean,
+    /** Monochrome keeps titles grey whatever their cover. */
+    val coverColorsShown: Boolean,
+    val coverColors: Boolean,
 )
 
 fun themePage(settings: ThemeSettings, dynamicColor: Boolean): ThemePage {
@@ -27,5 +30,7 @@ fun themePage(settings: ThemeSettings, dynamicColor: Boolean): ThemePage {
         accent = settings.accent,
         trueBlackShown = settings.mode != ThemeMode.Light,
         trueBlack = settings.trueBlack,
+        coverColorsShown = style != ColorStyle.Monochrome,
+        coverColors = settings.coverColors,
     )
 }

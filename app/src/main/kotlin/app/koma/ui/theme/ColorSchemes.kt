@@ -43,9 +43,12 @@ fun seedColor(pixels: IntArray): Int? =
     Score.score(QuantizerCelebi.quantize(pixels, 128), desired = 1, fallbackColorArgb = null)
         .firstOrNull()
 
-/** Colors drawn from [seed], an ARGB, under [settings]; null for Monochrome, which stays grey. */
+/**
+ * Colors drawn from [seed], an ARGB, under [settings]; null for Monochrome, which stays grey, and
+ * with cover colors off.
+ */
 fun seededColorScheme(settings: ThemeSettings, dark: Boolean, seed: Int): ColorScheme? {
-    if (settings.style == ColorStyle.Monochrome) return null
+    if (settings.style == ColorStyle.Monochrome || !settings.coverColors) return null
     val scheme = SchemeContent(Hct.fromInt(seed), dark, contrastLevel = 0.0).toColorScheme()
     return if (dark && settings.trueBlack) scheme.trueBlack() else scheme
 }

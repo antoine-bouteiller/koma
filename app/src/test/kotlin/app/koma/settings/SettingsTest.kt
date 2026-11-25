@@ -1,5 +1,6 @@
 package app.koma.settings
 
+import androidx.compose.ui.test.assertIsOff
 import androidx.compose.ui.test.assertIsOn
 import androidx.compose.ui.test.assertTextEquals
 import app.koma.testing.AppHarness
@@ -38,11 +39,13 @@ class SettingsTest {
         app.tap("color-style-default")
         app.tap("accent-FF43A047")
         app.tap("true-black")
+        app.tap("cover-colors")
         app.reload()
         app.selected("theme-mode-dark")
         app.selected("color-style-default")
         app.selected("accent-FF43A047")
         app.node("true-black").assertIsOn()
+        app.node("cover-colors").assertIsOff()
     }
 
     @Test

@@ -22,4 +22,10 @@ class ThemePageTest {
         assertFalse(themePage(ThemeSettings(mode = ThemeMode.Light), true).trueBlackShown)
         assertTrue(themePage(ThemeSettings(mode = ThemeMode.System), true).trueBlackShown)
     }
+
+    @Test
+    fun `monochrome hides cover colors`() {
+        assertFalse(themePage(ThemeSettings(style = ColorStyle.Monochrome), true).coverColorsShown)
+        assertTrue(themePage(ThemeSettings(style = ColorStyle.Default), true).coverColorsShown)
+    }
 }

@@ -25,6 +25,8 @@ data class ThemeSettings(
     val trueBlack: Boolean = false,
     /** ARGB of the accent picked over the style's own colors, or null. */
     val accent: Int? = null,
+    /** Title screens take their cover's colors. */
+    val coverColors: Boolean = true,
 )
 
 /**
@@ -37,6 +39,7 @@ private const val MODE = "theme.mode"
 private const val STYLE = "theme.style"
 private const val TRUE_BLACK = "theme.trueBlack"
 private const val ACCENT = "theme.accent"
+private const val COVER_COLORS = "theme.coverColors"
 
 class ThemePreferences(private val store: PreferenceStore) {
     private val current = MutableStateFlow(read())
@@ -49,6 +52,7 @@ class ThemePreferences(private val store: PreferenceStore) {
         store.set(STYLE, next.style.name)
         store.set(TRUE_BLACK, next.trueBlack.toString())
         store.set(ACCENT, next.accent?.let { "%08X".format(it) } ?: "")
+        store.set(COVER_COLORS, next.coverColors.toString())
     }
 
     private fun read(): ThemeSettings {
@@ -58,6 +62,7 @@ class ThemePreferences(private val store: PreferenceStore) {
             style = ColorStyle.entries.find { it.name == store.get(STYLE) } ?: default.style,
             trueBlack = store.get(TRUE_BLACK) == "true",
             accent = store.get(ACCENT)?.toLongOrNull(16)?.toInt(),
+            coverColors = store.get(COVER_COLORS) != "false",
         )
     }
 }

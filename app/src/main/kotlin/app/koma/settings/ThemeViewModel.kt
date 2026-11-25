@@ -27,4 +27,6 @@ class ThemeViewModel(private val theme: ThemePreferences, dynamicColor: Boolean)
     fun setAccent(accent: Int?) = theme.update { it.copy(accent = accent) }
 
     fun setTrueBlack(on: Boolean) = theme.update { it.copy(trueBlack = on) }
+
+    fun setCoverColors(on: Boolean) = theme.update { it.copy(coverColors = on) }
 }

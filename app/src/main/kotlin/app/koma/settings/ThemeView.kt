@@ -137,6 +137,17 @@ internal fun ThemeView(container: AppContainer) {
                     subtitle = "Black backgrounds in dark mode",
                 )
             },
+            GroupRow(page.coverColorsShown) { shape ->
+                SettingsSwitchRow(
+                    title = "Cover colors",
+                    icon = R.drawable.ic_palette,
+                    shape = shape,
+                    tag = "cover-colors",
+                    checked = page.coverColors,
+                    onCheckedChange = model::setCoverColors,
+                    subtitle = "Color titles from their cover",
+                )
+            },
         )
     )
 }
