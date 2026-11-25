@@ -1,5 +1,7 @@
 package app.koma.history
 
+import androidx.compose.ui.test.performTouchInput
+import androidx.compose.ui.test.swipeDown
 import app.koma.testing.AppHarness
 import app.koma.testing.BATCH
 import app.koma.testing.CHANGES
@@ -112,7 +114,7 @@ class HistoryTest {
     }
 
     @Test
-    fun `only the first visit to the history asks for newer events, and it opens offline`() {
+    fun `a stored history opens offline and asks for newer events only when pulled`() {
         signedInWithEmptyLibrary()
         app.network.answer(
             RECENT_EVENTS,
@@ -123,8 +125,19 @@ class HistoryTest {
         app.tap("tab-history")
         app.text("history-chapters-6", "Ch. 15 · 10:00 AM")
         app.network.fail(RECENT_EVENTS)
+        app.network.fail("$EVENTS?event_type=progress_update&created_at_lower")
+        app.tap("tab-library")
+        app.tap("tab-history")
+        app.reload()
+        app.tap("tab-history")
+        app.text("history-chapters-6", "Ch. 15 · 10:00 AM")
+        app.missing("history-retry")
+        assertEquals(1, app.network.requested(EVENTS).size)
+
+        val newer =
+            "$EVENTS?event_type=progress_update&created_at_lower=2026-01-01T10:00:00Z&limit=250"
         app.network.answer(
-            "$EVENTS?event_type=progress_update&created_at_lower=2026-01-01T10:00:00Z&limit=250",
+            newer,
             200,
             events(
                 250,
@@ -134,16 +147,9 @@ class HistoryTest {
                 event(6, 1, 14, 15, "2026-01-01T10:00:00.000Z"),
             ),
         )
-        app.tap("tab-library")
-        app.tap("tab-history")
-        app.missing("history-8")
-        app.reload()
+        app.node("history").performTouchInput { swipeDown(top + height / 4, bottom) }
         app.text("history-chapters-8", "Ch. 6 · 11:00 AM")
-        app.text("history-chapters-6", "Ch. 15 · 10:00 AM")
-        app.network.fail("$EVENTS?event_type=progress_update&created_at_lower")
-        app.reload()
-        app.text("history-chapters-8", "Ch. 6 · 11:00 AM")
-        app.missing("history-retry")
+        assertEquals(1, app.network.requested(newer).size)
     }
 
     @Test

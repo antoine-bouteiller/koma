@@ -1,0 +1,2 @@
+-- Details are stored once fetched, so a title screen opens without asking the backend again.
+CREATE TABLE IF NOT EXISTS media_details (backend TEXT NOT NULL, id TEXT NOT NULL, details TEXT NOT NULL, PRIMARY KEY (backend, id));

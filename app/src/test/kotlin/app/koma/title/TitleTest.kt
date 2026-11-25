@@ -247,6 +247,26 @@ class TitleTest {
     }
 
     @Test
+    fun `a title's details are asked for once, then open offline`() {
+        library(upsert(1, "reading"))
+        app.network.answer(
+            "$SERIES/1?schema=full",
+            200,
+            fullSeries(1, "Solo Leveling", authors = listOf("Chu-Gong")),
+        )
+        app.launch()
+        app.tap("manga-1")
+        app.text("title-authors", "Chu-Gong")
+        app.network.fail("$SERIES/1?schema=full")
+        app.tap("back")
+        app.tap("manga-1")
+        app.text("title-authors", "Chu-Gong")
+        app.reload()
+        app.text("title-authors", "Chu-Gong")
+        assertEquals(1, app.network.requested("$SERIES/1?schema=full").size)
+    }
+
+    @Test
     fun `details MangaBaka did not send can be asked for again`() {
         library(upsert(1, "reading"))
         app.network.fail("$SERIES/1?schema=full")

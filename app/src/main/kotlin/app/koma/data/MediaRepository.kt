@@ -1,6 +1,7 @@
 package app.koma.data
 
 import kotlinx.coroutines.flow.Flow
+import kotlinx.serialization.encodeToString
 
 internal fun KomaDatabase.upsert(media: Media) {
     mediaQueries.upsert(
@@ -43,7 +44,25 @@ class MediaRepository(private val store: Store, private val backend: Backend) {
         return store.watch({ listOf(query(this)) }) { query(this).executeAsOneOrNull() }
     }
 
-    suspend fun details(ref: MediaRef): MediaDetails = backend.details(ref)
+    /** The backend's details of [ref], null until fetched. Never refreshed once stored. */
+    fun details(ref: MediaRef): Flow<MediaDetails?> {
+        val query = { db: KomaDatabase -> db.mediaDetailsQueries.one(ref.backend.name, ref.id) }
+        return store.watch({ listOf(query(this)) }) {
+            query(this).executeAsOneOrNull()?.let(::decodeDetails)
+        }
+    }
+
+    /** Fetches and stores the details of [ref], unless they are stored. */
+    suspend fun loadDetails(ref: MediaRef) {
+        val stored = store.read {
+            mediaDetailsQueries.one(ref.backend.name, ref.id).executeAsOneOrNull()
+        }
+        if (stored?.let(::decodeDetails) != null) return
+        val details = backend.details(ref)
+        store.write {
+            mediaDetailsQueries.upsert(ref.backend.name, ref.id, json.encodeToString(details))
+        }
+    }
 
     /** Looks up the refs not stored yet. Those the backend does not answer get an empty title. */
     suspend fun cache(refs: Collection<MediaRef>) {
@@ -58,3 +77,11 @@ class MediaRepository(private val store: Store, private val backend: Backend) {
         }
     }
 }
+
+// Details an older app stored in another shape do not decode, and are fetched again.
+private fun decodeDetails(text: String): MediaDetails? =
+    try {
+        json.decodeFromString<MediaDetails>(text)
+    } catch (_: IllegalArgumentException) {
+        null
+    }

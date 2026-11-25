@@ -39,6 +39,7 @@ enum class Publication {
 }
 
 /** What a card, a shelf or a history row shows. */
+@Serializable
 data class Media(
     val ref: MediaRef,
     val title: String,
@@ -52,6 +53,7 @@ data class Media(
 )
 
 /** What the title screen shows beyond [media]. */
+@Serializable
 data class MediaDetails(
     val media: Media,
     /** Every variant: native, romanized and secondary titles. */
@@ -66,6 +68,7 @@ data class MediaDetails(
 )
 
 /** [rank] runs from 0 to 100. */
+@Serializable
 data class Tag(val name: String, val genre: Boolean, val spoiler: Boolean, val rank: Int?)
 
 data class ListEntry(

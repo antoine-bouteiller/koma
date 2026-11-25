@@ -4,7 +4,6 @@ import androidx.lifecycle.ViewModel
 import androidx.lifecycle.viewModelScope
 import app.koma.AppContainer
 import app.koma.data.ListStatus
-import app.koma.data.MediaDetails
 import app.koma.data.MediaRef
 import app.koma.data.failed
 import app.koma.ui.theme.seedColor
@@ -25,13 +24,11 @@ import kotlinx.coroutines.flow.stateIn
 import kotlinx.coroutines.launch
 import kotlinx.coroutines.withContext
 
-private data class Fetch(val details: MediaDetails? = null, val failed: Boolean = false)
-
 private data class Save(val saving: Change? = null, val failed: Change? = null)
 
 /** The title screen of [ref]. */
 class TitleViewModel(private val container: AppContainer, private val ref: MediaRef) : ViewModel() {
-    private val fetch = MutableStateFlow(Fetch())
+    private val loadFailed = MutableStateFlow(false)
     private val save = MutableStateFlow(Save())
     private var loading: Job? = null
 
@@ -41,10 +38,11 @@ class TitleViewModel(private val container: AppContainer, private val ref: Media
         combine(
                 container.media.media(ref),
                 container.library.entry(ref),
-                fetch,
+                container.media.details(ref),
+                loadFailed,
                 save,
-            ) { media, entry, f, s ->
-                titleState(backend, media, entry, f.details, f.failed, s.saving, s.failed)
+            ) { media, entry, details, failed, s ->
+                titleState(backend, media, entry, details, failed, s.saving, s.failed)
             }
             // Stops watching the store once the screen is gone, as one model is kept per title.
             .stateIn(
@@ -90,14 +88,13 @@ class TitleViewModel(private val container: AppContainer, private val ref: Media
         }
     }
 
+    /** Fetches the title's details, unless they are stored. */
     fun load() {
-        if (loading?.isActive == true || fetch.value.details != null) return
-        fetch.value = Fetch()
+        if (loading?.isActive == true) return
+        loadFailed.value = false
         loading =
             viewModelScope.launch(container.work) {
-                var details: MediaDetails? = null
-                val failed = failed { details = container.media.details(ref) }
-                fetch.value = Fetch(details, failed)
+                loadFailed.value = failed { container.media.loadDetails(ref) }
             }
     }
 

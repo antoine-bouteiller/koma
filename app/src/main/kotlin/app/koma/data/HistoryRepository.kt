@@ -70,6 +70,9 @@ class HistoryRepository(
             History(synced, reads, hasNext)
         }
 
+    /** Whether the first page is stored. */
+    fun synced(): Boolean = store.meta(BACK_CURSOR) != null
+
     /** Reads the events newer than the newest stored one, or the first page when none is stored. */
     suspend fun syncNewer() {
         val generation = store.generation

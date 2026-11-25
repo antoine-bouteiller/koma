@@ -1,6 +1,8 @@
 package app.koma.auth
 
 import androidx.compose.ui.test.assertIsEnabled
+import androidx.compose.ui.test.performTouchInput
+import androidx.compose.ui.test.swipeDown
 import app.koma.testing.AppHarness
 import app.koma.testing.BATCH
 import app.koma.testing.CHANGES
@@ -88,10 +90,11 @@ class SignInTest {
         app.network.answer(BATCH, 200, batch(series(1, "Berserk"), series(7, "Pluto")))
         app.launch()
         app.text("manga-1", "Berserk")
-        app.network.answer(EVENTS, 401, """{"status":401}""")
-        // The history's 401 refreshes, and MangaBaka refuses the refresh token.
-        app.tap("tab-history")
-        app.has("history-sign-in")
+        app.network.answer("$CHANGES?limit=1000&cursor=c1", 401, """{"status":401}""")
+        // The library's 401 refreshes, and MangaBaka refuses the refresh token.
+        app.node("library-reading").performTouchInput { swipeDown(top + height / 4, bottom) }
+        app.awaitIdle()
+        app.has("signed-out")
         app.stubAuthServer()
         app.network.answer(EVENTS, 200, events(50, "end", false))
         app.network.answer(
@@ -100,7 +103,7 @@ class SignInTest {
             changes("c2", false, upsert(7, "reading", "2026-01-02T00:00:00Z")),
         )
         app.network.answer(PROFILE, 200, profile("reader"))
-        app.tap("history-sign-in")
+        app.tap("sign-in")
         app.tap("account-sign-in")
         app.browser.authorize()
         app.awaitIdle()

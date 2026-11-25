@@ -1,0 +1,8 @@
+-- Public data, kept across sign-outs: the backend's details of a media, as JSON.
+CREATE TABLE IF NOT EXISTS media_details (backend TEXT NOT NULL, id TEXT NOT NULL, details TEXT NOT NULL, PRIMARY KEY (backend, id));
+
+one:
+SELECT details FROM media_details WHERE backend = ? AND id = ?;
+
+upsert:
+INSERT OR REPLACE INTO media_details (backend, id, details) VALUES (?, ?, ?);

@@ -90,7 +90,7 @@ MangaBaka without a manual step. Koma is a personal Android app in Kotlin and Je
 | ~~`[KD-19]` Chapter deduplication~~ | ~~Atsumaru lists one upload per scanlator. Its adapter keeps one chapter per number: the upload whose scanlator has the highest `score`, then the latest upload.~~ | ~~Same rule as keiyoushi's Atsumaru extension.~~ |
 | `[KD-19.1]` Chapter deduplication | The source's own. Atsumaru lists one upload per scanlator, and the copied extension keeps one chapter per number: the upload whose scanlator has the highest `score`, then the latest upload. | Mihon's `SChapter` carries no scanlator score, so only the extension can rank uploads. |
 | `[KD-20]` Backend | One interface, `Backend` (`[CT-1.4]`). MangaBaka implements it as `MangaBakaBackend` in `app.koma.data.mangabaka`, with its sign-in. `KomaApplication` builds it and passes it to `AppContainer`; nothing else imports that package. | Koma is built as a client of this service, so "tracker", Mihon's word for a sync target added afterwards, misnames it. A name ending in `Service` would be confused with Android's component. One interface, not one per capability: `[NG-5]` allows one backend at a time, and library entries reference the backend's own media ids. |
-| `[KD-21]` Repositories | `MediaRepository`, `LibraryRepository`, `HistoryRepository` and `AccountRepository` in `app.koma.data`, one instance each, built by `AppContainer` (`[CT-10.1]`). Library and history sync run inside them. | Android's data-layer guidance: one repository per kind of data, over the network and the database. Any screen reuses the same data. |
+| `[KD-21]` Repositories | `MediaRepository`, `LibraryRepository`, `HistoryRepository` and `AccountRepository` in `app.koma.data`, one instance each, built by `AppContainer` (`[CT-10.2]`). Library and history sync run inside them. | Android's data-layer guidance: one repository per kind of data, over the network and the database. Any screen reuses the same data. |
 | `[KD-22]` Backend name in copy | UI strings that name the backend read `Backend.name`. | Replacing the backend touches no screen. |
 | `[KD-23]` Rating | The title screen's status button splits once the library holds the title: its trailing half shows the user's rating and opens a gauge from 0 to 5 in half points. 0 clears the rating. | MangaBaka rates out of 100 and stores 0 as none. Half points keep a drag along the gauge's arc precise. |
 | `[KD-24]` Navigation | Navigation 3. Each tab keeps its own back stack of `@Serializable` routes, restored after process death. Another tab's stack shows over the Library's, so back from its root opens the Library, and back from the Library's root leaves the app. Each screen draws its own floating header. | Popped screens drop their ViewModels and saved state, and predictive back works at any depth. A shared header would need its own copy of `NavDisplay`'s transition. |
@@ -226,7 +226,8 @@ interface Backend {
     )
     suspend fun readEvents(cursor: String?, since: Long?, limit: Int): CursorPage<ReadEvent>
     suspend fun media(refs: List<MediaRef>): List<Media>
-    suspend fun details(ref: MediaRef): MediaDetails
+    fun details(ref: MediaRef): Flow<MediaDetails?>               // from the store
+    suspend fun loadDetails(ref: MediaRef)                         // fetches unless stored
     suspend fun search(query: String, filters: Filters, page: Int): Paged<Media>
     suspend fun discover(feed: Feed, filters: Filters, page: Int): Paged<Media>? = null // null: no such feed
     suspend fun readingDirection(ref: MediaRef): ReadingDirection? = null
@@ -437,18 +438,21 @@ val mode = readingMode?.mode
 read when a title that is not a long strip first opens, and kept in `cache`. Paged right to left
 shows the first page at the right and advances leftward. Changing the mode keeps the current page.
 
-### [CT-10.1] Repositories
+### [CT-10.2] Repositories
 
 Kind: api · Anchor: null
 
 ~~`[CT-10]` Repositories~~: `entry` replaces `status`, and `setScore` rates a title.
+~~`[CT-10.1]` Repositories~~: details are stored once fetched, and `synced` tells whether the
+history's first page is stored.
 
 ```kotlin
 package app.koma.data
 
 class MediaRepository(store: Store, backend: Backend) {
     fun media(ref: MediaRef): Flow<Media?>                         // from the store
-    suspend fun details(ref: MediaRef): MediaDetails
+    fun details(ref: MediaRef): Flow<MediaDetails?>               // from the store
+    suspend fun loadDetails(ref: MediaRef)                         // fetches unless stored
     suspend fun cache(refs: Collection<MediaRef>)                  // looks up refs not stored yet
 }
 
@@ -468,6 +472,7 @@ data class History(val synced: Boolean, val reads: List<Read>, val hasNext: Bool
 
 class HistoryRepository(store: Store, backend: Backend, media: MediaRepository) {
     val history: Flow<History>
+    fun synced(): Boolean            // the first page is stored
     suspend fun syncNewer()
     suspend fun loadOlder()
 }
@@ -494,6 +499,10 @@ matches the backend. `setScore` calls `updateEntry(ref, score = score)` on media
 holds, then writes the store, and syncs the same way when that call fails. `signOut` clears user
 data before ending the session. `loadUserName` asks once per session and drops a reply for a
 session that has ended.
+
+Details, once stored, are never fetched again; they are public and kept across sign-outs. The
+history screen reads the first page on open while `synced` is false; newer events wait for a pull
+to refresh, or for the library's sync.
 
 ## Acceptance
 

@@ -35,7 +35,6 @@ class HistoryViewModel(private val container: AppContainer) : ViewModel() {
     private var stored = History(synced = false, reads = emptyList(), hasNext = false)
     private var newer: Job? = null
     private var older: Job? = null
-    private var openedFor: Int? = null
 
     val backend: String = container.account.backendName
 
@@ -67,23 +66,22 @@ class HistoryViewModel(private val container: AppContainer) : ViewModel() {
         }
     }
 
-    /** Syncs once per sign-in, when the history first shows. */
+    /** Reads the first page when none is stored. Newer events wait for [sync]. */
     fun open() {
-        val session = container.account.signIns
-        if (openedFor == session) return
-        openedFor = session
-        sync()
+        if (newer?.isActive == true) return
+        newer = viewModelScope.launch(container.work) { if (!history.synced()) syncNewer() }
     }
 
     /** Asks for the events since the newest stored one. */
     fun sync() {
         if (newer?.isActive == true) return
+        newer = viewModelScope.launch(container.work) { syncNewer() }
+    }
+
+    private suspend fun syncNewer() {
         status.update { it.copy(syncing = true, syncFailed = false) }
-        newer =
-            viewModelScope.launch(container.work) {
-                val failed = failed { history.syncNewer() }
-                status.update { it.copy(syncing = false, syncFailed = failed) }
-            }
+        val failed = failed { history.syncNewer() }
+        status.update { it.copy(syncing = false, syncFailed = failed) }
     }
 
     /** Asks for older events while some remain and nothing else is loading. */
