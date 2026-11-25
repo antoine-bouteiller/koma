@@ -498,7 +498,8 @@ writes the store. When that call fails, it syncs the library, so a retry picks t
 matches the backend. `setScore` calls `updateEntry(ref, score = score)` on media the library
 holds, then writes the store, and syncs the same way when that call fails. `signOut` clears user
 data before ending the session. `loadUserName` asks once per session and drops a reply for a
-session that has ended.
+session that has ended. Koma calls it at launch, so a session MangaBaka no longer accepts ends
+before a screen syncs; an offline launch keeps it.
 
 Details, once stored, are never fetched again; they are public and kept across sign-outs. The
 history screen reads the first page on open while `synced` is false; newer events wait for a pull

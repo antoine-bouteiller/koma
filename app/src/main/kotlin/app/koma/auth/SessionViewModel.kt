@@ -28,6 +28,11 @@ class SessionViewModel(private val container: AppContainer) : ViewModel() {
     /** The signed-in person's user name, null until [loadUserName] gets it. */
     val userName: StateFlow<String?> = account.userName
 
+    // Asking at launch ends a session MangaBaka no longer accepts before any screen relies on it.
+    init {
+        loadUserName()
+    }
+
     fun signIn() {
         if (busy.value) return
         busy.value = true

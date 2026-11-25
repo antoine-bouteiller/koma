@@ -193,6 +193,8 @@ class AppHarness : TestRule {
             "mangabaka.session",
             """{"accessToken":"$accessToken","refreshToken":"$refreshToken","expiresAt":$expiresAt}""",
         )
+        // Asked at every launch.
+        network.answer(PROFILE, 200, profile("reader"))
     }
 
     /** Stubs MangaBaka's discovery, token and revocation endpoints. */

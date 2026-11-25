@@ -14,6 +14,7 @@ import app.koma.testing.events
 import app.koma.testing.profile
 import app.koma.testing.series
 import app.koma.testing.upsert
+import org.junit.Assert.assertEquals
 import org.junit.Assert.assertNull
 import org.junit.Rule
 import org.junit.Test
@@ -80,6 +81,18 @@ class SignInTest {
         app.awaitIdle()
         app.text("sign-in-error", "Sign-in could not be saved. Try again.")
         app.missing("sign-out")
+    }
+
+    @Test
+    fun `a session MangaBaka no longer accepts ends at launch`() {
+        app.stubAuthServer(token = """{"error":"invalid_grant"}""")
+        app.signedIn()
+        app.network.answer(PROFILE, 401, """{"status":401}""")
+        app.network.answer(CHANGES, 401, """{"status":401}""")
+        app.network.answer(EVENTS, 401, """{"status":401}""")
+        app.launch()
+        app.has("signed-out")
+        assertEquals(1, app.network.requested(PROFILE).size)
     }
 
     @Test
