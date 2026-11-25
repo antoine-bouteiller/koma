@@ -9,6 +9,7 @@ import androidx.compose.ui.graphics.toArgb
 import androidx.core.graphics.ColorUtils
 import org.junit.Assert.assertEquals
 import org.junit.Assert.assertNotEquals
+import org.junit.Assert.assertNull
 import org.junit.Assert.assertTrue
 import org.junit.Test
 import org.junit.runner.RunWith
@@ -60,6 +61,34 @@ class ColorSchemeTest {
             assertEquals(color.green, color.blue, 0.01f)
         }
         assertNotEquals(scheme.primary, scheme.surface)
+    }
+
+    @Test
+    fun `a cover seeds its scheme with its colorful part, not its grey`() {
+        val grey = Color(0xFF808080).toArgb()
+        val pixels = IntArray(100) { if (it < 20) green.toArgb() else grey }
+        val seed = seedColor(pixels)!!
+        val scheme = seededColorScheme(ThemeSettings(), dark = true, seed)!!
+        assertEquals(hue(green), hue(scheme.primaryContainer), 10f)
+    }
+
+    @Test
+    fun `a grey cover seeds nothing`() {
+        assertNull(seedColor(IntArray(100) { Color(0xFF808080).toArgb() }))
+    }
+
+    @Test
+    fun `a cover leaves monochrome grey`() {
+        assertNull(
+            seededColorScheme(ThemeSettings(style = ColorStyle.Monochrome), false, green.toArgb())
+        )
+    }
+
+    @Test
+    fun `true black holds under a cover's colors`() {
+        val scheme =
+            seededColorScheme(ThemeSettings(trueBlack = true), dark = true, green.toArgb())!!
+        assertEquals(Color.Black, scheme.surface)
     }
 
     private fun hue(color: Color): Float =

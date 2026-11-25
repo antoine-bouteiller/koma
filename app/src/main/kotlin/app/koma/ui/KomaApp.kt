@@ -9,6 +9,7 @@ import androidx.compose.animation.fadeOut
 import androidx.compose.animation.slideInHorizontally
 import androidx.compose.animation.slideOutHorizontally
 import androidx.compose.animation.togetherWith
+import androidx.compose.foundation.background
 import androidx.compose.foundation.layout.Box
 import androidx.compose.foundation.layout.PaddingValues
 import androidx.compose.foundation.layout.RowScope
@@ -19,6 +20,7 @@ import androidx.compose.foundation.layout.only
 import androidx.compose.foundation.layout.padding
 import androidx.compose.foundation.layout.safeDrawing
 import androidx.compose.foundation.layout.windowInsetsPadding
+import androidx.compose.material3.LocalContentColor
 import androidx.compose.material3.MaterialTheme
 import androidx.compose.material3.MotionScheme
 import androidx.compose.material3.Surface
@@ -34,6 +36,7 @@ import androidx.compose.runtime.setValue
 import androidx.compose.runtime.snapshotFlow
 import androidx.compose.ui.Alignment
 import androidx.compose.ui.Modifier
+import androidx.compose.ui.graphics.Color
 import androidx.compose.ui.input.nestedscroll.nestedScroll
 import androidx.compose.ui.layout.onSizeChanged
 import androidx.compose.ui.platform.LocalDensity
@@ -66,6 +69,7 @@ import app.koma.settings.SettingsView
 import app.koma.settings.title
 import app.koma.title.TitleView
 import app.koma.ui.theme.KomaTheme
+import app.koma.ui.theme.easedColors
 import app.koma.update.UpdateDialog
 import app.koma.update.UpdatePill
 import app.koma.update.UpdateViewModel
@@ -358,20 +362,35 @@ private fun ScreenFrame(
     val backdrop = remember { HeaderBackdrop() }
     // A scroll coming into view may sit at its top, where it could never bring the bars back.
     LaunchedEffect(backdrop, bars) { snapshotFlow { backdrop.tracked }.collect { bars.show() } }
-    Box(Modifier.fillMaxSize()) {
-        Box(
-            Modifier.fillMaxSize()
-                .windowInsetsPadding(WindowInsets.safeDrawing.only(WindowInsetsSides.Horizontal))
-        ) {
-            CompositionLocalProvider(LocalHeaderBackdrop provides backdrop, content = content)
-        }
-        FloatingHeader(
-            backdrop,
-            hidden = { bars.hidden },
-            onHeight = onHeaderHeight,
-            accessory = { backdrop.accessory?.invoke() },
-        ) {
-            ScreenHeader(actions = actions) { ScreenTitle(title, titleTag, onBack) }
+    val app = MaterialTheme.colorScheme
+    // Eased only on screens that pick colors, so the app's theme still switches at once.
+    val colors = if (backdrop.tinted) easedColors(backdrop.colors ?: app) else app
+    MaterialTheme(colorScheme = colors, motionScheme = MaterialTheme.motionScheme) {
+        CompositionLocalProvider(LocalContentColor provides colors.onSurface) {
+            Box(
+                Modifier.fillMaxSize()
+                    .background(if (backdrop.tinted) colors.surface else Color.Transparent)
+            ) {
+                Box(
+                    Modifier.fillMaxSize()
+                        .windowInsetsPadding(
+                            WindowInsets.safeDrawing.only(WindowInsetsSides.Horizontal)
+                        )
+                ) {
+                    CompositionLocalProvider(
+                        LocalHeaderBackdrop provides backdrop,
+                        content = content,
+                    )
+                }
+                FloatingHeader(
+                    backdrop,
+                    hidden = { bars.hidden },
+                    onHeight = onHeaderHeight,
+                    accessory = { backdrop.accessory?.invoke() },
+                ) {
+                    ScreenHeader(actions = actions) { ScreenTitle(title, titleTag, onBack) }
+                }
+            }
         }
     }
 }

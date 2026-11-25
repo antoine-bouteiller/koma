@@ -7,13 +7,23 @@ import app.koma.data.ListStatus
 import app.koma.data.MediaDetails
 import app.koma.data.MediaRef
 import app.koma.data.failed
+import app.koma.ui.theme.seedColor
+import coil3.request.ImageRequest
+import coil3.request.allowHardware
+import coil3.toBitmap
+import kotlinx.coroutines.ExperimentalCoroutinesApi
 import kotlinx.coroutines.Job
 import kotlinx.coroutines.flow.MutableStateFlow
 import kotlinx.coroutines.flow.SharingStarted
 import kotlinx.coroutines.flow.StateFlow
 import kotlinx.coroutines.flow.combine
+import kotlinx.coroutines.flow.distinctUntilChanged
+import kotlinx.coroutines.flow.filter
+import kotlinx.coroutines.flow.map
+import kotlinx.coroutines.flow.mapLatest
 import kotlinx.coroutines.flow.stateIn
 import kotlinx.coroutines.launch
+import kotlinx.coroutines.withContext
 
 private data class Fetch(val details: MediaDetails? = null, val failed: Boolean = false)
 
@@ -51,8 +61,33 @@ class TitleViewModel(private val container: AppContainer, private val ref: Media
                 ),
             )
 
+    /** The ARGB the screen's colors are drawn from: the cover's, null until it loads or if grey. */
+    @OptIn(ExperimentalCoroutinesApi::class)
+    val seed: StateFlow<Int?> =
+        state
+            .map { it.cover }
+            .filter { it.isNotEmpty() }
+            .distinctUntilChanged()
+            .mapLatest(::coverSeed)
+            .stateIn(viewModelScope, SharingStarted.WhileSubscribed(), null)
+
     init {
         load()
+    }
+
+    private suspend fun coverSeed(cover: String): Int? {
+        val request =
+            ImageRequest.Builder(container.context)
+                .data(cover)
+                .size(SEED_SAMPLE_SIZE)
+                .allowHardware(false)
+                .build()
+        val bitmap = container.images.execute(request).image?.toBitmap() ?: return null
+        return withContext(container.work) {
+            val pixels = IntArray(bitmap.width * bitmap.height)
+            bitmap.getPixels(pixels, 0, bitmap.width, 0, 0, bitmap.width, bitmap.height)
+            seedColor(pixels)
+        }
     }
 
     fun load() {
@@ -87,3 +122,6 @@ class TitleViewModel(private val container: AppContainer, private val ref: Media
         }
     }
 }
+
+// Enough pixels to find a cover's colors, few enough to count them at once.
+private const val SEED_SAMPLE_SIZE = 96

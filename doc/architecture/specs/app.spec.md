@@ -94,6 +94,7 @@ MangaBaka without a manual step. Koma is a personal Android app in Kotlin and Je
 | `[KD-22]` Backend name in copy | UI strings that name the backend read `Backend.name`. | Replacing the backend touches no screen. |
 | `[KD-23]` Rating | The title screen's status button splits once the library holds the title: its trailing half shows the user's rating and opens a gauge from 0 to 5 in half points. 0 clears the rating. | MangaBaka rates out of 100 and stores 0 as none. Half points keep a drag along the gauge's arc precise. |
 | `[KD-24]` Navigation | Navigation 3. Each tab keeps its own back stack of `@Serializable` routes, restored after process death. Another tab's stack shows over the Library's, so back from its root opens the Library, and back from the Library's root leaves the app. Each screen draws its own floating header. | Popped screens drop their ViewModels and saved state, and predictive back works at any depth. A shared header would need its own copy of `NavDisplay`'s transition. |
+| `[KD-25]` Title colors | A title screen, its header included, takes a Material "Content" scheme seeded by its cover's most suitable color (MaterialKolor's `material-color-utilities`: Celebi quantizer, then `Score`). The colors ease in once the cover loads. A grey cover, or the Monochrome style, keeps the app's colors; True Black still applies. | The Content scheme is what Android builds from album art, so the cover itself sits on its own colors. A seed read from a 96 px copy costs little after the grid has cached the cover. |
 
 ```mermaid
 flowchart TB

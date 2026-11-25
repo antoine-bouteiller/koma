@@ -78,11 +78,13 @@ import app.koma.ui.ConnectedShapes
 import app.koma.ui.GroupRow
 import app.koma.ui.PillButton
 import app.koma.ui.PillShape
+import app.koma.ui.ScreenColors
 import app.koma.ui.SettingsGroup
 import app.koma.ui.SettingsRow
 import app.koma.ui.TitleFont
 import app.koma.ui.TrackHeaderBackdrop
 import app.koma.ui.morphingShape
+import app.koma.ui.theme.seededColors
 import coil3.ImageLoader
 import coil3.compose.AsyncImage
 import kotlinx.coroutines.launch
@@ -93,6 +95,8 @@ import kotlinx.coroutines.launch
 fun TitleView(container: AppContainer, ref: MediaRef, contentPadding: PaddingValues) {
     val model = viewModel(key = "title-${ref.backend}-${ref.id}") { TitleViewModel(container, ref) }
     val state by model.state.collectAsStateWithLifecycle()
+    val seed by model.seed.collectAsStateWithLifecycle()
+    ScreenColors(seededColors(seed))
     var picking by rememberSaveable { mutableStateOf(false) }
     var rating by rememberSaveable { mutableStateOf(false) }
     val list = rememberLazyListState()

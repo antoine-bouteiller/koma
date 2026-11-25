@@ -5,8 +5,10 @@ import androidx.compose.foundation.gestures.ScrollableState
 import androidx.compose.foundation.layout.Box
 import androidx.compose.foundation.lazy.LazyListState
 import androidx.compose.foundation.lazy.grid.LazyGridState
+import androidx.compose.material3.ColorScheme
 import androidx.compose.runtime.Composable
 import androidx.compose.runtime.DisposableEffect
+import androidx.compose.runtime.SideEffect
 import androidx.compose.runtime.Stable
 import androidx.compose.runtime.getValue
 import androidx.compose.runtime.mutableIntStateOf
@@ -23,8 +25,8 @@ import androidx.compose.ui.unit.Dp
 import androidx.compose.ui.unit.dp
 
 /**
- * What a screen's content hands its header: its scroll, which lays the header's band down, and the
- * accessory the header shows under the title.
+ * What a screen's content hands its header: its scroll, which lays the header's band down, the
+ * accessory the header shows under the title, and the colors of both.
  */
 @Stable
 class HeaderBackdrop {
@@ -33,6 +35,14 @@ class HeaderBackdrop {
     /** What the screen shows under the title, if anything. */
     var accessory by mutableStateOf<(@Composable () -> Unit)?>(null)
         private set
+
+    /** Whether the screen picks its own colors, which then ease from one to the next. */
+    var tinted by mutableStateOf(false)
+        internal set
+
+    /** The colors of the screen, header included, or null for the app's. */
+    var colors by mutableStateOf<ColorScheme?>(null)
+        internal set
 
     /** How far the content runs on under the header; none while no scroll is tracked. */
     val scrolledPast: Float
@@ -107,4 +117,23 @@ fun headerAccessory(content: @Composable () -> Unit): Dp {
         onDispose { backdrop.remove(slot) }
     }
     return with(LocalDensity.current) { height.toDp() }
+}
+
+/**
+ * Shows the screen this is composed in, its header included, in [colors], or the app's while null.
+ * [colors] must be the same instance until it changes, since each new one starts an easing.
+ */
+@Composable
+fun ScreenColors(colors: ColorScheme?) {
+    val backdrop = LocalHeaderBackdrop.current ?: return
+    SideEffect {
+        backdrop.tinted = true
+        backdrop.colors = colors
+    }
+    DisposableEffect(backdrop) {
+        onDispose {
+            backdrop.tinted = false
+            backdrop.colors = null
+        }
+    }
 }

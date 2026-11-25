@@ -6,6 +6,11 @@ import androidx.compose.material3.lightColorScheme
 import androidx.compose.ui.graphics.Color
 import androidx.compose.ui.graphics.toArgb
 import androidx.core.graphics.ColorUtils
+import com.materialkolor.dynamiccolor.DynamicScheme
+import com.materialkolor.hct.Hct
+import com.materialkolor.quantize.QuantizerCelebi
+import com.materialkolor.scheme.SchemeContent
+import com.materialkolor.score.Score
 
 /** The colors [settings] call for. [wallpaper] is Material You's scheme, null before Android 12. */
 fun colorScheme(settings: ThemeSettings, dark: Boolean, wallpaper: ColorScheme?): ColorScheme {
@@ -30,6 +35,74 @@ fun colorScheme(settings: ThemeSettings, dark: Boolean, wallpaper: ColorScheme?)
     if (dark && settings.trueBlack) scheme = scheme.trueBlack()
     return scheme
 }
+
+/**
+ * The color of [pixels], ARGB, best to draw a scheme from, or null when none is colorful enough.
+ */
+fun seedColor(pixels: IntArray): Int? =
+    Score.score(QuantizerCelebi.quantize(pixels, 128), desired = 1, fallbackColorArgb = null)
+        .firstOrNull()
+
+/** Colors drawn from [seed], an ARGB, under [settings]; null for Monochrome, which stays grey. */
+fun seededColorScheme(settings: ThemeSettings, dark: Boolean, seed: Int): ColorScheme? {
+    if (settings.style == ColorStyle.Monochrome) return null
+    val scheme = SchemeContent(Hct.fromInt(seed), dark, contrastLevel = 0.0).toColorScheme()
+    return if (dark && settings.trueBlack) scheme.trueBlack() else scheme
+}
+
+// Every role is set, so the base scheme only lends the type.
+private fun DynamicScheme.toColorScheme(): ColorScheme =
+    lightColorScheme()
+        .copy(
+            primary = Color(primary),
+            onPrimary = Color(onPrimary),
+            primaryContainer = Color(primaryContainer),
+            onPrimaryContainer = Color(onPrimaryContainer),
+            inversePrimary = Color(inversePrimary),
+            secondary = Color(secondary),
+            onSecondary = Color(onSecondary),
+            secondaryContainer = Color(secondaryContainer),
+            onSecondaryContainer = Color(onSecondaryContainer),
+            tertiary = Color(tertiary),
+            onTertiary = Color(onTertiary),
+            tertiaryContainer = Color(tertiaryContainer),
+            onTertiaryContainer = Color(onTertiaryContainer),
+            background = Color(background),
+            onBackground = Color(onBackground),
+            surface = Color(surface),
+            onSurface = Color(onSurface),
+            surfaceVariant = Color(surfaceVariant),
+            onSurfaceVariant = Color(onSurfaceVariant),
+            surfaceTint = Color(surfaceTint),
+            inverseSurface = Color(inverseSurface),
+            inverseOnSurface = Color(inverseOnSurface),
+            error = Color(error),
+            onError = Color(onError),
+            errorContainer = Color(errorContainer),
+            onErrorContainer = Color(onErrorContainer),
+            outline = Color(outline),
+            outlineVariant = Color(outlineVariant),
+            scrim = Color(scrim),
+            surfaceBright = Color(surfaceBright),
+            surfaceDim = Color(surfaceDim),
+            surfaceContainer = Color(surfaceContainer),
+            surfaceContainerHigh = Color(surfaceContainerHigh),
+            surfaceContainerHighest = Color(surfaceContainerHighest),
+            surfaceContainerLow = Color(surfaceContainerLow),
+            surfaceContainerLowest = Color(surfaceContainerLowest),
+            primaryFixed = Color(primaryFixed),
+            primaryFixedDim = Color(primaryFixedDim),
+            onPrimaryFixed = Color(onPrimaryFixed),
+            onPrimaryFixedVariant = Color(onPrimaryFixedVariant),
+            secondaryFixed = Color(secondaryFixed),
+            secondaryFixedDim = Color(secondaryFixedDim),
+            onSecondaryFixed = Color(onSecondaryFixed),
+            onSecondaryFixedVariant = Color(onSecondaryFixedVariant),
+            tertiaryFixed = Color(tertiaryFixed),
+            tertiaryFixedDim = Color(tertiaryFixedDim),
+            onTertiaryFixed = Color(onTertiaryFixed),
+            onTertiaryFixedVariant = Color(onTertiaryFixedVariant),
+        )
 
 /** Black background, with the containers on it darkened yet still apart from it. */
 private fun ColorScheme.trueBlack(): ColorScheme {
