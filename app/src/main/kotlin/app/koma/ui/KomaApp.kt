@@ -5,12 +5,13 @@ import androidx.compose.animation.AnimatedContent
 import androidx.compose.animation.AnimatedContentTransitionScope
 import androidx.compose.animation.ContentTransform
 import androidx.compose.animation.EnterExitState
+import androidx.compose.animation.EnterTransition
+import androidx.compose.animation.ExitTransition
 import androidx.compose.animation.SizeTransform
 import androidx.compose.animation.core.SeekableTransitionState
 import androidx.compose.animation.core.rememberTransition
 import androidx.compose.animation.fadeIn
 import androidx.compose.animation.fadeOut
-import androidx.compose.animation.scaleIn
 import androidx.compose.animation.slideInHorizontally
 import androidx.compose.animation.slideOutHorizontally
 import androidx.compose.animation.togetherWith
@@ -145,8 +146,8 @@ private data class Screen(val tab: Tab, val page: SettingsPage?, val series: Med
 }
 
 /**
- * Tabs fade through one another. A page opened over a tab slides in along the horizontal axis, and
- * slides back out the way it came.
+ * Tabs switch instantly. A page opened over a tab slides in along the horizontal axis, and slides
+ * back out the way it came.
  */
 private fun AnimatedContentTransitionScope<Screen>.screenChange(
     motion: MotionScheme
@@ -154,10 +155,7 @@ private fun AnimatedContentTransitionScope<Screen>.screenChange(
     val spatial = motion.defaultSpatialSpec<IntOffset>()
     val effects = motion.defaultEffectsSpec<Float>()
     return when {
-        initialState.tab != targetState.tab ->
-            fadeIn(effects) +
-                scaleIn(motion.defaultSpatialSpec(), initialScale = 0.94f) togetherWith
-                fadeOut(motion.fastEffectsSpec())
+        initialState.tab != targetState.tab -> EnterTransition.None togetherWith ExitTransition.None
         targetState.nested ->
             slideInHorizontally(spatial) { it / 4 } + fadeIn(effects) togetherWith
                 slideOutHorizontally(spatial) { -it / 4 } + fadeOut(effects)
