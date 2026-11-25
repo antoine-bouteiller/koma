@@ -39,6 +39,32 @@ class AppTest {
     }
 
     @Test
+    fun `back from another tab opens the Library`() {
+        app.launch()
+        app.tap("tab-history")
+        app.back()
+        app.selected("tab-library")
+        app.text("title-library", "Library")
+    }
+
+    @Test
+    fun `back from a Settings page opens Settings, then the Library`() {
+        app.launch()
+        app.tap("tab-settings")
+        app.tap("settings-theme")
+        app.back()
+        app.text("title-settings", "Settings")
+        app.back()
+        app.selected("tab-library")
+    }
+
+    @Test
+    fun `back from the Library closes the app`() {
+        app.launch()
+        assertTrue(app.backClosesApp)
+    }
+
+    @Test
     fun `an empty tab says what will show up there`() {
         app.launch()
         app.tap("tab-discover")

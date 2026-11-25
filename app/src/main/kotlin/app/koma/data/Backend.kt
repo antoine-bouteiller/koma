@@ -2,12 +2,13 @@ package app.koma.data
 
 import java.io.IOException
 import kotlinx.coroutines.flow.StateFlow
+import kotlinx.serialization.Serializable
 
 enum class BackendId {
     MangaBaka
 }
 
-data class MediaRef(val backend: BackendId, val id: String)
+@Serializable data class MediaRef(val backend: BackendId, val id: String)
 
 enum class Kind {
     Manga,

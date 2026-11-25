@@ -18,7 +18,7 @@ android {
     defaultConfig {
         applicationId = "app.koma"
         minSdk = 26
-        targetSdk = 36
+        targetSdk = 37
         versionName = komaVersion
         versionCode = versionCode(komaVersion)
         manifestPlaceholders["appLabel"] = "Koma"
@@ -61,8 +61,6 @@ android {
     lint {
         warningsAsErrors = true
         abortOnError = true
-        // targetSdk follows Mihon's; raising it is its own change.
-        disable += "OldTargetApi"
     }
 }
 
@@ -83,6 +81,9 @@ dependencies {
     implementation(libs.androidx.core)
     implementation(libs.androidx.lifecycle.runtime.compose)
     implementation(libs.androidx.lifecycle.viewmodel.compose)
+    implementation(libs.androidx.lifecycle.viewmodel.navigation3)
+    implementation(libs.androidx.navigation3.runtime)
+    implementation(libs.androidx.navigation3.ui)
     implementation(libs.coil.compose)
     implementation(libs.coil.network.okhttp)
     implementation(libs.kotlinx.coroutines.android)

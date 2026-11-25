@@ -11,7 +11,7 @@ import androidx.compose.runtime.Stable
 import androidx.compose.runtime.getValue
 import androidx.compose.runtime.mutableIntStateOf
 import androidx.compose.runtime.mutableStateListOf
-import androidx.compose.runtime.mutableStateMapOf
+import androidx.compose.runtime.mutableStateOf
 import androidx.compose.runtime.rememberUpdatedState
 import androidx.compose.runtime.saveable.rememberSaveable
 import androidx.compose.runtime.setValue
@@ -23,16 +23,16 @@ import androidx.compose.ui.unit.Dp
 import androidx.compose.ui.unit.dp
 
 /**
- * What the content under the screen header hands it: its scroll, which lays the header's band down,
- * and each screen's accessory the header shows under the title.
+ * What a screen's content hands its header: its scroll, which lays the header's band down, and the
+ * accessory the header shows under the title.
  */
 @Stable
 class HeaderBackdrop {
     private val sources = mutableStateListOf<ScrollableState>()
-    private val accessories = mutableStateMapOf<String, @Composable () -> Unit>()
 
-    /** What the screen keyed [screen] shows under the title, if anything. */
-    fun accessory(screen: String): (@Composable () -> Unit)? = accessories[screen]
+    /** What the screen shows under the title, if anything. */
+    var accessory by mutableStateOf<(@Composable () -> Unit)?>(null)
+        private set
 
     /** How far the content runs on under the header; none while no scroll is tracked. */
     val scrolledPast: Float
@@ -50,12 +50,12 @@ class HeaderBackdrop {
         sources.remove(state)
     }
 
-    internal fun show(screen: String, slot: @Composable () -> Unit) {
-        accessories[screen] = slot
+    internal fun show(slot: @Composable () -> Unit) {
+        accessory = slot
     }
 
-    internal fun remove(screen: String, slot: @Composable () -> Unit) {
-        if (accessories[screen] === slot) accessories.remove(screen)
+    internal fun remove(slot: @Composable () -> Unit) {
+        if (accessory === slot) accessory = null
     }
 }
 
@@ -72,13 +72,8 @@ private fun ScrollableState.scrolledPast(): Float =
         else -> if (canScrollBackward) Float.MAX_VALUE else 0f
     }
 
-/** The backdrop of the screen shown; null on a screen leaving, which hands the header no scroll. */
+/** The backdrop of the screen this is composed in. */
 val LocalHeaderBackdrop = staticCompositionLocalOf<HeaderBackdrop?> { null }
-
-class HeaderScreen(val backdrop: HeaderBackdrop, val key: String)
-
-/** The screen under the header, entering or leaving, and the key its accessory shows under. */
-val LocalHeaderScreen = staticCompositionLocalOf<HeaderScreen?> { null }
 
 /**
  * Hands [state], a scroll in view, to the screen header floating over it. The band follows the
@@ -100,16 +95,16 @@ fun TrackHeaderBackdrop(state: ScrollableState) {
  */
 @Composable
 fun headerAccessory(content: @Composable () -> Unit): Dp {
-    val screen = LocalHeaderScreen.current ?: return 0.dp
+    val backdrop = LocalHeaderBackdrop.current ?: return 0.dp
     val current by rememberUpdatedState(content)
     // Saved, so the content starts in place when its screen comes back, before the header shows it.
     var height by rememberSaveable { mutableIntStateOf(0) }
-    DisposableEffect(screen) {
+    DisposableEffect(backdrop) {
         val slot: @Composable () -> Unit = {
             Box(Modifier.onSizeChanged { height = it.height }) { current() }
         }
-        screen.backdrop.show(screen.key, slot)
-        onDispose { screen.backdrop.remove(screen.key, slot) }
+        backdrop.show(slot)
+        onDispose { backdrop.remove(slot) }
     }
     return with(LocalDensity.current) { height.toDp() }
 }

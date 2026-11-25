@@ -11,10 +11,12 @@ import app.koma.testing.BATCH
 import app.koma.testing.CHANGES
 import app.koma.testing.FakeBackend
 import app.koma.testing.LIBRARY
+import app.koma.testing.PROFILE
 import app.koma.testing.SERIES
 import app.koma.testing.batch
 import app.koma.testing.changes
 import app.koma.testing.fullSeries
+import app.koma.testing.profile
 import app.koma.testing.series
 import app.koma.testing.tag
 import app.koma.testing.upsert
@@ -110,6 +112,50 @@ class TitleTest {
         assertEquals(listOf("manga-2"), app.childTags("library-reading"))
         app.tap("shelf-archived")
         assertEquals(listOf("manga-1"), app.childTags("library-archived"))
+    }
+
+    @Test
+    fun `a title stays open on the Library while another tab shows, and outlives a restart`() {
+        library(upsert(1, "reading"))
+        app.network.answer("$SERIES/1?schema=full", 200, fullSeries(1, "Solo Leveling"))
+        app.launch()
+        app.tap("manga-1")
+        app.tap("tab-updates")
+        app.tap("tab-library")
+        app.text("title-name", "Solo Leveling")
+        app.reload()
+        app.selected("tab-library")
+        app.text("title-name", "Solo Leveling")
+        app.back()
+        app.has("library-reading")
+    }
+
+    @Test
+    fun `back from another tab opens the Library's open title`() {
+        library(upsert(1, "reading"))
+        app.network.answer("$SERIES/1?schema=full", 200, fullSeries(1, "Solo Leveling"))
+        app.launch()
+        app.tap("manga-1")
+        app.tap("tab-updates")
+        app.back()
+        app.selected("tab-library")
+        app.text("title-name", "Solo Leveling")
+    }
+
+    @Test
+    fun `signing out closes the title open on the Library`() {
+        library(upsert(1, "reading"))
+        app.stubAuthServer()
+        app.network.answer(PROFILE, 200, profile("reader"))
+        app.network.answer("$SERIES/1?schema=full", 200, fullSeries(1, "Solo Leveling"))
+        app.launch()
+        app.tap("manga-1")
+        app.tap("tab-settings")
+        app.tap("settings-account")
+        app.tap("sign-out")
+        app.tap("tab-library")
+        app.has("sign-in")
+        app.missing("title-name")
     }
 
     @Test

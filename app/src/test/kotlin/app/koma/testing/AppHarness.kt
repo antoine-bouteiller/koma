@@ -1,5 +1,7 @@
 package app.koma.testing
 
+import androidx.activity.OnBackPressedDispatcher
+import androidx.activity.compose.LocalOnBackPressedDispatcherOwner
 import androidx.compose.runtime.CompositionLocalProvider
 import androidx.compose.runtime.DisposableEffect
 import androidx.compose.runtime.getValue
@@ -75,6 +77,7 @@ class AppHarness : TestRule {
     var backend: Backend? = null
 
     private var running by mutableStateOf<AppContainer?>(null)
+    private var backDispatcher: OnBackPressedDispatcher? = null
 
     /** The running app's dependencies. */
     val container: AppContainer
@@ -148,6 +151,7 @@ class AppHarness : TestRule {
     fun launch() {
         running = newContainer()
         compose.setContent {
+            backDispatcher = LocalOnBackPressedDispatcherOwner.current?.onBackPressedDispatcher
             // Saved state outlives a reload, as Android restores it after the process is gone.
             val saved = rememberSaveableStateHolder()
             val current = running ?: return@setContent
@@ -208,6 +212,17 @@ class AppHarness : TestRule {
     /** Waits until no request is in flight and Compose is idle. */
     fun awaitIdle() {
         do compose.waitForIdle() while (!network.idle)
+    }
+
+    /** Whether Android's back would close the app. */
+    val backClosesApp: Boolean
+        get() = compose.runOnIdle { !checkNotNull(backDispatcher).hasEnabledCallbacks() }
+
+    /** Presses Android's back, which must stay in the app. */
+    fun back() {
+        check(!backClosesApp) { "Back would close the app." }
+        compose.runOnIdle { checkNotNull(backDispatcher).onBackPressed() }
+        awaitIdle()
     }
 
     fun node(tag: String): SemanticsNodeInteraction = compose.onNodeWithTag(tag)
