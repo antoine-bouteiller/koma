@@ -134,7 +134,7 @@ internal fun ThemeView(container: AppContainer) {
                     tag = "true-black",
                     checked = page.trueBlack,
                     onCheckedChange = model::setTrueBlack,
-                    subtitle = "Black backgrounds in dark mode",
+                    subtitle = "Uses pure black backgrounds",
                 )
             },
             GroupRow(page.coverColorsShown) { shape ->
