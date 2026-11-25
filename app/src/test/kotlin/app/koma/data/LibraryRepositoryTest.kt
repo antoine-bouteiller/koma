@@ -5,7 +5,11 @@ import java.io.IOException
 import java.time.Clock
 import java.time.Instant
 import java.time.ZoneOffset
+import kotlinx.coroutines.ExperimentalCoroutinesApi
 import kotlinx.coroutines.flow.first
+import kotlinx.coroutines.joinAll
+import kotlinx.coroutines.launch
+import kotlinx.coroutines.test.runCurrent
 import kotlinx.coroutines.test.runTest
 import org.junit.Assert.assertEquals
 import org.junit.Assert.assertTrue
@@ -13,6 +17,7 @@ import org.junit.Test
 import org.junit.runner.RunWith
 import org.robolectric.RobolectricTestRunner
 
+@OptIn(ExperimentalCoroutinesApi::class)
 @RunWith(RobolectricTestRunner::class)
 class LibraryRepositoryTest {
     private val backend = FakeBackend()
@@ -80,6 +85,30 @@ class LibraryRepositoryTest {
         )
         assertEquals(ListStatus.Completed, library.status(alpha).first())
         assertEquals(ListStatus.Planning, library.status(beta).first())
+    }
+
+    @Test
+    fun `a sync queued behind a sign-out keeps nothing`() = runTest {
+        backend.file(backend.add("α-1", "Alpha"), ListStatus.Reading)
+        val answer = backend.hold("changes")
+        val first = launch { library.sync() }
+        runCurrent()
+        val queued = launch { library.sync() }
+        runCurrent()
+        store.clearUserData()
+        answer.complete(Unit)
+        joinAll(first, queued)
+        assertEquals(listOf("changes(null)"), backend.calls)
+        assertEquals(Library(false, emptyList()), library.library.first())
+    }
+
+    @Test
+    fun `a status whose media cannot be looked up is not sent`() = runTest {
+        backend.failMedia = true
+        val delta = MediaRef(BackendId.MangaBaka, "δ-4")
+        val refused = runCatching { library.setStatus(delta, ListStatus.Planning) }
+        assertTrue(refused.exceptionOrNull() is IOException)
+        assertEquals(emptyList<String>(), backend.calls)
     }
 
     @Test

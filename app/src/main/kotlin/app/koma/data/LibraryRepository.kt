@@ -80,8 +80,14 @@ class LibraryRepository(
         }
 
     /** Brings the stored library up to date: a full read the first time, then only what changed. */
-    suspend fun sync() = syncing.withLock {
+    suspend fun sync() {
+        // Taken before waiting, so a sync queued behind a sign-out drops what it fetches.
         val generation = store.generation
+        syncing.withLock { sync(generation) }
+    }
+
+    private suspend fun sync(generation: Int) {
+        if (generation != store.generation) return
         var cursor = store.meta(CURSOR)
         if (cursor != null) {
             try {
@@ -96,11 +102,11 @@ class LibraryRepository(
                             apply(page.items)
                             metaQueries.put(CURSOR, page.cursor)
                         }
-                    if (!applied) return@withLock
+                    if (!applied) return
                     cursor = page.cursor
                     more = page.more
                 }
-                return@withLock
+                return
             } catch (_: ExpiredCursorException) {}
         }
         // A full read replaces the stored library only once its last page is in, so entries removed
@@ -129,6 +135,7 @@ class LibraryRepository(
     suspend fun setStatus(ref: MediaRef, status: ListStatus) {
         val generation = store.generation
         val stored = store.read { storedStatus(ref) }
+        media.cache(listOf(ref))
         try {
             if (stored == null) backend.addEntry(ref, status) else backend.updateEntry(ref, status)
         } catch (e: IOException) {
@@ -137,7 +144,6 @@ class LibraryRepository(
             } catch (_: IOException) {}
             throw e
         }
-        media.cache(listOf(ref))
         val now = clock.millis()
         store.write(generation) {
             if (stored == null) {

@@ -18,6 +18,7 @@ import app.koma.data.SignInResult
 import app.koma.data.Tag
 import java.io.IOException
 import java.util.concurrent.CopyOnWriteArrayList
+import kotlinx.coroutines.CompletableDeferred
 import kotlinx.coroutines.flow.MutableStateFlow
 import kotlinx.coroutines.flow.StateFlow
 import kotlinx.coroutines.flow.asStateFlow
@@ -32,6 +33,7 @@ class FakeBackend(override val name: String = "Shelfie", signedIn: Boolean = tru
     private val entries = linkedMapOf<MediaRef, ListEntry>()
     private val pending = mutableListOf<ListChange>()
     private var cursors = 0
+    private val held = mutableMapOf<String, CompletableDeferred<Unit>>()
 
     override val id = BackendId.MangaBaka
     override val sessions: StateFlow<Session> = session.asStateFlow()
@@ -42,6 +44,16 @@ class FakeBackend(override val name: String = "Shelfie", signedIn: Boolean = tru
     val reads = mutableListOf<ReadEvent>()
     /** Every cursor is refused, as from a backend without a changes feed. */
     var refuseCursors = false
+    /** [media] fails, as when the backend is unreachable. */
+    var failMedia = false
+
+    /** Makes [member] (`changes`, `signOut` or `userName`) wait until the answer completes. */
+    fun hold(member: String): CompletableDeferred<Unit> =
+        CompletableDeferred<Unit>().also { held[member] = it }
+
+    private suspend fun waitFor(member: String) {
+        held[member]?.await()
+    }
 
     /** Media the backend answers. */
     fun add(
@@ -85,13 +97,19 @@ class FakeBackend(override val name: String = "Shelfie", signedIn: Boolean = tru
     }
 
     override suspend fun signOut() {
+        waitFor("signOut")
         session.value = Session(false, "")
     }
 
-    override suspend fun userName(): String = user
+    override suspend fun userName(): String {
+        calls += "userName()"
+        waitFor("userName")
+        return user
+    }
 
     override suspend fun changes(cursor: String?): CursorPage<ListChange> {
         calls += "changes($cursor)"
+        waitFor("changes")
         if (cursor != null && refuseCursors) throw ExpiredCursorException()
         val items = if (cursor == null) entries.values.map { ListChange.Upsert(it) } else pending
         val page = CursorPage(items.toList(), "c${++cursors}", more = false)
@@ -130,8 +148,9 @@ class FakeBackend(override val name: String = "Shelfie", signedIn: Boolean = tru
         return CursorPage(reads.filter { since == null || it.at >= since }, "end", more = false)
     }
 
-    override suspend fun media(refs: List<MediaRef>): List<Media> = refs.mapNotNull {
-        known[it]?.media
+    override suspend fun media(refs: List<MediaRef>): List<Media> {
+        if (failMedia) throw IOException("Unreachable.")
+        return refs.mapNotNull { known[it]?.media }
     }
 
     override suspend fun details(ref: MediaRef): MediaDetails =

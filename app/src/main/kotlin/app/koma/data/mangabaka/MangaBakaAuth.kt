@@ -22,6 +22,7 @@ import kotlinx.serialization.Serializable
 import kotlinx.serialization.SerializationException
 import okhttp3.FormBody
 import okhttp3.HttpUrl.Companion.toHttpUrl
+import okhttp3.HttpUrl.Companion.toHttpUrlOrNull
 import okhttp3.MediaType.Companion.toMediaType
 import okhttp3.OkHttpClient
 import okhttp3.Request
@@ -233,7 +234,13 @@ class MangaBakaAuth(
                         Discovery.serializer(),
                         http.getText("$ISSUER/.well-known/openid-configuration"),
                     )
-                    .also { discovered = it }
+                    .also {
+                        val urls = listOfNotNull(it.authorization, it.token, it.revocation)
+                        if (urls.any { url -> url.toHttpUrlOrNull() == null }) {
+                            throw IOException("Unreadable discovery document.")
+                        }
+                        discovered = it
+                    }
             } catch (e: SerializationException) {
                 throw IOException("Unreadable discovery document.", e)
             }

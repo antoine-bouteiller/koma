@@ -237,7 +237,7 @@ class MangaBakaBackend(
         ref: MediaRef,
         status: ListStatus?,
         progress: Double?,
-    ) {
+    ) = readable {
         val body = buildJsonObject {
             if (status != null) put("state", stateOf(status))
             if (progress != null) put("progress_chapter", progress)

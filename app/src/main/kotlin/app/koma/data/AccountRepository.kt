@@ -9,6 +9,8 @@ import kotlinx.coroutines.flow.asStateFlow
 class AccountRepository(private val store: Store, private val backend: Backend) {
     private val name = MutableStateFlow<String?>(null)
     @Volatile private var loadingName = false
+    // Bumped at each sign-in and sign-out, so a name asked for an earlier session is dropped.
+    @Volatile private var session = 0
 
     val backendName: String = backend.name
     val sessions: StateFlow<Session> = backend.sessions
@@ -25,6 +27,7 @@ class AccountRepository(private val store: Store, private val backend: Backend) 
         backend.signIn().also {
             if (it.ok) {
                 signIns++
+                session++
                 name.value = null
             }
         }
@@ -32,6 +35,7 @@ class AccountRepository(private val store: Store, private val backend: Backend) 
     /** Forgets the person's library and history, then ends the session. */
     suspend fun signOut() {
         store.clearUserData()
+        session++
         name.value = null
         backend.signOut()
     }
@@ -40,11 +44,10 @@ class AccountRepository(private val store: Store, private val backend: Backend) 
     suspend fun loadUserName() {
         if (loadingName || name.value != null || !sessions.value.signedIn) return
         loadingName = true
-        val session = signIns
+        val asked = session
         try {
             val found = backend.userName()
-            // A reply for a session that ended meanwhile is dropped.
-            if (session == signIns && sessions.value.signedIn) name.value = found
+            if (asked == session && sessions.value.signedIn) name.value = found
         } catch (_: IOException) {} finally {
             loadingName = false
         }

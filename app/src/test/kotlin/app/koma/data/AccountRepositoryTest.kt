@@ -2,7 +2,10 @@ package app.koma.data
 
 import app.koma.testing.FakeBackend
 import java.time.Clock
+import kotlinx.coroutines.ExperimentalCoroutinesApi
 import kotlinx.coroutines.flow.first
+import kotlinx.coroutines.launch
+import kotlinx.coroutines.test.runCurrent
 import kotlinx.coroutines.test.runTest
 import org.junit.Assert.assertEquals
 import org.junit.Assert.assertFalse
@@ -11,6 +14,7 @@ import org.junit.Test
 import org.junit.runner.RunWith
 import org.robolectric.RobolectricTestRunner
 
+@OptIn(ExperimentalCoroutinesApi::class)
 @RunWith(RobolectricTestRunner::class)
 class AccountRepositoryTest {
     private val backend = FakeBackend()
@@ -41,5 +45,21 @@ class AccountRepositoryTest {
         account.loadUserName()
         assertEquals("renamed", account.userName.value)
         assertEquals(1, account.signIns)
+        assertEquals(listOf("userName()", "userName()"), backend.calls)
+    }
+
+    @Test
+    fun `a user name answered while signing out is dropped`() = runTest {
+        val name = backend.hold("userName")
+        val ending = backend.hold("signOut")
+        val loading = launch { account.loadUserName() }
+        runCurrent()
+        val signingOut = launch { account.signOut() }
+        runCurrent()
+        name.complete(Unit)
+        loading.join()
+        ending.complete(Unit)
+        signingOut.join()
+        assertNull(account.userName.value)
     }
 }
