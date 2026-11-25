@@ -50,7 +50,6 @@ class TitleTest {
                 description = "Jinwoo levels up.",
                 tag("Dungeon", "core"),
                 tag("War", "core", spoiler = true),
-                tag("Monsters", "incidental"),
                 tag("Action", "defining", genre = true),
             ),
         )
@@ -64,7 +63,7 @@ class TitleTest {
         app.text("title-status", "Reading")
         app.text("title-summary", "Jinwoo levels up.")
         assertEquals(
-            listOf("tag-Action", "tag-Dungeon", "tag-Monsters"),
+            listOf("tag-Action", "tag-Dungeon"),
             app.childTags("title-tags"),
         )
         val request = app.network.requests.last { it.url.startsWith(SERIES) }

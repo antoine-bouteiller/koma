@@ -92,7 +92,7 @@ class MangaBakaBackendTest {
     }
 
     @Test
-    fun `ratings are out of five to one decimal and tag weights become ranks`() = runTest {
+    fun `ratings are out of five to one decimal and only genre and core tags stay`() = runTest {
         network.answer(
             "$SERIES/1?schema=full",
             200,
@@ -104,12 +104,16 @@ class MangaBakaBackendTest {
                 null,
                 87.6,
                 null,
-                tag("Monsters", "incidental"),
+                tag("Monsters", "defining"),
                 tag("Dungeon", "core"),
+                tag("Action", "unweighted", genre = true),
             ),
         )
         val details = backend.details(ref(1))
         assertEquals(4.4, details.media.score)
-        assertEquals(listOf(25, 100), details.tags.map { it.rank })
+        assertEquals(
+            listOf("Dungeon" to 100, "Action" to null),
+            details.tags.map { it.name to it.rank },
+        )
     }
 }

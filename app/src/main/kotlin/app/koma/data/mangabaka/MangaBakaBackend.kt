@@ -318,10 +318,12 @@ class MangaBakaBackend(
             startYear = s.published.startDate?.take(4)?.toIntOrNull(),
             chapters = null,
             description = s.description.orEmpty().trim(),
+            // A series carries dozens of tags; only genres and core ones describe it.
             tags =
-                s.tags.orEmpty().map {
-                    Tag(it.name, it.genre, it.spoiler == true, RANKS[it.weight])
-                },
+                s.tags
+                    .orEmpty()
+                    .filter { it.genre || it.weight == "core" }
+                    .map { Tag(it.name, it.genre, it.spoiler == true, RANKS[it.weight]) },
         )
     }
 

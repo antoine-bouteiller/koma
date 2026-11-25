@@ -250,6 +250,7 @@ MangaBaka mapping (`MangaBakaBackend`):
 | `Media.score` | `rating` (0–100) divided by 20, rounded to one decimal |
 | `Media.adult` | `content_rating` of `erotica` or `pornographic` |
 | `Media.longStrip` | `tags_v2` holds tag 93 (`Work Info > Page Layout > Longstrip`) |
+| `MediaDetails.tags` | Genres (`is_genre`) and tags weighted `core`; the others are dropped |
 | `Tag.rank` | `weight`: `core` 100, `defining` 75, `recurrent` 50, `incidental` 25, `unweighted` null |
 | `media` | `GET /v2/series/batch`, 50 ids per call, unauthenticated |
 | `details` | `GET /v2/series/{id}?schema=full`, unauthenticated |
