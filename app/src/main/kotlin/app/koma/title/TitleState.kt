@@ -2,32 +2,31 @@ package app.koma.title
 
 import androidx.annotation.DrawableRes
 import app.koma.R
-import app.koma.data.SeriesDetails
-import app.koma.data.SeriesTag
-import kotlin.math.roundToInt
+import app.koma.data.ListStatus
+import app.koma.data.Media
+import app.koma.data.MediaDetails
+import app.koma.data.Publication
+import app.koma.data.Tag
 
-/** What the store holds of a series. [state] is its library state, null when not in the library. */
-data class StoredTitle(val title: String, val cover: String, val state: String?)
-
-/** A library state the series can be filed under. */
-data class Status(val state: String, val label: String, @DrawableRes val icon: Int)
+/** A library status the title can be filed under. */
+data class Status(val status: ListStatus, val label: String, @DrawableRes val icon: Int)
 
 val STATUSES =
     listOf(
-        Status("reading", "Reading", R.drawable.ic_book),
-        Status("rereading", "Rereading", R.drawable.ic_refresh),
-        Status("plan_to_read", "Plan to read", R.drawable.ic_bookmark),
-        Status("considering", "Considering", R.drawable.ic_lightbulb),
-        Status("completed", "Completed", R.drawable.ic_done_all),
-        Status("paused", "Paused", R.drawable.ic_pause),
-        Status("dropped", "Dropped", R.drawable.ic_block),
+        Status(ListStatus.Reading, "Reading", R.drawable.ic_book),
+        Status(ListStatus.Rereading, "Rereading", R.drawable.ic_refresh),
+        Status(ListStatus.Planning, "Plan to read", R.drawable.ic_bookmark),
+        Status(ListStatus.Considering, "Considering", R.drawable.ic_lightbulb),
+        Status(ListStatus.Completed, "Completed", R.drawable.ic_done_all),
+        Status(ListStatus.Paused, "Paused", R.drawable.ic_pause),
+        Status(ListStatus.Dropped, "Dropped", R.drawable.ic_block),
     )
 
 /** The title screen. */
 data class TitleState(
     val title: String,
     val cover: String,
-    /** Null when the series is not in the library. */
+    /** Null when the title is not in the library. */
     val status: Status?,
     val saving: Boolean,
     val saveFailed: Boolean,
@@ -54,20 +53,17 @@ sealed interface About {
 }
 
 fun titleState(
-    stored: StoredTitle?,
-    details: SeriesDetails?,
+    media: Media?,
+    status: ListStatus?,
+    details: MediaDetails?,
     loadFailed: Boolean,
     saving: Boolean,
     saveFailed: Boolean,
-): TitleState {
-    val state = stored?.state
-    return TitleState(
-        title = details?.title?.ifEmpty { null } ?: stored?.title.orEmpty(),
-        cover = details?.cover?.ifEmpty { null } ?: stored?.cover.orEmpty(),
-        status =
-            state?.let {
-                STATUSES.find { it.state == state } ?: Status(state, state, R.drawable.ic_book)
-            },
+): TitleState =
+    TitleState(
+        title = details?.media?.title?.ifEmpty { null } ?: media?.title.orEmpty(),
+        cover = details?.media?.cover?.ifEmpty { null } ?: media?.cover.orEmpty(),
+        status = status?.let { s -> STATUSES.first { it.status == s } },
         saving = saving,
         saveFailed = saveFailed,
         about =
@@ -75,9 +71,9 @@ fun titleState(
                 details != null ->
                     About.Loaded(
                         authors = details.authors.joinToString(", "),
-                        publication = PUBLICATIONS[details.status],
+                        publication = PUBLICATIONS[details.publication],
                         year = details.startYear?.toString(),
-                        rating = details.rating?.roundToInt()?.toString(),
+                        rating = details.media.score?.toString(),
                         summary = details.description,
                         tags = shownTags(details.tags),
                     )
@@ -85,28 +81,20 @@ fun titleState(
                 else -> About.Loading
             },
     )
-}
 
 private val PUBLICATIONS =
     mapOf(
-        "releasing" to "Ongoing",
-        "completed" to "Completed",
-        "hiatus" to "On hiatus",
-        "cancelled" to "Cancelled",
-        "upcoming" to "Upcoming",
+        Publication.Releasing to "Ongoing",
+        Publication.Completed to "Completed",
+        Publication.Hiatus to "On hiatus",
+        Publication.Cancelled to "Cancelled",
+        Publication.Upcoming to "Upcoming",
     )
 
-private val WEIGHTS = listOf("core", "defining", "recurrent", "incidental", "unweighted")
-
 /** Genres first, then the other tags from the most to the least relevant. Spoilers are left out. */
-fun shownTags(tags: List<SeriesTag>): List<String> =
+fun shownTags(tags: List<Tag>): List<String> =
     tags
         .filterNot { it.spoiler }
-        .sortedWith(
-            compareBy(
-                { !it.genre },
-                { WEIGHTS.indexOf(it.weight).let { rank -> if (rank < 0) WEIGHTS.size else rank } },
-            )
-        )
+        .sortedWith(compareBy({ !it.genre }, { -(it.rank ?: -1) }))
         .map { it.name }
         .distinct()

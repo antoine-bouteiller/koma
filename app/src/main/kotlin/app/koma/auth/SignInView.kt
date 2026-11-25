@@ -1,5 +1,8 @@
 package app.koma.auth
 
+import app.koma.data.Session
+import app.koma.data.SignInResult
+
 /** What the sign-in prompt shows: whether a sign-in is under way, and the error to show. */
 data class SignInView(val busy: Boolean, val error: String)
 

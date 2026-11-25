@@ -2,9 +2,11 @@ package app.koma.title
 
 import androidx.compose.ui.test.assertContentDescriptionEquals
 import androidx.compose.ui.test.assertIsSelected
+import app.koma.data.ListStatus
 import app.koma.testing.AppHarness
 import app.koma.testing.BATCH
 import app.koma.testing.CHANGES
+import app.koma.testing.FakeBackend
 import app.koma.testing.LIBRARY
 import app.koma.testing.SERIES
 import app.koma.testing.batch
@@ -13,6 +15,7 @@ import app.koma.testing.fullSeries
 import app.koma.testing.series
 import app.koma.testing.tag
 import app.koma.testing.upsert
+import kotlinx.coroutines.runBlocking
 import org.junit.Assert.assertEquals
 import org.junit.Assert.assertNull
 import org.junit.Rule
@@ -152,5 +155,34 @@ class TitleTest {
         )
         app.tap("title-retry")
         app.text("title-authors", "Chu-Gong")
+    }
+
+    @Test
+    fun `a status the backend refuses syncs the library, so filing it again updates it`() {
+        val backend = FakeBackend()
+        val gamma = backend.add("γ-3", "Gamma")
+        backend.file(gamma, ListStatus.Reading)
+        app.backend = backend
+        app.launch()
+        app.tap("manga-γ-3")
+        // Removed, then filed again elsewhere, while the title screen stays open.
+        backend.drop(gamma)
+        runBlocking { app.container.library.sync() }
+        app.awaitIdle()
+        app.text("title-status", "Add to Library")
+        backend.file(gamma, ListStatus.Paused)
+        backend.calls.clear()
+
+        app.tap("title-status")
+        app.tap("status-completed")
+        app.has("title-status-error")
+        assertEquals(listOf("addEntry(γ-3, Completed)", "changes(c2)"), backend.calls)
+        app.text("title-status", "Paused")
+
+        app.tap("title-status")
+        app.tap("status-completed")
+        assertEquals("updateEntry(γ-3, Completed)", backend.calls.last())
+        app.text("title-status", "Completed")
+        app.missing("title-status-error")
     }
 }

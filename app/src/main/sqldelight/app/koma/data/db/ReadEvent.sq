@@ -1,0 +1,16 @@
+CREATE TABLE IF NOT EXISTS read_event (backend TEXT NOT NULL, id TEXT NOT NULL, media_id TEXT NOT NULL, at INTEGER NOT NULL, from_chapter REAL, to_chapter REAL, PRIMARY KEY (backend, id));
+CREATE INDEX IF NOT EXISTS read_event_at ON read_event (at DESC, id DESC);
+
+newest:
+SELECT max(at) AS newest FROM read_event WHERE backend = ?;
+
+upsert:
+INSERT OR REPLACE INTO read_event (backend, id, media_id, at, from_chapter, to_chapter) VALUES (?, ?, ?, ?, ?, ?);
+
+titled:
+SELECT e.id AS event_id, e.at, e.from_chapter, e.to_chapter, m.* FROM read_event e
+JOIN media m ON m.backend = e.backend AND m.id = e.media_id
+WHERE e.backend = ? AND m.title != '' ORDER BY e.at DESC, e.id DESC;
+
+clear:
+DELETE FROM read_event;

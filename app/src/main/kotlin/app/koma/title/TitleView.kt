@@ -63,6 +63,8 @@ import androidx.lifecycle.compose.collectAsStateWithLifecycle
 import androidx.lifecycle.viewmodel.compose.viewModel
 import app.koma.AppContainer
 import app.koma.R
+import app.koma.data.ListStatus
+import app.koma.data.MediaRef
 import app.koma.ui.GroupRow
 import app.koma.ui.PillButton
 import app.koma.ui.PillShape
@@ -77,8 +79,8 @@ import kotlinx.coroutines.launch
 /** A series of the library: its cover and facts, its library status, summary and tags. */
 @OptIn(ExperimentalMaterial3ExpressiveApi::class)
 @Composable
-fun TitleView(container: AppContainer, id: Long, contentPadding: PaddingValues) {
-    val model = viewModel(key = "title-$id") { TitleViewModel(container, id) }
+fun TitleView(container: AppContainer, ref: MediaRef, contentPadding: PaddingValues) {
+    val model = viewModel(key = "title-${ref.backend}-${ref.id}") { TitleViewModel(container, ref) }
     val state by model.state.collectAsStateWithLifecycle()
     var picking by rememberSaveable { mutableStateOf(false) }
     val list = rememberLazyListState()
@@ -301,7 +303,7 @@ private fun StatusButton(state: TitleState, onClick: () -> Unit) {
 
 @OptIn(ExperimentalMaterial3Api::class)
 @Composable
-private fun StatusSheet(current: Status?, onPick: (String) -> Unit, onDismiss: () -> Unit) {
+private fun StatusSheet(current: Status?, onPick: (ListStatus) -> Unit, onDismiss: () -> Unit) {
     val sheet = rememberModalBottomSheetState(skipPartiallyExpanded = true)
     val scope = rememberCoroutineScope()
     ModalBottomSheet(onDismissRequest = onDismiss, sheetState = sheet) {
@@ -320,19 +322,19 @@ private fun StatusSheet(current: Status?, onPick: (String) -> Unit, onDismiss: (
             )
             SettingsGroup(
                 STATUSES.map { status ->
-                    val chosen = status.state == current?.state
+                    val chosen = status == current
                     GroupRow { shape ->
                         SettingsRow(
                             title = status.label,
                             icon = status.icon,
                             shape = if (chosen) PillShape else shape,
-                            tag = "status-${status.state}",
+                            tag = "status-${status.status.name.lowercase()}",
                             modifier = Modifier.semantics { selected = chosen },
                             selected = chosen,
                             onClick = {
                                 scope
                                     .launch { sheet.hide() }
-                                    .invokeOnCompletion { onPick(status.state) }
+                                    .invokeOnCompletion { onPick(status.status) }
                             },
                             trailing = {},
                         )

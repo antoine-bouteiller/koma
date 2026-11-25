@@ -22,8 +22,10 @@ import androidx.lifecycle.ViewModelStoreOwner
 import androidx.lifecycle.viewmodel.compose.LocalViewModelStoreOwner
 import app.cash.sqldelight.driver.android.AndroidSqliteDriver
 import app.koma.AppContainer
+import app.koma.data.Backend
 import app.koma.data.KomaDatabase
 import app.koma.data.httpClient
+import app.koma.data.mangabaka.MangaBakaBackend
 import app.koma.ui.KomaApp
 import coil3.ImageLoader
 import coil3.intercept.Interceptor
@@ -50,8 +52,9 @@ private const val RELEASES = "https://api.github.com/repos/antoine-bouteiller/ko
 private const val ISSUER = "https://mangabaka.org/auth"
 
 /**
- * Runs the whole app on the JVM against [network], [secrets] and [browser]. Work runs on the main
- * looper, so Compose's idling waits for it. A test that makes a request no stub answers fails.
+ * Runs the whole app on the JVM against [backend], else MangaBaka over [network], [secrets] and
+ * [browser]. Work runs on the main looper, so Compose's idling waits for it. A test that makes a
+ * request no stub answers fails.
  */
 class AppHarness : TestRule {
     val compose: ComposeContentTestRule = createComposeRule()
@@ -68,8 +71,18 @@ class AppHarness : TestRule {
 
     var epoch: Instant = Instant.parse("2026-01-01T12:00:00Z")
     var zone: ZoneId = ZoneOffset.UTC
+    /** Replaces MangaBaka when set before [launch]; kept across [reload]. */
+    var backend: Backend? = null
 
-    private var container by mutableStateOf<AppContainer?>(null)
+    private var running by mutableStateOf<AppContainer?>(null)
+
+    /** The running app's dependencies. */
+    val container: AppContainer
+        get() = checkNotNull(running) { "The app is not running." }
+
+    /** The database file, which a test may write before [launch]. */
+    val database: File
+        get() = folder.root.resolve("koma.db")
 
     override fun apply(base: Statement, description: Description): Statement =
         RuleChain.outerRule(folder)
@@ -88,9 +101,11 @@ class AppHarness : TestRule {
 
     private fun newContainer(): AppContainer {
         val context = RuntimeEnvironment.getApplication()
+        val http = httpClient().newBuilder().addInterceptor(network).build()
+        val clock = Clock.fixed(epoch, ZoneOffset.UTC)
         return AppContainer(
             context = context,
-            http = httpClient().newBuilder().addInterceptor(network).build(),
+            http = http,
             images =
                 ImageLoader.Builder(context)
                     .serviceLoaderEnabled(false)
@@ -115,12 +130,11 @@ class AppHarness : TestRule {
                 AndroidSqliteDriver(
                     KomaDatabase.Schema,
                     context,
-                    folder.root.resolve("koma.db").absolutePath,
+                    database.absolutePath,
                 ),
-            secrets = secrets,
+            backend = backend ?: MangaBakaBackend(http, secrets, browser, clock),
             preferences = preferences,
-            browser = browser,
-            clock = Clock.fixed(epoch, ZoneOffset.UTC),
+            clock = clock,
             zone = { zone },
             installedVersion = "0.1.0",
             installApk = { installed += it },
@@ -130,11 +144,11 @@ class AppHarness : TestRule {
 
     /** Opens the app. */
     fun launch() {
-        container = newContainer()
+        running = newContainer()
         compose.setContent {
             // Saved state outlives a reload, as Android restores it after the process is gone.
             val saved = rememberSaveableStateHolder()
-            val current = container ?: return@setContent
+            val current = running ?: return@setContent
             // No key(current): rememberSaveable keys its state by position, and a reload empties
             // the
             // content in between, so the app is still composed from scratch.
@@ -154,12 +168,12 @@ class AppHarness : TestRule {
 
     /** Quits and opens the app again, over the same database file and secrets. */
     fun reload() {
-        val old = checkNotNull(container)
+        val old = container
         // Disposed first, so the saved state is in before the new app reads it.
-        container = null
+        running = null
         awaitIdle()
         old.driver.close()
-        container = newContainer()
+        running = newContainer()
         awaitIdle()
     }
 

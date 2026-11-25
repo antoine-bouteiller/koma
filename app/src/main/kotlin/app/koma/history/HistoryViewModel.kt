@@ -3,6 +3,7 @@ package app.koma.history
 import androidx.lifecycle.ViewModel
 import androidx.lifecycle.viewModelScope
 import app.koma.AppContainer
+import app.koma.data.History
 import app.koma.data.failed
 import java.time.Instant
 import java.time.ZoneId
@@ -28,18 +29,16 @@ private data class Status(
 private data class Tick(val now: Instant, val zone: ZoneId)
 
 class HistoryViewModel(private val container: AppContainer) : ViewModel() {
-    private val history = HistorySync(container.store, container.api)
+    private val history = container.history
     private val status = MutableStateFlow(Status())
     private val tick = MutableStateFlow(Tick(container.clock.instant(), container.zone()))
-    private var stored = HistoryData(synced = false, reads = emptyList(), hasNext = false)
+    private var stored = History(synced = false, reads = emptyList(), hasNext = false)
     private var newer: Job? = null
     private var older: Job? = null
 
     val state: StateFlow<HistoryState> =
         combine(
-                container.store
-                    .watch({ historyQueries() }) { readHistory() }
-                    .onEach { stored = it },
+                history.history.onEach { stored = it },
                 status,
                 tick,
             ) { data, s, t ->

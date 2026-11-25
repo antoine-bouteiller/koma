@@ -3,9 +3,12 @@ package app.koma
 import android.content.Context
 import android.net.Uri
 import app.cash.sqldelight.db.SqlDriver
-import app.koma.auth.MangaBakaAuth
+import app.koma.data.AccountRepository
+import app.koma.data.Backend
+import app.koma.data.HistoryRepository
 import app.koma.data.KomaDatabase
-import app.koma.data.MangaBakaApi
+import app.koma.data.LibraryRepository
+import app.koma.data.MediaRepository
 import app.koma.data.Store
 import app.koma.ui.theme.ThemePreferences
 import coil3.ImageLoader
@@ -42,9 +45,8 @@ class AppContainer(
     val http: OkHttpClient,
     val images: ImageLoader,
     val driver: SqlDriver,
-    val secrets: SecretStore,
+    backend: Backend,
     val preferences: PreferenceStore,
-    val browser: AuthBrowser,
     val clock: Clock,
     val zone: () -> ZoneId,
     val installedVersion: String,
@@ -56,8 +58,10 @@ class AppContainer(
      */
     val work: CoroutineDispatcher = Dispatchers.IO,
 ) {
-    val auth = MangaBakaAuth(http, secrets, browser, clock)
-    val api = MangaBakaApi(http, auth)
-    val store = Store(KomaDatabase(driver), api, work)
+    private val store = Store(KomaDatabase(driver), work)
+    val media = MediaRepository(store, backend)
+    val library = LibraryRepository(store, backend, media, clock)
+    val history = HistoryRepository(store, backend, media)
+    val account = AccountRepository(store, backend)
     val theme = ThemePreferences(preferences)
 }

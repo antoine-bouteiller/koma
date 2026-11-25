@@ -11,11 +11,7 @@ import kotlinx.coroutines.flow.map
 import kotlinx.coroutines.sync.Mutex
 import kotlinx.coroutines.sync.withLock
 
-class Store(
-    private val db: KomaDatabase,
-    private val api: MangaBakaApi,
-    private val context: CoroutineContext,
-) {
+class Store(private val db: KomaDatabase, private val context: CoroutineContext) {
     private val writer = Mutex()
 
     /** Bumped at sign-out, so a sync still in flight drops what it fetched for the old session. */
@@ -45,22 +41,6 @@ class Store(
         libraryEntryQueries.clear()
         readEventQueries.clear()
         metaQueries.clear()
-    }
-
-    /** Looks up the series not cached yet, 50 at a time. */
-    suspend fun cacheSeries(ids: Collection<Long>) {
-        val unique = ids.toSet()
-        if (unique.isEmpty()) return
-        val known = db.seriesQueries.ids().executeAsList().toSet()
-        for (chunk in unique.filterNot { it in known }.chunked(50)) {
-            val found = api.seriesBatch(chunk).associateBy { it.id }
-            write {
-                for (id in chunk) {
-                    val s = found[id]
-                    seriesQueries.upsert(id, s?.title ?: "", s?.cover ?: "", s?.type ?: "")
-                }
-            }
-        }
     }
 
     /** [read]'s answer now and after each write to a table one of [queries] reads. */

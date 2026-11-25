@@ -1,5 +1,7 @@
 package app.koma.history
 
+import app.koma.data.History
+import app.koma.data.Read
 import java.time.Instant
 import java.time.ZoneId
 import java.util.Locale
@@ -50,12 +52,12 @@ internal fun chapterLabel(from: Double?, to: Double): String =
  * one day are one row spanning their chapters.
  */
 fun historyItems(
-    reads: List<StoredRead>,
+    reads: List<Read>,
     now: Instant,
     zone: ZoneId,
     locale: Locale,
 ): List<HistoryItem> {
-    class Run(val read: StoredRead, var from: Double?)
+    class Run(val read: Read, var from: Double?)
 
     val days = mutableListOf<Pair<String, MutableList<Run>>>()
     for (read in reads) {
@@ -63,7 +65,7 @@ fun historyItems(
         if (days.lastOrNull()?.first != day) days += day to mutableListOf()
         val runs = days.last().second
         val last = runs.lastOrNull()
-        if (last != null && last.read.seriesId == read.seriesId) last.from = read.from
+        if (last != null && last.read.media.ref == read.media.ref) last.from = read.from
         else runs += Run(read, read.from)
     }
     return days.flatMap { (day, runs) ->
@@ -77,10 +79,10 @@ fun historyItems(
                 val read = run.read
                 HistoryItem.Read(
                     // The newest read's id: older pages only extend a row, never renumber it.
-                    id = read.id.toString(),
-                    mediaId = read.seriesId.toString(),
-                    title = read.title,
-                    cover = read.cover,
+                    id = read.id,
+                    mediaId = read.media.ref.id,
+                    title = read.media.title,
+                    cover = read.media.cover,
                     detail =
                         "${chapterLabel(run.from, read.to)} · " +
                             formatTime(Instant.ofEpochMilli(read.at), zone, locale),
@@ -90,7 +92,7 @@ fun historyItems(
 }
 
 fun historyState(
-    data: HistoryData,
+    data: History,
     syncing: Boolean,
     syncFailed: Boolean,
     loadingOlder: Boolean,

@@ -8,6 +8,7 @@ import app.koma.auth.CustomTabBrowser
 import app.koma.auth.KeystoreSecretStore
 import app.koma.data.KomaDatabase
 import app.koma.data.httpClient
+import app.koma.data.mangabaka.MangaBakaBackend
 import coil3.ImageLoader
 import coil3.network.okhttp.OkHttpNetworkFetcherFactory
 import coil3.serviceLoaderEnabled
@@ -19,6 +20,7 @@ class KomaApplication : Application() {
 
     val container: AppContainer by lazy {
         val http = httpClient()
+        val clock = Clock.systemUTC()
         AppContainer(
             context = this,
             http = http,
@@ -28,10 +30,9 @@ class KomaApplication : Application() {
                     .components { add(OkHttpNetworkFetcherFactory(callFactory = { http })) }
                     .build(),
             driver = AndroidSqliteDriver(KomaDatabase.Schema, this, "koma.db"),
-            secrets = KeystoreSecretStore(this),
+            backend = MangaBakaBackend(http, KeystoreSecretStore(this), browser, clock),
             preferences = SharedPreferenceStore(this),
-            browser = browser,
-            clock = Clock.systemUTC(),
+            clock = clock,
             zone = { ZoneId.systemDefault() },
             installedVersion = BuildConfig.VERSION_NAME,
             installApk = { apk ->

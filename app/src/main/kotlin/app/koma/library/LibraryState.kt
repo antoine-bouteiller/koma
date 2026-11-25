@@ -1,12 +1,44 @@
 package app.koma.library
 
-data class Manga(val id: Long, val title: String, val cover: String)
+import app.koma.data.Kind
+import app.koma.data.Library
+import app.koma.data.ListStatus
+import app.koma.data.MediaRef
+
+data class Manga(val ref: MediaRef, val title: String, val cover: String)
 
 /** A tab of the library: most recently updated first. */
 data class Shelf(val id: String, val title: String, val items: List<Manga>)
 
-/** The stored library; [synced] once it has been read from MangaBaka at least once. */
-data class LibraryData(val synced: Boolean, val shelves: List<Shelf>)
+private class ShelfRule(val id: String, val title: String, val statuses: Set<ListStatus>)
+
+private val SHELVES =
+    listOf(
+        ShelfRule(
+            "reading",
+            "Reading",
+            setOf(ListStatus.Reading, ListStatus.Planning, ListStatus.Rereading),
+        ),
+        ShelfRule(
+            "archived",
+            "Archived",
+            setOf(ListStatus.Completed, ListStatus.Paused, ListStatus.Dropped),
+        ),
+    )
+
+/** Each shelf of [library], in its order, without novels. */
+fun shelves(library: Library): List<Shelf> {
+    val shown = library.items.filter { it.media.kind != Kind.Novel }
+    return SHELVES.map { rule ->
+        Shelf(
+            rule.id,
+            rule.title,
+            shown
+                .filter { it.status in rule.statuses }
+                .map { Manga(it.media.ref, it.media.title, it.media.cover) },
+        )
+    }
+}
 
 /** The library screen once signed in. */
 sealed interface LibraryState {
@@ -19,11 +51,11 @@ sealed interface LibraryState {
     data class Shelves(val shelves: List<Shelf>, val refreshing: Boolean) : LibraryState
 }
 
-fun libraryState(data: LibraryData, syncing: Boolean, failed: Boolean): LibraryState =
+fun libraryState(library: Library, syncing: Boolean, failed: Boolean): LibraryState =
     when {
-        !data.synced && failed -> LibraryState.Failed
-        !data.synced -> LibraryState.Loading
-        else -> LibraryState.Shelves(data.shelves, refreshing = syncing)
+        !library.synced && failed -> LibraryState.Failed
+        !library.synced -> LibraryState.Loading
+        else -> LibraryState.Shelves(shelves(library), refreshing = syncing)
     }
 
 /** An empty shelf's title and what will show up there. */

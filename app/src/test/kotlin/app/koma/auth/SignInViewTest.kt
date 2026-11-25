@@ -1,5 +1,7 @@
 package app.koma.auth
 
+import app.koma.data.Session
+import app.koma.data.SignInResult
 import org.junit.Assert.assertEquals
 import org.junit.Test
 

@@ -18,12 +18,17 @@ import androidx.lifecycle.compose.collectAsStateWithLifecycle
 import androidx.lifecycle.viewmodel.compose.viewModel
 import app.koma.AppContainer
 import app.koma.R
+import app.koma.data.MediaRef
 import app.koma.ui.EmptyState
 import app.koma.ui.LoadingState
 
-/** The signed-in person's MangaBaka library. [onOpen] opens a series by its id. */
+/** The signed-in person's MangaBaka library. [onOpen] opens a title. */
 @Composable
-fun LibraryView(container: AppContainer, contentPadding: PaddingValues, onOpen: (Long) -> Unit) {
+fun LibraryView(
+    container: AppContainer,
+    contentPadding: PaddingValues,
+    onOpen: (MediaRef) -> Unit,
+) {
     val model = viewModel { LibraryViewModel(container) }
     LaunchedEffect(model) { model.open() }
     val state by model.state.collectAsStateWithLifecycle()

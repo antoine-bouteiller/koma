@@ -1,6 +1,8 @@
-package app.koma.auth
+package app.koma.data.mangabaka
 
 import app.koma.data.HttpException
+import app.koma.data.SignInResult
+import app.koma.data.SignedOutException
 import app.koma.data.httpClient
 import app.koma.testing.AppHarness
 import app.koma.testing.CHANGES

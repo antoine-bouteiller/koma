@@ -13,7 +13,6 @@ import kotlinx.coroutines.flow.stateIn
 import kotlinx.coroutines.launch
 
 class LibraryViewModel(private val container: AppContainer) : ViewModel() {
-    private val library = LibrarySync(container.store, container.api)
     private val syncing = MutableStateFlow(false)
     private val lastFailed = MutableStateFlow(false)
     private var job: Job? = null
@@ -21,7 +20,7 @@ class LibraryViewModel(private val container: AppContainer) : ViewModel() {
 
     val state: StateFlow<LibraryState> =
         combine(
-                container.store.watch({ libraryQueries() }) { readLibrary() },
+                container.library.library,
                 syncing,
                 lastFailed,
                 ::libraryState,
@@ -30,7 +29,7 @@ class LibraryViewModel(private val container: AppContainer) : ViewModel() {
 
     /** Syncs once per sign-in, when the library first shows. */
     fun open() {
-        val session = container.auth.signIns
+        val session = container.account.signIns
         if (openedFor == session) return
         openedFor = session
         sync()
@@ -42,7 +41,7 @@ class LibraryViewModel(private val container: AppContainer) : ViewModel() {
         lastFailed.value = false
         job =
             viewModelScope.launch(container.work) {
-                lastFailed.value = failed { library.sync() }
+                lastFailed.value = failed { container.library.sync() }
                 syncing.value = false
             }
     }

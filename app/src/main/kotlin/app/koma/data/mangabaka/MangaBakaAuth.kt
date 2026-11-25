@@ -1,9 +1,11 @@
-package app.koma.auth
+package app.koma.data.mangabaka
 
 import app.koma.AuthBrowser
 import app.koma.SecretStore
-import app.koma.data.Authorized
 import app.koma.data.HttpException
+import app.koma.data.Session
+import app.koma.data.SignInResult
+import app.koma.data.SignedOutException
 import app.koma.data.call
 import app.koma.data.getText
 import app.koma.data.json
@@ -34,14 +36,6 @@ private const val KEY = "mangabaka.session"
 private const val SESSION_ENDED = "Your MangaBaka session ended. Sign in again."
 private val JSON = "application/json".toMediaType()
 
-data class Session(val signedIn: Boolean, val error: String)
-
-/** [error] is an OAuth error code, or "cancelled", "network", "state_mismatch"… */
-data class SignInResult(val ok: Boolean, val error: String)
-
-/** The person is not signed in, or their session ended. */
-class SignedOutException : IOException("Not signed in.")
-
 @Serializable
 private data class Tokens(
     val accessToken: String,
@@ -71,7 +65,7 @@ class MangaBakaAuth(
     private val secrets: SecretStore,
     private val browser: AuthBrowser,
     private val clock: Clock,
-) : Authorized {
+) {
     private val discovering = Mutex()
     private var discovered: Discovery? = null
     private val refreshing = Mutex()
@@ -86,11 +80,6 @@ class MangaBakaAuth(
     val sessions: StateFlow<Session> = mutableSessions.asStateFlow()
 
     suspend fun session(): Session = sessions.value
-
-    /** Successful sign-ins in this process, so a screen can tell one session from the next. */
-    @Volatile
-    var signIns = 0
-        private set
 
     suspend fun signIn(): SignInResult {
         val meta =
@@ -144,7 +133,6 @@ class MangaBakaAuth(
             synchronized(lock) {
                 ended = ""
                 keep(Tokens(access, reply.refreshToken, expiresAt(reply)))
-                signIns++
             }
         } catch (_: IOException) {
             return SignInResult(false, "storage")
@@ -183,11 +171,11 @@ class MangaBakaAuth(
     }
 
     /** A GET with the access token, refreshed when it has expired or the API refuses it. */
-    override suspend fun <T> get(url: String, body: DeserializationStrategy<T>): T =
+    suspend fun <T> get(url: String, body: DeserializationStrategy<T>): T =
         json.decodeFromString(body, authorized(Request.Builder().url(url)))
 
-    /** A write with the access token, refreshed as for [get]. */
-    override suspend fun send(method: String, url: String, body: String) {
+    /** A write with [body] as JSON, refreshed as for [get]. A reply that is not 2xx throws. */
+    suspend fun send(method: String, url: String, body: String) {
         authorized(Request.Builder().url(url).method(method, body.toRequestBody(JSON)))
     }
 

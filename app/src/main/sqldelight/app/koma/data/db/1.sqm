@@ -1,0 +1,10 @@
+-- Version 1 keyed everything by MangaBaka's numeric series id. The cache re-syncs from the backend.
+DROP TABLE IF EXISTS series;
+DROP TABLE IF EXISTS library_entry;
+DROP TABLE IF EXISTS read_event;
+DELETE FROM meta;
+
+CREATE TABLE media (backend TEXT NOT NULL, id TEXT NOT NULL, title TEXT NOT NULL, cover TEXT NOT NULL, kind TEXT NOT NULL, score INTEGER, adult INTEGER NOT NULL, long_strip INTEGER NOT NULL, PRIMARY KEY (backend, id));
+CREATE TABLE library_entry (backend TEXT NOT NULL, media_id TEXT NOT NULL, status TEXT NOT NULL, progress REAL, updated_at INTEGER NOT NULL, PRIMARY KEY (backend, media_id));
+CREATE TABLE read_event (backend TEXT NOT NULL, id TEXT NOT NULL, media_id TEXT NOT NULL, at INTEGER NOT NULL, from_chapter REAL, to_chapter REAL, PRIMARY KEY (backend, id));
+CREATE INDEX read_event_at ON read_event (at DESC, id DESC);

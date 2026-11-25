@@ -1,4 +1,4 @@
-package app.koma.auth
+package app.koma.data.mangabaka
 
 import java.security.MessageDigest
 import java.security.SecureRandom

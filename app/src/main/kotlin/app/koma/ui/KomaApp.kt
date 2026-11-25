@@ -33,6 +33,7 @@ import androidx.compose.runtime.getValue
 import androidx.compose.runtime.mutableStateOf
 import androidx.compose.runtime.remember
 import androidx.compose.runtime.rememberCoroutineScope
+import androidx.compose.runtime.saveable.Saver
 import androidx.compose.runtime.saveable.rememberSaveable
 import androidx.compose.runtime.saveable.rememberSaveableStateHolder
 import androidx.compose.runtime.setValue
@@ -51,6 +52,8 @@ import app.koma.AppContainer
 import app.koma.R
 import app.koma.auth.SessionViewModel
 import app.koma.auth.SignInPrompt
+import app.koma.data.BackendId
+import app.koma.data.MediaRef
 import app.koma.history.HistoryView
 import app.koma.library.LibraryView
 import app.koma.settings.Account
@@ -122,7 +125,7 @@ enum class Tab(
 }
 
 /** What the app shows: a tab, and the Settings page or the Library title opened over it. */
-private data class Screen(val tab: Tab, val page: SettingsPage?, val series: Long?) {
+private data class Screen(val tab: Tab, val page: SettingsPage?, val series: MediaRef?) {
     val route: String
         get() = page?.route ?: series?.let { "series" } ?: tab.route
 
@@ -157,6 +160,12 @@ private fun AnimatedContentTransitionScope<Screen>.screenChange(
     } using SizeTransform(clip = false)
 }
 
+private val MediaRefSaver =
+    Saver<MediaRef?, List<String>>(
+        save = { ref -> ref?.let { listOf(it.backend.name, it.id) } },
+        restore = { (backend, id) -> MediaRef(BackendId.valueOf(backend), id) },
+    )
+
 @Composable
 fun KomaApp(container: AppContainer) {
     val sessionModel = viewModel { SessionViewModel(container) }
@@ -167,7 +176,8 @@ fun KomaApp(container: AppContainer) {
     val theme by container.theme.settings.collectAsStateWithLifecycle()
     var tab by rememberSaveable { mutableStateOf(Tab.Library) }
     var settingsPage by rememberSaveable { mutableStateOf<SettingsPage?>(null) }
-    var openSeries by rememberSaveable { mutableStateOf<Long?>(null) }
+    var openSeries by
+        rememberSaveable(stateSaver = MediaRefSaver) { mutableStateOf<MediaRef?>(null) }
     val page = settingsPage.takeIf { tab == Tab.Settings }
     val series = openSeries.takeIf { tab == Tab.Library && session.signedIn }
     val screen = Screen(tab, page, series)
@@ -231,7 +241,7 @@ fun KomaApp(container: AppContainer) {
                         ) {
                             saved.SaveableStateProvider(
                                 shown.page?.let { "settings-${it.route}" }
-                                    ?: shown.series?.let { "series-$it" }
+                                    ?: shown.series?.let { "series-${it.backend}-${it.id}" }
                                     ?: shown.tab.route
                             ) {
                                 when {

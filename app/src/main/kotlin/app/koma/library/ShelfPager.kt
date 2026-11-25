@@ -44,6 +44,7 @@ import androidx.compose.ui.semantics.Role
 import androidx.compose.ui.text.style.TextOverflow
 import androidx.compose.ui.unit.dp
 import app.koma.R
+import app.koma.data.MediaRef
 import app.koma.ui.EmptyState
 import app.koma.ui.HeaderAccessory
 import app.koma.ui.TrackHeaderBackdrop
@@ -59,7 +60,7 @@ fun ShelfPager(
     images: ImageLoader,
     contentPadding: PaddingValues,
     onRefresh: () -> Unit,
-    onOpen: (Long) -> Unit,
+    onOpen: (MediaRef) -> Unit,
 ) {
     val pager = rememberPagerState { state.shelves.size }
     val scope = rememberCoroutineScope()
@@ -131,7 +132,7 @@ private fun CoverGrid(
     images: ImageLoader,
     grid: LazyGridState,
     contentPadding: PaddingValues,
-    onOpen: (Long) -> Unit,
+    onOpen: (MediaRef) -> Unit,
 ) {
     val direction = LocalLayoutDirection.current
     LazyVerticalGrid(
@@ -148,12 +149,12 @@ private fun CoverGrid(
         horizontalArrangement = Arrangement.spacedBy(12.dp),
         verticalArrangement = Arrangement.spacedBy(12.dp),
     ) {
-        items(shelf.items, key = { it.id }) { manga ->
+        items(shelf.items, key = { it.ref.id }) { manga ->
             Column(
                 Modifier.animateItem()
                     .clip(RoundedCornerShape(8.dp))
-                    .clickable(role = Role.Button) { onOpen(manga.id) }
-                    .testTag("manga-${manga.id}"),
+                    .clickable(role = Role.Button) { onOpen(manga.ref) }
+                    .testTag("manga-${manga.ref.id}"),
                 verticalArrangement = Arrangement.spacedBy(6.dp),
             ) {
                 AsyncImage(

@@ -1,0 +1,20 @@
+CREATE TABLE IF NOT EXISTS library_entry (backend TEXT NOT NULL, media_id TEXT NOT NULL, status TEXT NOT NULL, progress REAL, updated_at INTEGER NOT NULL, PRIMARY KEY (backend, media_id));
+
+shelved:
+SELECT e.status, e.updated_at, m.* FROM library_entry e JOIN media m ON m.backend = e.backend AND m.id = e.media_id
+WHERE e.backend = ? AND m.title != '' ORDER BY e.updated_at DESC, m.id;
+
+status:
+SELECT status FROM library_entry WHERE backend = ? AND media_id = ?;
+
+upsert:
+INSERT OR REPLACE INTO library_entry (backend, media_id, status, progress, updated_at) VALUES (?, ?, ?, ?, ?);
+
+setStatus:
+UPDATE library_entry SET status = ?, updated_at = ? WHERE backend = ? AND media_id = ?;
+
+remove:
+DELETE FROM library_entry WHERE backend = ? AND media_id = ?;
+
+clear:
+DELETE FROM library_entry;
