@@ -92,7 +92,7 @@ class MangaBakaBackendTest {
     }
 
     @Test
-    fun `scores are rounded and tag weights become ranks`() = runTest {
+    fun `ratings are out of five to one decimal and tag weights become ranks`() = runTest {
         network.answer(
             "$SERIES/1?schema=full",
             200,
@@ -109,7 +109,7 @@ class MangaBakaBackendTest {
             ),
         )
         val details = backend.details(ref(1))
-        assertEquals(88, details.media.score)
+        assertEquals(4.4, details.media.score)
         assertEquals(listOf(25, 100), details.tags.map { it.rank })
     }
 }

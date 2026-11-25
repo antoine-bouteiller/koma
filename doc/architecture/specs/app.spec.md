@@ -89,7 +89,7 @@ MangaBaka without a manual step. Koma is a personal Android app in Kotlin and Je
 | `[KD-18.2]` Sources | Mihon's extension API, at the version keiyoushi's extensions build against. Koma ships the `eu.kanade.tachiyomi.source` and `eu.kanade.tachiyomi.network` packages, and the keiyoushi helper packages a copied extension imports. v1 copies the extensions it uses from `keiyoushi/extensions-source` into `app/src/main/kotlin/eu/kanade/tachiyomi/extension/`, and lists them in `app/src/main/kotlin/app/koma/source/Sources.kt`. v1 lists Atsumaru only. | A copied extension builds with few or no edits and stays comparable with upstream. The same API can later load installed extension APKs (`[NG-3.1]`). Atsumaru's JSON API answers plain HTTPS with no Cloudflare challenge, and its 33,632 series (2026-11-18) cover the titles the user reads. |
 | ~~`[KD-19]` Chapter deduplication~~ | ~~Atsumaru lists one upload per scanlator. Its adapter keeps one chapter per number: the upload whose scanlator has the highest `score`, then the latest upload.~~ | ~~Same rule as keiyoushi's Atsumaru extension.~~ |
 | `[KD-19.1]` Chapter deduplication | The source's own. Atsumaru lists one upload per scanlator, and the copied extension keeps one chapter per number: the upload whose scanlator has the highest `score`, then the latest upload. | Mihon's `SChapter` carries no scanlator score, so only the extension can rank uploads. |
-| `[KD-20]` Backend | One interface, `Backend` (`[CT-1.2]`). MangaBaka implements it as `MangaBakaBackend` in `app.koma.data.mangabaka`, with its sign-in. `KomaApplication` builds it and passes it to `AppContainer`; nothing else imports that package. | Koma is built as a client of this service, so "tracker", Mihon's word for a sync target added afterwards, misnames it. A name ending in `Service` would be confused with Android's component. One interface, not one per capability: `[NG-5]` allows one backend at a time, and library entries reference the backend's own media ids. |
+| `[KD-20]` Backend | One interface, `Backend` (`[CT-1.3]`). MangaBaka implements it as `MangaBakaBackend` in `app.koma.data.mangabaka`, with its sign-in. `KomaApplication` builds it and passes it to `AppContainer`; nothing else imports that package. | Koma is built as a client of this service, so "tracker", Mihon's word for a sync target added afterwards, misnames it. A name ending in `Service` would be confused with Android's component. One interface, not one per capability: `[NG-5]` allows one backend at a time, and library entries reference the backend's own media ids. |
 | `[KD-21]` Repositories | `MediaRepository`, `LibraryRepository`, `HistoryRepository` and `AccountRepository` in `app.koma.data`, one instance each, built by `AppContainer` (`[CT-10]`). Library and history sync run inside them. | Android's data-layer guidance: one repository per kind of data, over the network and the database. Any screen reuses the same data. |
 | `[KD-22]` Backend name in copy | UI strings that name the backend read `Backend.name`. | Replacing the backend touches no screen. |
 
@@ -116,9 +116,9 @@ flowchart TB
 ## Outcome
 
 - `[SO-1]` The Discover tab lists MangaBaka trending, top-rated and popular titles, filterable by
-  manga, manhwa and manhua, each card showing the MangaBaka rating. — demonstrated by `[VC-1]`
+  manga, manhwa and manhua, each card showing the MangaBaka rating. — demonstrated by `[VC-1.1]`
 - `[SO-2]` The Library tab is the signed-in user's MangaBaka library, grouped by status, and follows
-  edits and removals made elsewhere. — demonstrated by `[VC-1]`, `[VC-8]`
+  edits and removals made elsewhere. — demonstrated by `[VC-1.1]`, `[VC-8]`
 - `[SO-3]` A user can open a MangaBaka title and read it from Atsumaru without searching, when
   Atsumaru carries that title's MangaBaka id. Each chapter number appears once. — demonstrated by
   `[VC-3]`, `[VC-12.1]`, `[VC-13]`
@@ -135,12 +135,13 @@ flowchart TB
 
 ## Contracts
 
-### [CT-1.2] Backend
+### [CT-1.3] Backend
 
 Kind: api · Anchor: null
 
 ~~`[CT-1]` Tracker, as TypeScript~~ and ~~`[CT-1.1]` Tracker~~: renamed `Backend` (`[KD-20]`). It
 adds the account, details and history members, and `changes(null)` replaces `list()` (`[KD-8.1]`).
+~~`[CT-1.2]` Backend~~: scores move from integers on 0–100 to one decimal on 0.0–5.0.
 
 ```kotlin
 package app.koma.data
@@ -158,7 +159,7 @@ data class Media(
     val title: String,               // display title
     val cover: String,
     val kind: Kind,
-    val score: Int?,                 // backend rating, 0–100
+    val score: Double?,              // backend rating, 0.0–5.0, one decimal
     val adult: Boolean,
     val longStrip: Boolean,          // false when the backend does not say
 )
@@ -180,7 +181,7 @@ data class ListEntry(
     val ref: MediaRef,
     val status: ListStatus,
     val progress: Double?,           // chapters read; may be fractional
-    val score: Int?,                 // the user's rating, 0–100
+    val score: Double?,              // the user's rating, 0.0–5.0, one decimal
     val updatedAt: Long,             // epoch ms
 )
 sealed interface ListChange {
@@ -208,12 +209,12 @@ interface Backend {
     suspend fun userName(): String                                 // empty when the account has none
     suspend fun changes(cursor: String?): CursorPage<ListChange>
     suspend fun entry(ref: MediaRef): ListEntry?
-    suspend fun addEntry(ref: MediaRef, status: ListStatus, progress: Double? = null, score: Int? = null)
+    suspend fun addEntry(ref: MediaRef, status: ListStatus, progress: Double? = null, score: Double? = null)
     suspend fun updateEntry(
         ref: MediaRef,
         status: ListStatus? = null,
         progress: Double? = null,
-        score: Int? = null,
+        score: Double? = null,
     )
     suspend fun readEvents(cursor: String?, since: Long?, limit: Int): CursorPage<ReadEvent>
     suspend fun media(refs: List<MediaRef>): List<Media>
@@ -234,8 +235,9 @@ assumed. A backend whose API only upserts implements both the same way.
 from the result. `readEvents` answers newest first; `since` keeps events at or after that instant
 (epoch ms), and a cursor is valid only with the filters that made it. `discover` answers null when
 the backend has no such feed; the Discover tab hides it. `readingDirection` answers null when the
-backend does not know: the reader then uses `[CT-9.2]`'s kind default. Scores and tag ranks are
-normalized so no screen formats a backend-specific scale.
+backend does not know: the reader then uses `[CT-9.2]`'s kind default. Every score, the backend's
+and the user's, is on one 0.0–5.0 scale to one decimal, and tag ranks on 0–100, so no screen formats a
+backend-specific scale.
 
 MangaBaka mapping (`MangaBakaBackend`):
 
@@ -245,7 +247,7 @@ MangaBaka mapping (`MangaBakaBackend`):
 | `ListStatus` | `state`; `Planning` is `plan_to_read`, the others their lowercase names. An entry with an unknown `state` is skipped. |
 | `Kind` | The series `type`: `manga`, `manhwa`, `manhua`, `oel`, `novel`; any other is `Other` |
 | `Publication` | `status`; any value outside the enum is `Unknown` |
-| `Media.score` | `rating`, rounded |
+| `Media.score` | `rating` (0–100) divided by 20, rounded to one decimal |
 | `Media.adult` | `content_rating` of `erotica` or `pornographic` |
 | `Media.longStrip` | `tags_v2` holds tag 93 (`Work Info > Page Layout > Longstrip`) |
 | `Tag.rank` | `weight`: `core` 100, `defining` 75, `recurrent` 50, `incidental` 25, `unweighted` null |
@@ -306,17 +308,18 @@ Atsumaru finder: defined for MangaBaka media only. It searches each title varian
 `client` for the top three hits not yet read, and answers the first whose `mangaBakaId` equals
 `media.ref.id`.
 
-### [CT-4.1] Local store
+### [CT-4.2] Local store
 
 Kind: schema · Anchor: null
 
 ~~`[CT-4]` Local store~~: reconciled with the shipped tables, keyed by `MediaRef`.
+~~`[CT-4.1]` Local store~~: `media.score` holds `[CT-1.3]`'s 0.0–5.0 scale.
 
 ```sql
 create table media (
   backend text not null, id text not null,
   title text not null, cover text not null, kind text not null,
-  score integer, adult integer not null, long_strip integer not null,
+  score real, adult integer not null, long_strip integer not null,
   primary key (backend, id)
 );
 create table library_entry (
@@ -359,7 +362,8 @@ the backend no longer answers, which screens leave out. `library_entry` mirrors 
 and changes only through `changes()` or a successful `addEntry` or `updateEntry`. `meta` holds the library and
 history cursors and is cleared at sign-out with `library_entry` and `read_event`. `cache` holds
 details, feed pages and reading directions so the app opens offline. `[KD-10]` rewrites `media_id`
-in `binding`, `library_entry`, `progress_outbox` and `reading_mode`.
+in `binding`, `library_entry`, `progress_outbox` and `reading_mode`. A migration converts stored
+scores to the 0.0–5.0 scale.
 
 ### [CT-5.1] Read state
 
@@ -381,7 +385,7 @@ through its decimal string, so chapter `10.1f` equals progress `10.1`.
 
 Kind: invariant · Anchor: null
 
-~~`[CT-6]` Progress push~~: the same flush, over `[CT-1.2]`'s members and status names.
+~~`[CT-6]` Progress push~~: the same flush, over `[CT-1.3]`'s members and status names.
 
 A chapter is finished when its last page has been on screen. Finishing chapter `c` with
 `n = number(c)` and `n > effectiveProgress` upserts the outbox row to `n`. Flushing a row:
@@ -478,9 +482,14 @@ Tests run on the JVM under Robolectric. Backend tests stub MangaBaka's API and O
 `FakeNetwork`, the test harness's OkHttp interceptor, and source tests stub Atsumaru's API the same
 way, through the client sources share (`[CT-2.2]`). The harness records the image URLs the app asks for and loads none.
 
-- `[VC-1]` Given a stub returning distinct `trending_7d`, `score_desc` and library payloads, when
+- ~~`[VC-1]` Given a stub returning distinct `trending_7d`, `score_desc` and library payloads, when
   the Discover and Library tabs open, then each shows the stub's titles in the stub's order, the
   manhwa filter sends `type=manhwa`, every search sends `type_not=novel`, a card shows `84` for
+  `rating: 84`, Discover requests carry no `Authorization` header, and Library groups match the
+  stub's states. — demonstrates `[SO-1]`, `[SO-2]`~~
+- `[VC-1.1]` Given a stub returning distinct `trending_7d`, `score_desc` and library payloads, when
+  the Discover and Library tabs open, then each shows the stub's titles in the stub's order, the
+  manhwa filter sends `type=manhwa`, every search sends `type_not=novel`, a card shows `4.2` for
   `rating: 84`, Discover requests carry no `Authorization` header, and Library groups match the
   stub's states. — demonstrates `[SO-1]`, `[SO-2]`
 - `[VC-3]` Given a title bound to the Atsumaru stub, when a chapter whose stubbed page list holds

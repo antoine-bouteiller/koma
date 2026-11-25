@@ -128,6 +128,9 @@ private val STATES =
         if (it == ListStatus.Planning) "plan_to_read" else it.name.lowercase()
     }
 
+/** MangaBaka rates out of 100. Halving first keeps whole ratings exact before rounding. */
+private fun outOfFive(rating: Double): Double = (rating / 2).roundToInt() / 10.0
+
 private val RANKS = mapOf("core" to 100, "defining" to 75, "recurrent" to 50, "incidental" to 25)
 
 private fun stateOf(status: ListStatus): String = STATES.entries.first { it.value == status }.key
@@ -222,14 +225,14 @@ class MangaBakaBackend(
         ref: MediaRef,
         status: ListStatus,
         progress: Double?,
-        score: Int?,
+        score: Double?,
     ) = write("POST", ref, status, progress)
 
     override suspend fun updateEntry(
         ref: MediaRef,
         status: ListStatus?,
         progress: Double?,
-        score: Int?,
+        score: Double?,
     ) = write("PATCH", ref, status, progress)
 
     private suspend fun write(
@@ -281,7 +284,7 @@ class MangaBakaBackend(
                     title = titleOf(it.titles),
                     cover = coverOf(it.cover),
                     kind = kindOf(it.type),
-                    score = it.rating?.roundToInt(),
+                    score = it.rating?.let(::outOfFive),
                     adult = adult(it.contentRating),
                     longStrip = false,
                 )
@@ -305,7 +308,7 @@ class MangaBakaBackend(
                     title = titleOf(s.titles),
                     cover = coverOf(s.cover),
                     kind = kindOf(s.type),
-                    score = s.rating?.roundToInt(),
+                    score = s.rating?.let(::outOfFive),
                     adult = adult(s.contentRating),
                     longStrip = false,
                 ),

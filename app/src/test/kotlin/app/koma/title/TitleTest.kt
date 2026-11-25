@@ -60,7 +60,7 @@ class TitleTest {
         app.text("title-authors", "Chu-Gong, Jang Sung-Lak")
         app.text("title-publication", "Completed")
         app.text("title-year", "2018")
-        app.text("title-rating", "86")
+        app.text("title-rating", "4.3")
         app.text("title-status", "Reading")
         app.text("title-summary", "Jinwoo levels up.")
         assertEquals(

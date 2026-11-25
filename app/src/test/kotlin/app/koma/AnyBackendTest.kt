@@ -24,7 +24,7 @@ class AnyBackendTest {
         backend.add(
             "α-1",
             "Alpha",
-            score = 91,
+            score = 4.5,
             tags =
                 listOf(
                     Tag("Low", genre = false, spoiler = false, rank = 10),
@@ -78,7 +78,7 @@ class AnyBackendTest {
         backend.file(alpha, ListStatus.Planning)
         launch()
         app.tap("manga-α-1")
-        app.text("title-rating", "91")
+        app.text("title-rating", "4.5")
         assertEquals(
             listOf("tag-Drama", "tag-High", "tag-Low", "tag-Unranked"),
             app.childTags("title-tags"),

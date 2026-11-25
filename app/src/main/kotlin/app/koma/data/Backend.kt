@@ -43,8 +43,8 @@ data class Media(
     val title: String,
     val cover: String,
     val kind: Kind,
-    /** The backend's rating, from 0 to 100. */
-    val score: Int?,
+    /** The backend's rating, from 0 to 5, to one decimal. */
+    val score: Double?,
     val adult: Boolean,
     /** False when the backend does not say. */
     val longStrip: Boolean,
@@ -72,8 +72,8 @@ data class ListEntry(
     val status: ListStatus,
     /** Chapters read; may be fractional. */
     val progress: Double?,
-    /** The user's rating, from 0 to 100. */
-    val score: Int?,
+    /** The user's rating, from 0 to 5, to one decimal. */
+    val score: Double?,
     /** Epoch ms. */
     val updatedAt: Long,
 )
@@ -133,7 +133,7 @@ interface Backend {
         ref: MediaRef,
         status: ListStatus,
         progress: Double? = null,
-        score: Int? = null,
+        score: Double? = null,
     )
 
     /** Changes only the fields given; throws when the library does not hold [ref]. */
@@ -141,7 +141,7 @@ interface Backend {
         ref: MediaRef,
         status: ListStatus? = null,
         progress: Double? = null,
-        score: Int? = null,
+        score: Double? = null,
     )
 
     /**

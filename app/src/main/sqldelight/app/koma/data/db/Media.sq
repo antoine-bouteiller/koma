@@ -1,5 +1,5 @@
 -- Public data, kept across sign-outs. An empty title marks media the backend no longer answers.
-CREATE TABLE IF NOT EXISTS media (backend TEXT NOT NULL, id TEXT NOT NULL, title TEXT NOT NULL, cover TEXT NOT NULL, kind TEXT NOT NULL, score INTEGER, adult INTEGER NOT NULL, long_strip INTEGER NOT NULL, PRIMARY KEY (backend, id));
+CREATE TABLE IF NOT EXISTS media (backend TEXT NOT NULL, id TEXT NOT NULL, title TEXT NOT NULL, cover TEXT NOT NULL, kind TEXT NOT NULL, score REAL, adult INTEGER NOT NULL, long_strip INTEGER NOT NULL, PRIMARY KEY (backend, id));
 
 ids:
 SELECT id FROM media WHERE backend = ?;

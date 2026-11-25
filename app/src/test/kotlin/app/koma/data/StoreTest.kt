@@ -42,6 +42,27 @@ class StoreTest {
     }
 
     @Test
+    fun `migrating to version 3 rescales stored scores out of five to one decimal`() {
+        val driver =
+            AndroidSqliteDriver(KomaDatabase.Schema, RuntimeEnvironment.getApplication(), null)
+        driver.execute(null, "DROP TABLE media", 0)
+        driver.execute(
+            null,
+            "CREATE TABLE media (backend TEXT NOT NULL, id TEXT NOT NULL, title TEXT NOT NULL, cover TEXT NOT NULL, kind TEXT NOT NULL, score INTEGER, adult INTEGER NOT NULL, long_strip INTEGER NOT NULL, PRIMARY KEY (backend, id))",
+            0,
+        )
+        driver.execute(
+            null,
+            "INSERT INTO media VALUES ('MangaBaka', '1', 'Berserk', '', 'Manga', 87, 0, 0)",
+            0,
+        )
+        KomaDatabase.Schema.migrate(driver, 2, 3)
+        val media =
+            KomaDatabase(driver).mediaQueries.one("MangaBaka", "1", ::mediaOf).executeAsOne()
+        assertEquals(4.4, media.score)
+    }
+
+    @Test
     fun `a watch answers again after each write`() = runTest {
         val seen = mutableListOf<String?>()
         val watching =

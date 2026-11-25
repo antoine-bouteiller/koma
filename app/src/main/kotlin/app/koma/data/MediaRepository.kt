@@ -9,7 +9,7 @@ internal fun KomaDatabase.upsert(media: Media) {
         media.title,
         media.cover,
         media.kind.name,
-        media.score?.toLong(),
+        media.score,
         if (media.adult) 1 else 0,
         if (media.longStrip) 1 else 0,
     )
@@ -21,7 +21,7 @@ internal fun mediaOf(
     title: String,
     cover: String,
     kind: String,
-    score: Long?,
+    score: Double?,
     adult: Long,
     longStrip: Long,
 ) =
@@ -30,7 +30,7 @@ internal fun mediaOf(
         title,
         cover,
         Kind.entries.find { it.name == kind } ?: Kind.Other,
-        score?.toInt(),
+        score,
         adult != 0L,
         longStrip != 0L,
     )

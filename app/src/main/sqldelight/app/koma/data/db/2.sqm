@@ -1,0 +1,5 @@
+-- Scores moved from 0–100 to 0–5. SQLite cannot change a column's type in place.
+CREATE TABLE media_new (backend TEXT NOT NULL, id TEXT NOT NULL, title TEXT NOT NULL, cover TEXT NOT NULL, kind TEXT NOT NULL, score REAL, adult INTEGER NOT NULL, long_strip INTEGER NOT NULL, PRIMARY KEY (backend, id));
+INSERT INTO media_new SELECT backend, id, title, cover, kind, round(score / 2.0) / 10, adult, long_strip FROM media;
+DROP TABLE media;
+ALTER TABLE media_new RENAME TO media;

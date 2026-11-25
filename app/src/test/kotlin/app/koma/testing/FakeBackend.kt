@@ -59,7 +59,7 @@ class FakeBackend(override val name: String = "Shelfie", signedIn: Boolean = tru
     fun add(
         id: String,
         title: String,
-        score: Int? = null,
+        score: Double? = null,
         kind: Kind = Kind.Manhwa,
         tags: List<Tag> = emptyList(),
     ): MediaRef {
@@ -121,7 +121,7 @@ class FakeBackend(override val name: String = "Shelfie", signedIn: Boolean = tru
         ref: MediaRef,
         status: ListStatus,
         progress: Double?,
-        score: Int?,
+        score: Double?,
     ) {
         calls += "addEntry(${ref.id}, $status)"
         if (ref in entries) throw IOException("${ref.id} is in the library.")
@@ -132,7 +132,7 @@ class FakeBackend(override val name: String = "Shelfie", signedIn: Boolean = tru
         ref: MediaRef,
         status: ListStatus?,
         progress: Double?,
-        score: Int?,
+        score: Double?,
     ) {
         calls += "updateEntry(${ref.id}, $status)"
         val entry = entries[ref] ?: throw IOException("${ref.id} is not in the library.")
