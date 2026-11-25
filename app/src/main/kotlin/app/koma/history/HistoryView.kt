@@ -55,7 +55,7 @@ import app.koma.ui.TrackHeaderBackdrop
 import coil3.ImageLoader
 import coil3.compose.AsyncImage
 
-/** The chapters read on MangaBaka, newest first. Each visit asks for newer reads. */
+/** The chapters read, newest first. Each visit asks for newer reads. */
 @Composable
 fun HistoryView(container: AppContainer, contentPadding: PaddingValues) {
     val model = viewModel { HistoryViewModel(container) }
@@ -77,7 +77,7 @@ fun HistoryView(container: AppContainer, contentPadding: PaddingValues) {
                 EmptyState(
                     R.drawable.ic_error,
                     "Can’t Load Your History",
-                    "MangaBaka did not answer.",
+                    "${model.backend} did not answer.",
                     Modifier.padding(contentPadding),
                 ) {
                     Button(onClick = model::sync, modifier = Modifier.testTag("history-retry")) {

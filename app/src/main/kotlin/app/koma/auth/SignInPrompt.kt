@@ -10,9 +10,10 @@ import app.koma.R
 import app.koma.ui.EmptyState
 import app.koma.ui.PillButton
 
-/** Asks to sign in to MangaBaka; [onSignIn] leads to where the sign-in happens. */
+/** Asks to sign in to [backend]; [onSignIn] leads to where the sign-in happens. */
 @Composable
 fun SignInPrompt(
+    backend: String,
     message: String,
     tag: String,
     buttonTag: String,
@@ -21,7 +22,7 @@ fun SignInPrompt(
 ) {
     EmptyState(
         icon = R.drawable.ic_person,
-        title = "Sign in to MangaBaka",
+        title = "Sign in to $backend",
         message = message,
         modifier = Modifier.padding(contentPadding).testTag(tag),
     ) {

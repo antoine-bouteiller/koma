@@ -59,15 +59,15 @@ class SettingsTest {
     }
 
     @Test
-    fun `signed in, the MangaBaka page shows the user name`() {
+    fun `signed in, the account page shows the user name`() {
         app.signedIn()
         app.network.answer(CHANGES, 200, changes("c0", false))
         app.network.answer(PROFILE, 200, profile("reader"))
         app.launch()
         app.tap("tab-settings")
-        app.node("settings-mangabaka").assertTextEquals("MangaBaka", "Signed in as reader")
-        app.tap("settings-mangabaka")
-        app.text("account-title", "reader")
+        app.node("settings-account").assertTextEquals("MangaBaka", "Signed in as reader")
+        app.tap("settings-account")
+        app.text("account-name-title", "reader")
         app.has("sign-out")
     }
 
@@ -78,8 +78,8 @@ class SettingsTest {
         app.network.answer(PROFILE, 500, """{"status":500}""")
         app.launch()
         app.tap("tab-settings")
-        app.node("settings-mangabaka").assertTextEquals("MangaBaka", "Signed in")
-        app.tap("settings-mangabaka")
-        app.text("account-title", "MangaBaka account")
+        app.node("settings-account").assertTextEquals("MangaBaka", "Signed in")
+        app.tap("settings-account")
+        app.text("account-name-title", "MangaBaka account")
     }
 }

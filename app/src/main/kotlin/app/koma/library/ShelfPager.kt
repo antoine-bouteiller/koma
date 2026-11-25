@@ -57,6 +57,7 @@ import kotlinx.coroutines.launch
 @Composable
 fun ShelfPager(
     state: LibraryState.Shelves,
+    backend: String,
     images: ImageLoader,
     contentPadding: PaddingValues,
     onRefresh: () -> Unit,
@@ -90,7 +91,7 @@ fun ShelfPager(
     ) { page ->
         val shelf = state.shelves[page]
         if (shelf.items.isEmpty()) {
-            val (title, message) = emptyShelf(shelf.id)
+            val (title, message) = emptyShelf(shelf.id, backend)
             EmptyState(
                 R.drawable.ic_book,
                 title,

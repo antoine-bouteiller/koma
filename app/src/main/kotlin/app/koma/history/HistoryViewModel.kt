@@ -36,6 +36,8 @@ class HistoryViewModel(private val container: AppContainer) : ViewModel() {
     private var newer: Job? = null
     private var older: Job? = null
 
+    val backend: String = container.account.backendName
+
     val state: StateFlow<HistoryState> =
         combine(
                 history.history.onEach { stored = it },

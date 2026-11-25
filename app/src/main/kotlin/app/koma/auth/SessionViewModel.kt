@@ -18,6 +18,7 @@ class SessionViewModel(private val container: AppContainer) : ViewModel() {
     private val busy = MutableStateFlow(false)
     private val result = MutableStateFlow<SignInResult?>(null)
 
+    val backendName: String = account.backendName
     val session: StateFlow<Session> = account.sessions
 
     val signInView: StateFlow<SignInView> =

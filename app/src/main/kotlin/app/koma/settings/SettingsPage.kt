@@ -1,15 +1,23 @@
 package app.koma.settings
 
 /** A page opened from the Settings tab. */
-enum class SettingsPage(val title: String, val route: String) {
-    Theme("Theme", "theme"),
-    MangaBaka("MangaBaka", "mangabaka"),
+enum class SettingsPage(val route: String) {
+    Theme("theme"),
+    Account("account"),
 }
 
-/** What the MangaBaka page shows of the session. */
+/** The page's title; the account page is named after [backend]. */
+fun SettingsPage.title(backend: String): String =
+    when (this) {
+        SettingsPage.Theme -> "Theme"
+        SettingsPage.Account -> backend
+    }
+
+/** What the account page shows of the session with [backend]. */
 data class Account(
+    val backend: String,
     val signedIn: Boolean,
-    /** Null until MangaBaka answered; empty when the person has none. */
+    /** Null until the backend answered; empty when the person has none. */
     val userName: String?,
     val busy: Boolean,
     val error: String,

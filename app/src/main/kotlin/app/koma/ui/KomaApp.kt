@@ -59,6 +59,7 @@ import app.koma.library.LibraryView
 import app.koma.settings.Account
 import app.koma.settings.SettingsPage
 import app.koma.settings.SettingsView
+import app.koma.settings.title
 import app.koma.title.TitleView
 import app.koma.ui.theme.KomaTheme
 import app.koma.update.UpdateDialog
@@ -82,8 +83,6 @@ enum class Tab(
         R.drawable.ic_book,
         R.drawable.avd_book,
         IconMotion.Fill,
-        "Your library is empty",
-        "The titles you track on MangaBaka show up here.",
     ),
     Updates(
         "updates",
@@ -130,8 +129,8 @@ private data class Screen(val tab: Tab, val page: SettingsPage?, val series: Med
         get() = page?.route ?: series?.let { "series" } ?: tab.route
 
     // A title's own screen names it, under the header.
-    val title: String
-        get() = page?.title ?: if (series != null) "" else tab.title
+    fun title(backend: String): String =
+        page?.title(backend) ?: if (series != null) "" else tab.title
 
     val nested: Boolean
         get() = page != null || series != null
@@ -190,7 +189,7 @@ fun KomaApp(container: AppContainer) {
     }
     val openSignIn = {
         tab = Tab.Settings
-        settingsPage = SettingsPage.MangaBaka
+        settingsPage = SettingsPage.Account
     }
     // Keeps each screen's shelf and scroll position while another one shows.
     val saved = rememberSaveableStateHolder()
@@ -252,6 +251,7 @@ fun KomaApp(container: AppContainer) {
                                             onOpen = { settingsPage = it },
                                             account =
                                                 Account(
+                                                    backend = sessionModel.backendName,
                                                     signedIn = session.signedIn,
                                                     userName = userName,
                                                     busy = signIn.busy,
@@ -270,8 +270,9 @@ fun KomaApp(container: AppContainer) {
                                         }
                                     shown.tab == Tab.Library ->
                                         SignInPrompt(
+                                            backend = sessionModel.backendName,
                                             message =
-                                                "Koma shows the titles you track on MangaBaka.",
+                                                "Koma shows the titles you track on ${sessionModel.backendName}.",
                                             tag = "signed-out",
                                             buttonTag = "sign-in",
                                             contentPadding = contentPadding,
@@ -281,8 +282,9 @@ fun KomaApp(container: AppContainer) {
                                         HistoryView(container, contentPadding)
                                     shown.tab == Tab.History ->
                                         SignInPrompt(
+                                            backend = sessionModel.backendName,
                                             message =
-                                                "Koma shows the chapters you read on MangaBaka.",
+                                                "Koma shows the chapters you read on ${sessionModel.backendName}.",
                                             tag = "history-signed-out",
                                             buttonTag = "history-sign-in",
                                             contentPadding = contentPadding,
@@ -312,7 +314,7 @@ fun KomaApp(container: AppContainer) {
                             contentAlignment = Alignment.CenterStart,
                         ) { shown ->
                             ScreenTitle(
-                                title = shown.title,
+                                title = shown.title(sessionModel.backendName),
                                 titleTag = "title-${shown.route}",
                                 onBack = back.takeIf { shown.nested },
                             )

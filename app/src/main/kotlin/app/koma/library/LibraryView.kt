@@ -22,7 +22,7 @@ import app.koma.data.MediaRef
 import app.koma.ui.EmptyState
 import app.koma.ui.LoadingState
 
-/** The signed-in person's MangaBaka library. [onOpen] opens a title. */
+/** The signed-in person's library. [onOpen] opens a title. */
 @Composable
 fun LibraryView(
     container: AppContainer,
@@ -46,7 +46,7 @@ fun LibraryView(
                 EmptyState(
                     R.drawable.ic_error,
                     "Can’t Load Your Library",
-                    "MangaBaka did not answer.",
+                    "${model.backend} did not answer.",
                     Modifier.padding(contentPadding),
                 ) {
                     Button(onClick = model::sync, modifier = Modifier.testTag("library-retry")) {
@@ -59,7 +59,14 @@ fun LibraryView(
                     Modifier.padding(contentPadding).testTag("library-loading"),
                 )
             is LibraryState.Shelves ->
-                ShelfPager(shown, container.images, contentPadding, model::sync, onOpen)
+                ShelfPager(
+                    shown,
+                    model.backend,
+                    container.images,
+                    contentPadding,
+                    model::sync,
+                    onOpen,
+                )
         }
     }
 }

@@ -59,9 +59,9 @@ fun libraryState(library: Library, syncing: Boolean, failed: Boolean): LibrarySt
     }
 
 /** An empty shelf's title and what will show up there. */
-fun emptyShelf(id: String): Pair<String, String> =
+fun emptyShelf(id: String, backend: String): Pair<String, String> =
     if (id == "archived") {
         "Nothing archived" to "Your completed, paused and dropped titles show up here."
     } else {
-        "Your library is empty" to "The titles you track on MangaBaka show up here."
+        "Your library is empty" to "The titles you track on $backend show up here."
     }

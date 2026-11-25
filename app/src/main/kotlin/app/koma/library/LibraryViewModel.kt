@@ -18,6 +18,8 @@ class LibraryViewModel(private val container: AppContainer) : ViewModel() {
     private var job: Job? = null
     private var openedFor: Int? = null
 
+    val backend: String = container.account.backendName
+
     val state: StateFlow<LibraryState> =
         combine(
                 container.library.library,

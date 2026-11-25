@@ -25,6 +25,8 @@ class TitleViewModel(private val container: AppContainer, private val ref: Media
     private val save = MutableStateFlow(Save())
     private var loading: Job? = null
 
+    val backend: String = container.account.backendName
+
     val state: StateFlow<TitleState> =
         combine(
                 container.media.media(ref),

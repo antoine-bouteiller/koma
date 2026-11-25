@@ -52,7 +52,7 @@ fun SettingsView(
         when (page) {
             null -> SettingsRoot(account, onOpen)
             SettingsPage.Theme -> ThemeView(container)
-            SettingsPage.MangaBaka -> MangaBakaSettings(account, onSignIn, onSignOut)
+            SettingsPage.Account -> AccountSettings(account, onSignIn, onSignOut)
         }
     }
 }
@@ -74,12 +74,12 @@ private fun SettingsRoot(account: Account, onOpen: (SettingsPage) -> Unit) {
                 },
                 GroupRow { shape ->
                     SettingsRow(
-                        title = "MangaBaka",
+                        title = account.backend,
                         icon = R.drawable.ic_person,
                         shape = shape,
-                        tag = "settings-mangabaka",
+                        tag = "settings-account",
                         subtitle = accountSummary(account),
-                        onClick = { onOpen(SettingsPage.MangaBaka) },
+                        onClick = { onOpen(SettingsPage.Account) },
                     )
                 },
             )
@@ -88,7 +88,7 @@ private fun SettingsRoot(account: Account, onOpen: (SettingsPage) -> Unit) {
 }
 
 @Composable
-private fun MangaBakaSettings(account: Account, onSignIn: () -> Unit, onSignOut: () -> Unit) {
+private fun AccountSettings(account: Account, onSignIn: () -> Unit, onSignOut: () -> Unit) {
     val motion = MaterialTheme.motionScheme
     AnimatedContent(
         account.signedIn,
@@ -109,11 +109,11 @@ private fun SignedIn(account: Account, onSignOut: () -> Unit) {
         listOf(
             GroupRow { shape ->
                 SettingsRow(
-                    title = account.userName?.ifEmpty { null } ?: "MangaBaka account",
+                    title = account.userName?.ifEmpty { null } ?: "${account.backend} account",
                     icon = R.drawable.ic_person,
                     shape = shape,
-                    tag = "account",
-                    subtitle = "Signed in to MangaBaka",
+                    tag = "account-name",
+                    subtitle = "Signed in to ${account.backend}",
                 )
             },
             GroupRow { shape ->
@@ -143,7 +143,7 @@ private fun SignedOut(account: Account, onSignIn: () -> Unit) {
                         title = "Sign in",
                         icon = R.drawable.ic_login,
                         shape = shape,
-                        tag = "mangabaka-sign-in",
+                        tag = "account-sign-in",
                         subtitle = "Koma shows the titles you track and the chapters you read.",
                         onClick = onSignIn,
                         enabled = !account.busy,

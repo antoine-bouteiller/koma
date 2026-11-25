@@ -94,7 +94,9 @@ fun TitleView(container: AppContainer, ref: MediaRef, contentPadding: PaddingVal
         item(key = "header") {
             Header(state, container.images, contentPadding.calculateTopPadding())
         }
-        item(key = "status") { StatusButton(state, onClick = { picking = true }) }
+        item(key = "status") {
+            StatusButton(state, model.backend, onClick = { picking = true })
+        }
         when (val about = state.about) {
             About.Loading ->
                 item(key = "loading") {
@@ -110,7 +112,7 @@ fun TitleView(container: AppContainer, ref: MediaRef, contentPadding: PaddingVal
                         verticalArrangement = Arrangement.spacedBy(12.dp),
                     ) {
                         Text(
-                            "MangaBaka did not answer.",
+                            "${model.backend} did not answer.",
                             style = MaterialTheme.typography.bodyMedium,
                             color = MaterialTheme.colorScheme.onSurfaceVariant,
                         )
@@ -140,7 +142,7 @@ fun TitleView(container: AppContainer, ref: MediaRef, contentPadding: PaddingVal
     }
 }
 
-/** The cover over its own blurred, faded copy, beside the title and MangaBaka's facts. */
+/** The cover over its own blurred, faded copy, beside the title and the backend's facts. */
 @Composable
 private fun Header(state: TitleState, images: ImageLoader, top: Dp) {
     val colors = MaterialTheme.colorScheme
@@ -262,7 +264,7 @@ private fun FactText(fact: Fact) {
 /** The series' library status; it opens [StatusSheet] to change it. */
 @OptIn(ExperimentalMaterial3ExpressiveApi::class)
 @Composable
-private fun StatusButton(state: TitleState, onClick: () -> Unit) {
+private fun StatusButton(state: TitleState, backend: String, onClick: () -> Unit) {
     Column(
         Modifier.padding(horizontal = 16.dp),
         verticalArrangement = Arrangement.spacedBy(8.dp),
@@ -292,7 +294,7 @@ private fun StatusButton(state: TitleState, onClick: () -> Unit) {
         }
         if (state.saveFailed) {
             Text(
-                "MangaBaka did not save the status. Try again.",
+                "$backend did not save the status. Try again.",
                 style = MaterialTheme.typography.bodySmall,
                 color = MaterialTheme.colorScheme.error,
                 modifier = Modifier.fillMaxWidth().testTag("title-status-error"),

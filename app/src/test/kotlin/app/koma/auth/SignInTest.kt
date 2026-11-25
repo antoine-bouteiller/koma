@@ -23,13 +23,13 @@ class SignInTest {
     @get:Rule val app = AppHarness()
 
     @Test
-    fun `signed out, the library's Sign In opens the MangaBaka settings`() {
+    fun `signed out, the library's Sign In opens the account settings`() {
         app.launch()
         app.missing("library")
         app.tap("sign-in")
         app.selected("tab-settings")
-        app.text("title-mangabaka", "MangaBaka")
-        app.has("mangabaka-sign-in")
+        app.text("title-account", "MangaBaka")
+        app.has("account-sign-in")
         app.missing("sign-out")
     }
 
@@ -49,10 +49,10 @@ class SignInTest {
         app.network.answer(PROFILE, 200, profile("reader"))
         app.launch()
         app.tap("sign-in")
-        app.tap("mangabaka-sign-in")
+        app.tap("account-sign-in")
         app.browser.authorize()
         app.awaitIdle()
-        app.text("account-title", "reader")
+        app.text("account-name-title", "reader")
         app.tap("tab-library")
         app.text("manga-3397", "Solo Leveling")
         app.compose.waitUntil { "https://cdn.mangabaka.dev/solo.jpg" in app.images }
@@ -60,7 +60,7 @@ class SignInTest {
         app.text("manga-3397", "Solo Leveling")
         app.tap("tab-settings")
         app.tap("sign-out")
-        app.has("mangabaka-sign-in")
+        app.has("account-sign-in")
         app.tap("tab-library")
         app.has("sign-in")
         app.missing("manga-3397")
@@ -73,7 +73,7 @@ class SignInTest {
         app.secrets.failWrites = true
         app.launch()
         app.tap("sign-in")
-        app.tap("mangabaka-sign-in")
+        app.tap("account-sign-in")
         app.browser.authorize()
         app.awaitIdle()
         app.text("sign-in-error", "Sign-in could not be saved. Try again.")
@@ -101,7 +101,7 @@ class SignInTest {
         )
         app.network.answer(PROFILE, 200, profile("reader"))
         app.tap("history-sign-in")
-        app.tap("mangabaka-sign-in")
+        app.tap("account-sign-in")
         app.browser.authorize()
         app.awaitIdle()
         app.tap("tab-library")
@@ -113,13 +113,13 @@ class SignInTest {
         app.stubAuthServer()
         app.launch()
         app.tap("sign-in")
-        app.tap("mangabaka-sign-in")
+        app.tap("account-sign-in")
         app.browser.cancel()
         app.awaitIdle()
         app.text("sign-in-error", "Sign-in was cancelled.")
-        app.tap("mangabaka-sign-in")
+        app.tap("account-sign-in")
         app.browser.cancel()
         app.awaitIdle()
-        app.node("mangabaka-sign-in").assertIsEnabled()
+        app.node("account-sign-in").assertIsEnabled()
     }
 }

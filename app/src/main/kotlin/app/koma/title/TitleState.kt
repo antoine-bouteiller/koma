@@ -33,14 +33,14 @@ data class TitleState(
     val about: About,
 )
 
-/** What MangaBaka says of the series beyond its title and cover. */
+/** What the backend says of the title beyond its name and cover. */
 sealed interface About {
     data object Loading : About
 
     data object Failed : About
 
     data class Loaded(
-        /** Empty when MangaBaka names none. */
+        /** Empty when the backend names none. */
         val authors: String,
         /** The publication status, as "Ongoing". */
         val publication: String?,
