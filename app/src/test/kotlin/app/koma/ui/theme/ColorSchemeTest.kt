@@ -96,6 +96,19 @@ class ColorSchemeTest {
         assertEquals(Color.Black, scheme.surface)
     }
 
+    @Test
+    fun `a cover's tonal buttons keep their text crisp`() {
+        for (dark in listOf(false, true)) {
+            val scheme = seededColorScheme(ThemeSettings(), dark, green.toArgb())!!
+            val contrast =
+                ColorUtils.calculateContrast(
+                    scheme.onSecondaryContainer.toArgb(),
+                    scheme.secondaryContainer.toArgb(),
+                )
+            assertTrue("dark=$dark: $contrast", contrast >= 7.0)
+        }
+    }
+
     private fun hue(color: Color): Float =
         FloatArray(3).also { ColorUtils.colorToHSL(color.toArgb(), it) }[0]
 }

@@ -6,6 +6,7 @@ import androidx.compose.material3.lightColorScheme
 import androidx.compose.ui.graphics.Color
 import androidx.compose.ui.graphics.toArgb
 import androidx.core.graphics.ColorUtils
+import com.materialkolor.contrast.Contrast
 import com.materialkolor.dynamiccolor.DynamicScheme
 import com.materialkolor.hct.Hct
 import com.materialkolor.quantize.QuantizerCelebi
@@ -65,7 +66,7 @@ private fun DynamicScheme.toColorScheme(): ColorScheme =
             secondary = Color(secondary),
             onSecondary = Color(onSecondary),
             secondaryContainer = Color(secondaryContainer),
-            onSecondaryContainer = Color(onSecondaryContainer),
+            onSecondaryContainer = Color(contrasting(onSecondaryContainer, secondaryContainer)),
             tertiary = Color(tertiary),
             onTertiary = Color(onTertiary),
             tertiaryContainer = Color(tertiaryContainer),
@@ -106,6 +107,14 @@ private fun DynamicScheme.toColorScheme(): ColorScheme =
             onTertiaryFixed = Color(onTertiaryFixed),
             onTertiaryFixedVariant = Color(onTertiaryFixedVariant),
         )
+
+// The scheme stops at 4.5:1, which reads faint on tonal buttons.
+private fun DynamicScheme.contrasting(on: Int, background: Int): Int {
+    val ground = Hct.fromInt(background).tone
+    val tone =
+        if (isDark) Contrast.lighterUnsafe(ground, 7.0) else Contrast.darkerUnsafe(ground, 7.0)
+    return Hct.fromInt(on).let { Hct.from(it.hue, it.chroma, tone) }.toInt()
+}
 
 /** Black background, with the containers on it darkened yet still apart from it. */
 private fun ColorScheme.trueBlack(): ColorScheme {
