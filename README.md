@@ -2,7 +2,8 @@
 
 A tracker-first manga reader for Android. MangaBaka is the library and the discovery surface;
 sources only supply chapters and pages. The design lives in
-[`doc/architecture/specs/app.spec.md`](doc/architecture/specs/app.spec.md).
+[`doc/architecture/specs/`](doc/architecture/specs/), starting from
+[`app.spec.md`](doc/architecture/specs/app.spec.md).
 
 Koma is a Kotlin and Jetpack Compose app in one Gradle module, `app/`, with packages by feature:
 

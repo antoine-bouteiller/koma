@@ -1,8 +1,8 @@
 ---
 title: Koma distribution
-status: amended
+status: implemented
 author: Antoine Bouteiller
-date: 2026-11-24
+date: 2026-11-26
 module:
   - .github/workflows/check.yml
   - .github/workflows/publish.yml
@@ -278,9 +278,11 @@ does not have.
   of both.~~
 - ~~`[C-1.1]` Not yet run: `publish` on a runner, and the banner on Android. OkHttp sends
   `User-Agent: koma`, which GitHub requires, on every request. `[VC-1.1]` is the first run of both.~~
-- `[C-1.2]` Not yet run: `publish` on a runner, and the pill's download and installer hand-off on
+- ~~`[C-1.2]` Not yet run: `publish` on a runner, and the pill's download and installer hand-off on
   Android. OkHttp sends `User-Agent: koma`, which GitHub requires, on every request. `[VC-1.2]` is
-  the first run of both.
+  the first run of both.~~
+- `[C-1.3]` Not yet run: the pill's download and installer hand-off on Android. OkHttp sends
+  `User-Agent: koma`, which GitHub requires, on every request. `[VC-1.2]` is its first run.
 - ~~`[C-2]` The AppDrop install (version 3) and release `v4` have no banner for semantic-version
   tags. Each moves to `v0.1.0` by one manual install, after which it updates in place.~~
 - `[C-2.1]` The AppDrop and Exact installs (`io.github.antoinebouteiller.koma`) have no path to
@@ -299,7 +301,7 @@ does not have.
 - `[C-8]` Android blocks opening the installer from the background. When the download ends after
   the user left Koma, nothing opens, and the dialog's Install opens it on return.
 - `[C-9]` The first install from the app makes Android ask to let Koma install unknown apps.
-- `[C-10]` Not yet run: `tools/release.nu` publishing on a runner. `[VC-4]` covers its versions and
-  notes, not `gh release create`. The next releasing push is its first run.
+- ~~`[C-10]` Not yet run: `tools/release.nu` publishing on a runner. `[VC-4]` covers its versions and
+  notes, not `gh release create`. The next releasing push is its first run.~~
 - `[C-11]` Unlike semantic-release, the notes do not link issue references, and a release does not
   comment on the pull requests it ships.
