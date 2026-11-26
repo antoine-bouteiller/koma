@@ -215,7 +215,7 @@ class LibraryTest {
     }
 
     @Test
-    fun `a shelf lists titles by their last read, else by their last update`() {
+    fun `a shelf lists read titles by their last read, then the others by their last update`() {
         app.signedIn()
         app.network.answer(
             CHANGES,
@@ -254,7 +254,7 @@ class LibraryTest {
         )
         app.launch()
         assertEquals(
-            listOf("manga-3", "manga-2", "manga-1", "manga-4"),
+            listOf("manga-2", "manga-1", "manga-3", "manga-4"),
             app.childTags("library-reading"),
         )
     }
