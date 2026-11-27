@@ -9,6 +9,7 @@ import app.koma.auth.KeystoreSecretStore
 import app.koma.data.KomaDatabase
 import app.koma.data.httpClient
 import app.koma.data.mangabaka.MangaBakaBackend
+import app.koma.source.sources
 import coil3.ImageLoader
 import coil3.network.okhttp.OkHttpNetworkFetcherFactory
 import coil3.serviceLoaderEnabled
@@ -31,6 +32,7 @@ class KomaApplication : Application() {
                     .build(),
             driver = AndroidSqliteDriver(KomaDatabase.Schema, this, "koma.db"),
             backend = MangaBakaBackend(http, KeystoreSecretStore(this), browser, clock),
+            sources = sources(),
             preferences = SharedPreferenceStore(this),
             clock = clock,
             zone = { ZoneId.systemDefault() },

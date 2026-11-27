@@ -19,5 +19,8 @@
     "gradle/wrapper/**"
     # Hand-wrapped prose; oxfmt would pad every table.
     "*.md"
+    # Copied from Mihon and keiyoushi, kept as upstream wrote them.
+    "app/src/main/kotlin/eu/kanade/tachiyomi/**"
+    "app/src/main/kotlin/keiyoushi/**"
   ];
 }

@@ -1,5 +1,6 @@
 package app.koma
 
+import android.app.Application
 import android.content.Context
 import android.net.Uri
 import app.cash.sqldelight.db.SqlDriver
@@ -10,14 +11,19 @@ import app.koma.data.KomaDatabase
 import app.koma.data.LibraryRepository
 import app.koma.data.MediaRepository
 import app.koma.data.Store
+import app.koma.source.CatalogSource
 import app.koma.ui.theme.ThemePreferences
 import coil3.ImageLoader
+import eu.kanade.tachiyomi.network.NetworkHelper
 import java.io.File
 import java.time.Clock
 import java.time.ZoneId
 import kotlinx.coroutines.CoroutineDispatcher
 import kotlinx.coroutines.Dispatchers
+import kotlinx.serialization.json.Json
 import okhttp3.OkHttpClient
+import uy.kohesive.injekt.Injekt
+import uy.kohesive.injekt.api.addFactory
 
 /** [set] and [delete] throw an IOException when the change did not reach disk. */
 interface SecretStore {
@@ -46,6 +52,8 @@ class AppContainer(
     val images: ImageLoader,
     val driver: SqlDriver,
     backend: Backend,
+    /** The sources chapters come from, in the order binding tries them. */
+    sources: List<CatalogSource>,
     val preferences: PreferenceStore,
     val clock: Clock,
     val zone: () -> ZoneId,
@@ -64,4 +72,17 @@ class AppContainer(
     val history = HistoryRepository(store, backend, media)
     val account = AccountRepository(store, backend)
     val theme = ThemePreferences(preferences)
+
+    init {
+        // What Mihon's app provides its extensions. Factories, so the latest container's win.
+        val application = context.applicationContext as Application
+        val network = NetworkHelper(http)
+        val json = Json {
+            ignoreUnknownKeys = true
+            explicitNulls = false
+        }
+        Injekt.addFactory<Application> { application }
+        Injekt.addFactory { network }
+        Injekt.addFactory { json }
+    }
 }

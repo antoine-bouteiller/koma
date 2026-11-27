@@ -12,6 +12,10 @@ kotlinx-coroutines = "1.11.0"
 navigation3 = "1.2.2"
 kotlinx-serialization = "1.13.0"
 okhttp = "5.5.1"
+injekt = "1.16.1"
+androidx-preference = "1.2.1"
+jsoup = "1.24.1"
+zstd-kmp = "0.4.0"
 sqldelight = "2.4.1"
 junit = "4.13.2"
 robolectric = "4.18.1"
@@ -41,7 +45,14 @@ material-color-utilities = { module = "com.materialkolor:material-color-utilitie
 kotlinx-coroutines-android = { module = "org.jetbrains.kotlinx:kotlinx-coroutines-android", version.ref = "kotlinx-coroutines" }
 kotlinx-coroutines-test = { module = "org.jetbrains.kotlinx:kotlinx-coroutines-test", version.ref = "kotlinx-coroutines" }
 kotlinx-serialization-json = { module = "org.jetbrains.kotlinx:kotlinx-serialization-json", version.ref = "kotlinx-serialization" }
+kotlinx-serialization-json-okio = { module = "org.jetbrains.kotlinx:kotlinx-serialization-json-okio", version.ref = "kotlinx-serialization" }
 okhttp = { module = "com.squareup.okhttp3:okhttp", version.ref = "okhttp" }
+okhttp-brotli = { module = "com.squareup.okhttp3:okhttp-brotli", version.ref = "okhttp" }
+okhttp-zstd = { module = "com.squareup.okhttp3:okhttp-zstd", version.ref = "okhttp" }
+injekt = { module = "uy.kohesive.injekt:injekt-core", version.ref = "injekt" }
+androidx-preference = { module = "androidx.preference:preference-ktx", version.ref = "androidx-preference" }
+jsoup = { module = "org.jsoup:jsoup", version.ref = "jsoup" }
+zstd-kmp-okio = { module = "com.squareup.zstd:zstd-kmp-okio", version.ref = "zstd-kmp" }
 sqldelight-android-driver = { module = "app.cash.sqldelight:android-driver", version.ref = "sqldelight" }
 sqldelight-coroutines = { module = "app.cash.sqldelight:coroutines-extensions", version.ref = "sqldelight" }
 junit = { module = "junit:junit", version.ref = "junit" }

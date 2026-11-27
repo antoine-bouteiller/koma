@@ -28,6 +28,7 @@ import app.koma.data.Backend
 import app.koma.data.KomaDatabase
 import app.koma.data.httpClient
 import app.koma.data.mangabaka.MangaBakaBackend
+import app.koma.source.CatalogSource
 import app.koma.ui.KomaApp
 import coil3.ImageLoader
 import coil3.intercept.Interceptor
@@ -41,8 +42,11 @@ import java.time.Clock
 import java.time.Instant
 import java.time.ZoneId
 import java.time.ZoneOffset
+import java.util.concurrent.AbstractExecutorService
 import java.util.concurrent.CopyOnWriteArrayList
+import java.util.concurrent.TimeUnit
 import kotlinx.coroutines.Dispatchers
+import okhttp3.Dispatcher
 import org.junit.Assert.assertEquals
 import org.junit.rules.RuleChain
 import org.junit.rules.TemporaryFolder
@@ -79,6 +83,8 @@ class AppHarness : TestRule {
     var zone: ZoneId = ZoneOffset.UTC
     /** Replaces MangaBaka when set before [launch]; kept across [reload]. */
     var backend: Backend? = null
+    /** The sources each container gets; none unless a test says otherwise. */
+    var sources: () -> List<CatalogSource> = { emptyList() }
 
     private var running by mutableStateOf<AppContainer?>(null)
     private var backDispatcher: OnBackPressedDispatcher? = null
@@ -110,7 +116,8 @@ class AppHarness : TestRule {
 
     private fun newContainer(): AppContainer {
         val context = RuntimeEnvironment.getApplication()
-        val http = httpClient().newBuilder().addInterceptor(network).build()
+        val http =
+            httpClient().newBuilder().dispatcher(Dispatcher(Inline)).addInterceptor(network).build()
         val clock = Clock.fixed(epoch, ZoneOffset.UTC)
         return AppContainer(
             context = context,
@@ -138,6 +145,7 @@ class AppHarness : TestRule {
                     database.absolutePath,
                 ),
             backend = backend ?: MangaBakaBackend(http, secrets, browser, clock),
+            sources = sources(),
             preferences = preferences,
             clock = clock,
             zone = { zone },
@@ -255,4 +263,22 @@ class AppHarness : TestRule {
         val children = node(tag).onChildren().fetchSemanticsNodes()
         return children.mapNotNull { it.config.getOrNull(SemanticsProperties.TestTag) }
     }
+}
+
+/**
+ * Runs an enqueued call on the thread that enqueues it, so [AppHarness.awaitIdle] never sees a call
+ * that has left the main looper but not yet reached [FakeNetwork].
+ */
+private object Inline : AbstractExecutorService() {
+    override fun execute(command: Runnable) = command.run()
+
+    override fun shutdown() = Unit
+
+    override fun shutdownNow(): List<Runnable> = emptyList()
+
+    override fun isShutdown() = false
+
+    override fun isTerminated() = false
+
+    override fun awaitTermination(timeout: Long, unit: TimeUnit) = true
 }

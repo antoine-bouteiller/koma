@@ -194,6 +194,7 @@ Mihon's versions (`doc/architecture/specs/app.spec.md` `[C-1.1]`):
 | `androidx.preference:preference-ktx` | `1.2.1` | `ConfigurableSource`, the copied extensions' preference screens |
 | `org.jsoup:jsoup` | `1.24.1` | `keiyoushi.utils.Markdown` |
 | `com.squareup.okhttp3:okhttp-brotli`, `okhttp-zstd` | Koma's `okhttp` | `KeiSource`'s `CompressionInterceptor`, its filter cache |
+| `com.squareup.zstd:zstd-kmp-okio` | `0.4.0`, the one `okhttp-zstd` resolves | `KeiSource`'s filter cache, which imports it while `okhttp-zstd` keeps it off the compile classpath |
 | `org.jetbrains.kotlinx:kotlinx-serialization-json-okio` | Koma's `kotlinx-serialization` | `keiyoushi.utils.Json`, `KeiSource` |
 
 `treefmt.nix` excludes `app/src/main/kotlin/eu/kanade/tachiyomi/**` and

@@ -15,11 +15,18 @@ val json = Json {
     coerceInputValues = true
 }
 
-/** The app's HTTP client. GitHub refuses API requests without a User-Agent. */
+/**
+ * The app's HTTP client. GitHub refuses API requests without a User-Agent; a source's own reaches
+ * its site.
+ */
 fun httpClient(): OkHttpClient =
     OkHttpClient.Builder()
         .addInterceptor { chain ->
-            chain.proceed(chain.request().newBuilder().header("User-Agent", "koma").build())
+            val request = chain.request()
+            chain.proceed(
+                if (request.header("User-Agent") != null) request
+                else request.newBuilder().header("User-Agent", "koma").build()
+            )
         }
         .build()
 
