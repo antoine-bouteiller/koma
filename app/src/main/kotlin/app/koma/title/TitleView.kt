@@ -3,6 +3,7 @@ package app.koma.title
 import android.os.Build
 import androidx.annotation.DrawableRes
 import androidx.compose.animation.AnimatedVisibility
+import androidx.compose.animation.animateColorAsState
 import androidx.compose.animation.animateContentSize
 import androidx.compose.animation.core.animateDpAsState
 import androidx.compose.animation.core.animateFloatAsState
@@ -62,7 +63,7 @@ import androidx.compose.ui.layout.ContentScale
 import androidx.compose.ui.platform.testTag
 import androidx.compose.ui.res.painterResource
 import androidx.compose.ui.semantics.Role
-import androidx.compose.ui.semantics.selected
+import androidx.compose.ui.semantics.role
 import androidx.compose.ui.semantics.semantics
 import androidx.compose.ui.text.font.FontWeight
 import androidx.compose.ui.text.style.TextOverflow
@@ -75,12 +76,9 @@ import app.koma.R
 import app.koma.data.ListStatus
 import app.koma.data.MediaRef
 import app.koma.ui.ConnectedShapes
-import app.koma.ui.GroupRow
 import app.koma.ui.PillButton
 import app.koma.ui.PillShape
 import app.koma.ui.ScreenColors
-import app.koma.ui.SettingsGroup
-import app.koma.ui.SettingsRow
 import app.koma.ui.TitleFont
 import app.koma.ui.TrackHeaderBackdrop
 import app.koma.ui.morphingShape
@@ -413,15 +411,18 @@ private fun StatusButton(state: TitleState, onPick: () -> Unit, onRate: () -> Un
 
 private val RatingWidth = 96.dp
 
+/** The statuses as a grid of tiles, two to a row; a lone last tile spans the row. */
 @OptIn(ExperimentalMaterial3Api::class)
 @Composable
 private fun StatusSheet(current: Status?, onPick: (ListStatus) -> Unit, onDismiss: () -> Unit) {
     val sheet = rememberModalBottomSheetState(skipPartiallyExpanded = true)
     val scope = rememberCoroutineScope()
+    // The tapped tile takes the selection while the sheet slides away.
+    var chosen by remember { mutableStateOf(current?.status) }
     ModalBottomSheet(onDismissRequest = onDismiss, sheetState = sheet) {
         Column(
             Modifier.padding(start = 16.dp, end = 16.dp, bottom = 16.dp),
-            verticalArrangement = Arrangement.spacedBy(12.dp),
+            verticalArrangement = Arrangement.spacedBy(8.dp),
         ) {
             Text(
                 "Status",
@@ -430,29 +431,87 @@ private fun StatusSheet(current: Status?, onPick: (ListStatus) -> Unit, onDismis
                         fontFamily = TitleFont,
                         fontWeight = FontWeight.SemiBold,
                     ),
-                modifier = Modifier.padding(horizontal = 8.dp),
+                modifier = Modifier.padding(start = 8.dp, end = 8.dp, bottom = 4.dp),
             )
-            SettingsGroup(
-                STATUSES.map { status ->
-                    val chosen = status == current
-                    GroupRow { shape ->
-                        SettingsRow(
-                            title = status.label,
-                            icon = status.icon,
-                            shape = if (chosen) PillShape else shape,
-                            tag = "status-${status.status.name.lowercase()}",
-                            modifier = Modifier.semantics { selected = chosen },
-                            selected = chosen,
+            for (row in STATUSES.chunked(2)) {
+                Row(horizontalArrangement = Arrangement.spacedBy(8.dp)) {
+                    for (status in row) {
+                        StatusTile(
+                            status,
+                            selected = status.status == chosen,
+                            wide = row.size == 1,
                             onClick = {
+                                chosen = status.status
                                 scope
                                     .launch { sheet.hide() }
                                     .invokeOnCompletion { onPick(status.status) }
                             },
-                            trailing = {},
+                            modifier = Modifier.weight(1f),
                         )
                     }
                 }
+            }
+        }
+    }
+}
+
+/**
+ * A status of the [StatusSheet]: round on the sheet, squarer and filled in primary once [selected].
+ * A [wide] tile sets its icon beside its label rather than above it.
+ */
+@Composable
+private fun StatusTile(
+    status: Status,
+    selected: Boolean,
+    wide: Boolean,
+    onClick: () -> Unit,
+    modifier: Modifier,
+) {
+    val colors = MaterialTheme.colorScheme
+    val effects = MaterialTheme.motionScheme.defaultEffectsSpec<Color>()
+    val source = remember { MutableInteractionSource() }
+    val pressed by source.collectIsPressedAsState()
+    val container by
+        animateColorAsState(if (selected) colors.primary else colors.surfaceContainerHigh, effects)
+    val content by
+        animateColorAsState(if (selected) colors.onPrimary else colors.onSurface, effects)
+    val icon by animateColorAsState(if (selected) colors.onPrimary else colors.primary, effects)
+    Surface(
+        selected = selected,
+        onClick = onClick,
+        shape = morphingShape(RoundedCornerShape(if (selected) 12.dp else 28.dp), pressed),
+        color = container,
+        contentColor = content,
+        interactionSource = source,
+        modifier =
+            modifier
+                .heightIn(min = if (wide) 64.dp else 88.dp)
+                .semantics { role = Role.RadioButton }
+                .testTag("status-${status.status.name.lowercase()}"),
+    ) {
+        val label: @Composable () -> Unit = {
+            Icon(
+                painterResource(status.icon),
+                contentDescription = null,
+                tint = icon,
+                modifier = Modifier.size(24.dp),
             )
+            Text(status.label, style = MaterialTheme.typography.titleSmall, maxLines = 1)
+        }
+        if (wide) {
+            Row(
+                horizontalArrangement = Arrangement.spacedBy(12.dp, Alignment.CenterHorizontally),
+                verticalAlignment = Alignment.CenterVertically,
+            ) {
+                label()
+            }
+        } else {
+            Column(
+                Modifier.padding(horizontal = 20.dp),
+                verticalArrangement = Arrangement.spacedBy(8.dp, Alignment.CenterVertically),
+            ) {
+                label()
+            }
         }
     }
 }
