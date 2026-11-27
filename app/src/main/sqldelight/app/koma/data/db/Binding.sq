@@ -1,0 +1,15 @@
+-- Public data, kept across sign-outs: the source manga behind a media. `source` is Mihon's Source.id.
+CREATE TABLE IF NOT EXISTS binding (backend TEXT NOT NULL, media_id TEXT NOT NULL, source INTEGER NOT NULL, manga_url TEXT NOT NULL, title TEXT NOT NULL, PRIMARY KEY (backend, media_id));
+
+-- The user's source order, first position first.
+CREATE TABLE IF NOT EXISTS preferred_source (source INTEGER PRIMARY KEY, position INTEGER NOT NULL);
+
+one:
+SELECT source, manga_url, title FROM binding WHERE backend = ? AND media_id = ?;
+
+-- Not an upsert: Android 8 to 10 ship SQLite older than 3.24, which has none.
+put:
+INSERT OR REPLACE INTO binding (backend, media_id, source, manga_url, title) VALUES (?, ?, ?, ?, ?);
+
+preferred:
+SELECT source FROM preferred_source ORDER BY position;

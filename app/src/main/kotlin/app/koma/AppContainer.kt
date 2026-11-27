@@ -10,6 +10,7 @@ import app.koma.data.HistoryRepository
 import app.koma.data.KomaDatabase
 import app.koma.data.LibraryRepository
 import app.koma.data.MediaRepository
+import app.koma.data.SourceRepository
 import app.koma.data.Store
 import app.koma.source.CatalogSource
 import app.koma.ui.theme.ThemePreferences
@@ -71,6 +72,7 @@ class AppContainer(
     val library = LibraryRepository(store, backend, media, clock)
     val history = HistoryRepository(store, backend, media)
     val account = AccountRepository(store, backend)
+    val sources = SourceRepository(store, sources)
     val theme = ThemePreferences(preferences)
 
     init {

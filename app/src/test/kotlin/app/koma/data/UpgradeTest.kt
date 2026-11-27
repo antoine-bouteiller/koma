@@ -1,6 +1,7 @@
 package app.koma.data
 
 import android.database.sqlite.SQLiteDatabase
+import app.koma.source.details
 import app.koma.testing.AppHarness
 import app.koma.testing.BATCH
 import app.koma.testing.CHANGES
@@ -8,6 +9,8 @@ import app.koma.testing.batch
 import app.koma.testing.changes
 import app.koma.testing.series
 import app.koma.testing.upsert
+import eu.kanade.tachiyomi.source.model.SManga
+import kotlinx.coroutines.runBlocking
 import org.junit.Assert.assertEquals
 import org.junit.Rule
 import org.junit.Test
@@ -47,5 +50,27 @@ class UpgradeTest {
         app.text("manga-2", "Vagabond")
         app.missing("manga-1")
         assertEquals(listOf("$CHANGES?limit=1000"), app.network.requested(CHANGES))
+    }
+
+    @Test
+    fun `an upgraded app keeps the source bound to a title`() {
+        versionOne()
+        app.launch()
+        val vagabond = details("Vagabond", id = "2")
+        val manga =
+            SManga.create().apply {
+                url = "vagabond"
+                title = "Vagabond"
+            }
+        runBlocking {
+            app.container.sources.bind(vagabond.media.ref, Candidate(7, "Test Source", manga))
+        }
+
+        app.reload()
+
+        assertEquals(
+            Binding(7, "vagabond", "Vagabond"),
+            runBlocking { app.container.sources.resolve(vagabond) },
+        )
     }
 }

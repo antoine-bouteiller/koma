@@ -1,0 +1,3 @@
+-- Each title's source manga, and the order binding tries sources in.
+CREATE TABLE IF NOT EXISTS binding (backend TEXT NOT NULL, media_id TEXT NOT NULL, source INTEGER NOT NULL, manga_url TEXT NOT NULL, title TEXT NOT NULL, PRIMARY KEY (backend, media_id));
+CREATE TABLE IF NOT EXISTS preferred_source (source INTEGER PRIMARY KEY, position INTEGER NOT NULL);
