@@ -1,6 +1,6 @@
 ---
 title: Atsumaru source
-status: implementing
+status: implemented
 author: Antoine Bouteiller
 date: 2026-11-27
 module:
@@ -36,7 +36,7 @@ keiyoushi's Atsumaru extension and adds a finder that binds a title by that id
 
 ### [CT-20] Atsumaru registration
 
-Kind: api · Anchor: null
+Kind: api · Anchor: `app/src/main/kotlin/app/koma/source/atsumaru/AtsumaruSource.kt`
 
 ```kotlin
 // app/src/main/kotlin/app/koma/source/atsumaru/AtsumaruSource.kt
@@ -63,7 +63,7 @@ writes.
 
 ### [CT-21] Atsumaru API
 
-Kind: api · Anchor: null
+Kind: api · Anchor: `app/src/main/kotlin/eu/kanade/tachiyomi/extension/en/atsumaru/`
 
 The copied extension's calls Koma reaches, through `AtsumaruSource.client`
 (`doc/architecture/specs/sources/sources.spec.md` `[CT-18]`). Each goes out with `Fetch.XHR`,
@@ -134,7 +134,7 @@ The extension maps them as follows:
 
 ### [CT-17] Atsumaru finder
 
-Kind: api · Anchor: null
+Kind: api · Anchor: `app/src/main/kotlin/app/koma/source/atsumaru/AtsumaruFinder.kt`
 
 ```kotlin
 // app/src/main/kotlin/app/koma/source/atsumaru/AtsumaruFinder.kt

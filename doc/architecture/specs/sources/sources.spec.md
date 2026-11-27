@@ -1,7 +1,7 @@
 ---
 title: Koma sources
 kind: umbrella
-status: implementing
+status: implemented
 author: Antoine Bouteiller
 date: 2026-11-27
 module:
@@ -63,7 +63,7 @@ proves the match before binding it.
 
 ### [CT-2.3] Sources
 
-Kind: api · Anchor: null
+Kind: api · Anchor: `app/src/main/kotlin/app/koma/source/`
 
 ```kotlin
 // Mihon's API, eu.kanade.tachiyomi.source: the members Koma calls.
@@ -116,7 +116,7 @@ pass `sources()` or their own.
 
 ### [CT-18] Source runtime
 
-Kind: boundary · Anchor: null
+Kind: boundary · Anchor: `app/src/main/kotlin/eu/kanade/tachiyomi/`
 
 Koma's copies, all under `app/src/main/kotlin/`:
 
@@ -202,7 +202,7 @@ Mihon's versions (`doc/architecture/specs/app.spec.md` `[C-1.1]`):
 
 ### [CT-19] Source repository
 
-Kind: api · Anchor: null
+Kind: api · Anchor: `app/src/main/kotlin/app/koma/data/SourceRepository.kt`
 
 ```kotlin
 package app.koma.data
@@ -261,7 +261,7 @@ load in turn instead of failing.
 
 ### [CT-13] Binding store
 
-Kind: schema · Anchor: null
+Kind: schema · Anchor: `app/src/main/sqldelight/app/koma/data/db/Binding.sq`
 
 ```sql
 create table binding (
