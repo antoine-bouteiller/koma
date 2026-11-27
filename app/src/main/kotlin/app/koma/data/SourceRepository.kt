@@ -69,6 +69,10 @@ class SourceRepository(private val store: Store, private val sources: List<Catal
         store.write { put(ref, binding) }
     }
 
+    /** How many sources Koma lists. */
+    val count: Int
+        get() = sources.size
+
     /** Null when Koma no longer lists the source. */
     fun source(id: Long): HttpSource? = sources.firstOrNull { it.source.id == id }?.source
 

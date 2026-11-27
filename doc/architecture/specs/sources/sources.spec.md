@@ -216,6 +216,7 @@ class SourceRepository(store: Store, sources: List<CatalogSource>) {
     suspend fun candidates(details: MediaDetails): List<Candidate>
     suspend fun bind(ref: MediaRef, candidate: Candidate)      // replaces any binding
     fun source(id: Long): HttpSource?                          // null when sources() lacks it
+    val count: Int                                             // how many sources Koma lists
 }
 ```
 

@@ -2,12 +2,14 @@ package app.koma.title
 
 import androidx.annotation.DrawableRes
 import app.koma.R
+import app.koma.data.Candidate
 import app.koma.data.ListEntry
 import app.koma.data.ListStatus
 import app.koma.data.Media
 import app.koma.data.MediaDetails
 import app.koma.data.Publication
 import app.koma.data.Tag
+import eu.kanade.tachiyomi.source.model.SChapter
 import kotlin.math.round
 
 /** A library status the title can be filed under. */
@@ -54,7 +56,39 @@ data class TitleState(
     val about: About,
     val ready: Boolean,
     val seed: Int?,
+    /** Null when Koma lists no source. */
+    val chapters: Chapters? = null,
 )
+
+/** Where the title's chapters come from, and what they are. */
+sealed interface Chapters {
+    data object Loading : Chapters
+
+    data object Failed : Chapters
+
+    /** No source manga is bound: the user picks one of [candidates], or [cancel]s a change. */
+    data class Picking(val candidates: List<Pick>, val cancel: Boolean) : Chapters
+
+    data class Bound(
+        /** As "Atsumaru · Solo Leveling". */
+        val source: String,
+        val chapters: List<ChapterRow>,
+        /** Whether another source could replace this one. */
+        val changeable: Boolean,
+    ) : Chapters
+}
+
+data class ChapterRow(val key: String, val name: String, val scanlator: String?)
+
+/** A source manga the title can be bound to. */
+data class Pick(val key: String, val source: String, val title: String)
+
+fun chapterRow(chapter: SChapter) = ChapterRow(chapter.url, chapter.name, chapter.scanlator)
+
+fun pick(candidate: Candidate) =
+    Pick(pickKey(candidate), candidate.sourceName, candidate.manga.title)
+
+fun pickKey(candidate: Candidate) = "${candidate.source}-${candidate.manga.url}"
 
 /** What the backend says of the title beyond its name and cover. */
 sealed interface About {

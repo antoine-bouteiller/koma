@@ -117,7 +117,7 @@ private fun TitleContent(
         state = list,
         contentPadding = PaddingValues(bottom = contentPadding.calculateBottomPadding() + 16.dp),
         verticalArrangement = Arrangement.spacedBy(16.dp),
-        modifier = Modifier.fillMaxSize(),
+        modifier = Modifier.fillMaxSize().testTag("title-content"),
     ) {
         item(key = "header") {
             Header(state, container.images, contentPadding.calculateTopPadding())
@@ -152,6 +152,7 @@ private fun TitleContent(
                 if (about.tags.isNotEmpty()) item(key = "tags") { Tags(about.tags) }
             }
         }
+        state.chapters?.let { chapters(it, model) }
     }
     if (picking) {
         StatusSheet(
