@@ -56,11 +56,7 @@ fun LazyListScope.chapters(chapters: Chapters, model: TitleViewModel) {
         is Chapters.Picking -> {
             item(key = "chapters-picking") {
                 Note(
-                    when {
-                        chapters.candidates.isEmpty() -> "No source has this title."
-                        chapters.cancel -> "Pick the title on another source."
-                        else -> "No source matched this title. Pick it below."
-                    },
+                    chapters.note,
                     Modifier.padding(horizontal = 16.dp).testTag("chapters-note"),
                 )
             }
@@ -86,9 +82,9 @@ fun LazyListScope.chapters(chapters: Chapters, model: TitleViewModel) {
             }
         }
         is Chapters.Bound -> {
-            if (chapters.chapters.isEmpty()) {
+            chapters.note?.let { note ->
                 item(key = "chapters-empty") {
-                    Note("No chapters yet.", Modifier.padding(horizontal = 16.dp))
+                    Note(note, Modifier.padding(horizontal = 16.dp).testTag("chapters-empty"))
                 }
             }
             items(chapters.chapters, key = { "chapter-${it.key}" }) { chapter ->

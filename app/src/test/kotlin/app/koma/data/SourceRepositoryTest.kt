@@ -12,9 +12,12 @@ import eu.kanade.tachiyomi.source.model.SChapter
 import eu.kanade.tachiyomi.source.model.SManga
 import eu.kanade.tachiyomi.source.model.SMangaUpdate
 import eu.kanade.tachiyomi.source.online.HttpSource
+import kotlinx.coroutines.CompletableDeferred
 import kotlinx.coroutines.Dispatchers
+import kotlinx.coroutines.async
 import kotlinx.coroutines.flow.first
 import kotlinx.coroutines.runBlocking
+import kotlinx.coroutines.test.runCurrent
 import kotlinx.coroutines.test.runTest
 import org.junit.Assert.assertEquals
 import org.junit.Assert.assertNull
@@ -139,6 +142,29 @@ class SourceRepositoryTest {
         assertEquals(Binding(1, "c", "Solo Leveling (Remastered)"), sources.resolve(solo))
     }
 
+    @OptIn(kotlinx.coroutines.ExperimentalCoroutinesApi::class)
+    @Test
+    fun `a second chapter load of one manga waits for the first instead of failing`() = runTest {
+        val source = FakeSource(1)
+        val gate = CompletableDeferred<Unit>()
+        source.updating = gate
+        val sources = repository(CatalogSource(source))
+        val binding = Binding(1, "a", "Solo Leveling")
+
+        val first = async { sources.chapters(binding) }
+        val second = async { sources.chapters(binding) }
+        runCurrent()
+        gate.complete(Unit)
+
+        assertEquals(listOf("a/1"), first.await()?.map { it.url })
+        assertEquals(listOf("a/1"), second.await()?.map { it.url })
+    }
+
+    @Test
+    fun `chapters of a source Koma no longer lists answer null`() = runTest {
+        assertNull(repository().chapters(Binding(9, "a", "Solo Leveling")))
+    }
+
     @Test
     fun `a source Koma no longer lists answers null`() {
         val source = FakeSource(1)
@@ -160,6 +186,9 @@ private class FakeSource(override val id: Long, vararg answers: Pair<String, Lis
     private val answers = answers.toMap()
     val searches = mutableListOf<String>()
     var failing = false
+    /** Holds each chapter load until completed. */
+    var updating: CompletableDeferred<Unit>? = null
+    private val loading = mutableSetOf<String>()
 
     override val name = "Fake $id"
     override val lang = "xx"
@@ -181,7 +210,21 @@ private class FakeSource(override val id: Long, vararg answers: Pair<String, Lis
         chapters: List<SChapter>,
         fetchDetails: Boolean,
         fetchChapters: Boolean,
-    ): SMangaUpdate = throw UnsupportedOperationException()
+    ): SMangaUpdate {
+        // KeiSource's rule.
+        check(loading.add(manga.url)) { "getMangaUpdate must not be called concurrently" }
+        try {
+            updating?.await()
+            val chapter =
+                SChapter.create().apply {
+                    url = "${manga.url}/1"
+                    name = "Chapter 1"
+                }
+            return SMangaUpdate(manga, listOf(chapter))
+        } finally {
+            loading.remove(manga.url)
+        }
+    }
 
     override suspend fun getPageList(chapter: SChapter): List<Page> =
         throw UnsupportedOperationException()

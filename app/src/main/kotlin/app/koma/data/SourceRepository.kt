@@ -4,10 +4,14 @@ import app.koma.source.CatalogSource
 import app.koma.source.normalize
 import app.koma.source.variants
 import eu.kanade.tachiyomi.source.model.FilterList
+import eu.kanade.tachiyomi.source.model.SChapter
 import eu.kanade.tachiyomi.source.model.SManga
 import eu.kanade.tachiyomi.source.online.HttpSource
+import java.util.concurrent.ConcurrentHashMap
 import kotlin.coroutines.cancellation.CancellationException
 import kotlinx.coroutines.flow.Flow
+import kotlinx.coroutines.sync.Mutex
+import kotlinx.coroutines.sync.withLock
 
 /** The source manga behind a media: [source] is Mihon's `Source.id`. */
 data class Binding(val source: Long, val mangaUrl: String, val title: String)
@@ -20,6 +24,10 @@ data class Candidate(val source: Long, val sourceName: String, val manga: SManga
  * failed request.
  */
 class SourceRepository(private val store: Store, private val sources: List<CatalogSource>) {
+    // A source refuses a second chapter load of one manga while the first runs, even from another
+    // screen: a title reopened as it closes asks again before the closing screen's load ends.
+    private val loads = ConcurrentHashMap<Pair<Long, String>, Mutex>()
+
     /** Null until bound. */
     fun binding(ref: MediaRef): Flow<Binding?> {
         val query = { db: KomaDatabase ->
@@ -67,6 +75,25 @@ class SourceRepository(private val store: Store, private val sources: List<Catal
     suspend fun bind(ref: MediaRef, candidate: Candidate) {
         val binding = Binding(candidate.source, candidate.manga.url, candidate.manga.title)
         store.write { put(ref, binding) }
+    }
+
+    /**
+     * The chapters of [binding]'s manga, one load of a manga at a time. Null when Koma no longer
+     * lists its source.
+     */
+    suspend fun chapters(binding: Binding): List<SChapter>? {
+        val source = source(binding.source) ?: return null
+        val manga =
+            SManga.create().apply {
+                url = binding.mangaUrl
+                title = binding.title
+            }
+        val load = loads.computeIfAbsent(binding.source to binding.mangaUrl) { Mutex() }
+        return load.withLock {
+            source
+                .getMangaUpdate(manga, emptyList(), fetchDetails = false, fetchChapters = true)
+                .chapters
+        }
     }
 
     /** How many sources Koma lists. */

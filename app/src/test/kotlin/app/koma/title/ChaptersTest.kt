@@ -122,6 +122,33 @@ class ChaptersTest {
     }
 
     @Test
+    fun `a failed chapter list offers to try again`() {
+        solo("Test Source" to 77)
+        app.network.answer(FIRST, 200, mangas("a" to "Solo Leveling"))
+        app.network.answer("$TEST_SOURCE/manga/a", 500, "{}")
+        app.launch()
+        open()
+
+        app.node("title-content").performScrollToNode(hasTestTag("chapters-retry"))
+        app.network.answer("$TEST_SOURCE/manga/a", 200, chapters(chapter("a/1", "Prologue", 1f)))
+        app.tap("chapters-retry")
+
+        shows("chapter-a/1", "Prologue")
+        assertEquals(1, app.network.requested(FIRST).size)
+    }
+
+    @Test
+    fun `a bound title with no chapters says so`() {
+        solo("Test Source" to 77)
+        app.network.answer(FIRST, 200, mangas("a" to "Solo Leveling"))
+        app.network.answer("$TEST_SOURCE/manga/a", 200, chapters())
+        app.launch()
+        open()
+
+        shows("chapters-empty", "No chapters yet.")
+    }
+
+    @Test
     fun `with two sources the bound one can be changed, or kept`() {
         solo("Test Source" to 77, "Other Source" to 78)
         app.network.answer(FIRST, 200, mangas("a" to "Solo Leveling"))

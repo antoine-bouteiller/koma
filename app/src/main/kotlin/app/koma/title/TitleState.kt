@@ -67,7 +67,7 @@ sealed interface Chapters {
     data object Failed : Chapters
 
     /** No source manga is bound: the user picks one of [candidates], or [cancel]s a change. */
-    data class Picking(val candidates: List<Pick>, val cancel: Boolean) : Chapters
+    data class Picking(val note: String, val candidates: List<Pick>, val cancel: Boolean) : Chapters
 
     data class Bound(
         /** As "Atsumaru · Solo Leveling". */
@@ -75,6 +75,8 @@ sealed interface Chapters {
         val chapters: List<ChapterRow>,
         /** Whether another source could replace this one. */
         val changeable: Boolean,
+        /** Shown in place of an empty list. */
+        val note: String?,
     ) : Chapters
 }
 
@@ -84,6 +86,26 @@ data class ChapterRow(val key: String, val name: String, val scanlator: String?)
 data class Pick(val key: String, val source: String, val title: String)
 
 fun chapterRow(chapter: SChapter) = ChapterRow(chapter.url, chapter.name, chapter.scanlator)
+
+fun pickingChapters(candidates: List<Candidate>, cancel: Boolean) =
+    Chapters.Picking(
+        note =
+            when {
+                candidates.isEmpty() -> "No source has this title."
+                cancel -> "Pick the title on another source."
+                else -> "No source matched this title. Pick it below."
+            },
+        candidates = candidates.map(::pick),
+        cancel = cancel,
+    )
+
+fun boundChapters(source: String, title: String, chapters: List<SChapter>, changeable: Boolean) =
+    Chapters.Bound(
+        source = "$source · $title",
+        chapters = chapters.map(::chapterRow),
+        changeable = changeable,
+        note = "No chapters yet.".takeIf { chapters.isEmpty() },
+    )
 
 fun pick(candidate: Candidate) =
     Pick(pickKey(candidate), candidate.sourceName, candidate.manga.title)

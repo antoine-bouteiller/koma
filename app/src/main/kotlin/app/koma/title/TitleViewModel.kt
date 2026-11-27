@@ -14,7 +14,6 @@ import app.koma.ui.theme.seedColor
 import coil3.request.ImageRequest
 import coil3.request.allowHardware
 import coil3.toBitmap
-import eu.kanade.tachiyomi.source.model.SManga
 import kotlin.coroutines.cancellation.CancellationException
 import kotlinx.coroutines.Job
 import kotlinx.coroutines.flow.MutableStateFlow
@@ -163,7 +162,7 @@ class TitleViewModel(private val container: AppContainer, private val ref: Media
         }
     }
 
-    // One source request at a time: a source refuses two chapter loads of one manga at once.
+    // One source request at a time per screen.
     private fun read(work: suspend () -> Chapters) {
         if (readingJob?.isActive == true) return
         reading.value = Chapters.Loading
@@ -183,25 +182,19 @@ class TitleViewModel(private val container: AppContainer, private val ref: Media
     private suspend fun picking(details: MediaDetails, cancel: Boolean): Chapters {
         val found = container.sources.candidates(details)
         candidates = found.associateBy(::pickKey)
-        return Chapters.Picking(found.map(::pick), cancel)
+        return pickingChapters(found, cancel)
     }
 
     private suspend fun bound(binding: Binding): Chapters {
         val details = checkNotNull(details)
         val source =
             container.sources.source(binding.source) ?: return picking(details, cancel = false)
-        val manga =
-            SManga.create().apply {
-                url = binding.mangaUrl
-                title = binding.title
-            }
         val chapters =
-            source
-                .getMangaUpdate(manga, emptyList(), fetchDetails = false, fetchChapters = true)
-                .chapters
-        return Chapters.Bound(
-                source = "${source.name} · ${binding.title}",
-                chapters = chapters.map(::chapterRow),
+            container.sources.chapters(binding) ?: return picking(details, cancel = false)
+        return boundChapters(
+                source.name,
+                binding.title,
+                chapters,
                 changeable = container.sources.count > 1,
             )
             .also { bound = it }

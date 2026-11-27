@@ -215,6 +215,7 @@ class SourceRepository(store: Store, sources: List<CatalogSource>) {
     suspend fun resolve(details: MediaDetails): Binding?       // stored, else bound now, else null
     suspend fun candidates(details: MediaDetails): List<Candidate>
     suspend fun bind(ref: MediaRef, candidate: Candidate)      // replaces any binding
+    suspend fun chapters(binding: Binding): List<SChapter>?    // null when sources() lacks it
     fun source(id: Long): HttpSource?                          // null when sources() lacks it
     val count: Int                                             // how many sources Koma lists
 }
@@ -253,6 +254,10 @@ fun normalize(title: String): String =
 `candidates` is each source's `getSearchManga(1, details.media.title, FilterList()).mangas`, in
 the order step 2 gives, and each source's hits in the order it answers them. A source whose search
 fails is left out.
+
+`chapters` is `[CT-2.3]`'s chapter load. It holds a lock per `(source, mangaUrl)` for the
+load's whole run, so two title screens of one binding, such as a title reopened while it closes,
+load in turn instead of failing.
 
 ### [CT-13] Binding store
 

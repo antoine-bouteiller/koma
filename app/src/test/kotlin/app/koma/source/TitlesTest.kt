@@ -19,6 +19,7 @@ class TitlesTest {
 
     @Test
     fun `normalizing keeps letters and digits of every script`() {
+        assertEquals("我独自升级 2", normalize("我独自升级 (2)!"))
         assertEquals(normalize("나 혼자만 레벨업 2"), normalize("나 혼자만 레벨업 (2)"))
         assertNotEquals(normalize("나 혼자만 레벨업"), normalize("나 혼자만 레벨업 2"))
         assertNotEquals(normalize("Solo Leveling"), normalize("Solo Leveling: Ragnarok"))
