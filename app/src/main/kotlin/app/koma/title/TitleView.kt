@@ -29,6 +29,7 @@ import androidx.compose.foundation.layout.size
 import androidx.compose.foundation.layout.width
 import androidx.compose.foundation.layout.widthIn
 import androidx.compose.foundation.lazy.LazyColumn
+import androidx.compose.foundation.lazy.LazyListScope
 import androidx.compose.foundation.lazy.LazyRow
 import androidx.compose.foundation.lazy.items
 import androidx.compose.foundation.lazy.rememberLazyListState
@@ -116,19 +117,18 @@ private fun TitleContent(
     LazyColumn(
         state = list,
         contentPadding = PaddingValues(bottom = contentPadding.calculateBottomPadding() + 16.dp),
-        verticalArrangement = Arrangement.spacedBy(16.dp),
         modifier = Modifier.fillMaxSize().testTag("title-content"),
     ) {
         item(key = "header") {
             Header(state, container.images, contentPadding.calculateTopPadding())
         }
-        item(key = "status") {
+        section(key = "status") {
             StatusButton(state, onPick = { picking = true }, onRate = { rating = true })
         }
         when (val about = state.about) {
             About.Loading -> Unit
             About.Failed ->
-                item(key = "failed") {
+                section(key = "failed") {
                     Column(
                         Modifier.fillMaxWidth().padding(horizontal = 16.dp),
                         horizontalAlignment = Alignment.CenterHorizontally,
@@ -148,8 +148,8 @@ private fun TitleContent(
                     }
                 }
             is About.Loaded -> {
-                if (about.summary.isNotEmpty()) item(key = "summary") { Summary(about.summary) }
-                if (about.tags.isNotEmpty()) item(key = "tags") { Tags(about.tags) }
+                if (about.summary.isNotEmpty()) section(key = "summary") { Summary(about.summary) }
+                if (about.tags.isNotEmpty()) section(key = "tags") { Tags(about.tags) }
             }
         }
         state.chapters?.let { chapters(it, model) }
@@ -176,6 +176,10 @@ private fun TitleContent(
         )
     }
 }
+
+/** An item set apart from the one above it; list rows use plain items and sit closer. */
+internal fun LazyListScope.section(key: String, content: @Composable () -> Unit) =
+    item(key = key) { Box(Modifier.padding(top = 16.dp)) { content() } }
 
 @OptIn(ExperimentalMaterial3ExpressiveApi::class)
 @Composable

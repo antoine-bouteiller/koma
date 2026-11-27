@@ -66,7 +66,7 @@ class TitleViewModel(private val container: AppContainer, private val ref: Media
                         load.ready,
                         load.seed,
                     )
-                    .copy(chapters = chapters)
+                    .copy(chapters = readChapters(chapters, entry?.progress))
             }
             // Stops watching the store once the screen is gone, as one model is kept per title.
             .stateIn(
@@ -187,17 +187,9 @@ class TitleViewModel(private val container: AppContainer, private val ref: Media
 
     private suspend fun bound(binding: Binding): Chapters {
         val details = checkNotNull(details)
-        val source =
-            container.sources.source(binding.source) ?: return picking(details, cancel = false)
         val chapters =
             container.sources.chapters(binding) ?: return picking(details, cancel = false)
-        return boundChapters(
-                source.name,
-                binding.title,
-                chapters,
-                changeable = container.sources.count > 1,
-            )
-            .also { bound = it }
+        return boundChapters(chapters, changeable = container.sources.count > 1).also { bound = it }
     }
 
     fun setStatus(status: ListStatus) {

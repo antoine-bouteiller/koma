@@ -20,8 +20,8 @@ import androidx.compose.ui.Modifier
 import androidx.compose.ui.platform.testTag
 import androidx.compose.ui.semantics.Role
 import androidx.compose.ui.semantics.semantics
+import androidx.compose.ui.semantics.stateDescription
 import androidx.compose.ui.text.font.FontWeight
-import androidx.compose.ui.text.style.TextOverflow
 import androidx.compose.ui.unit.dp
 import app.koma.ui.PillButton
 import app.koma.ui.TitleFont
@@ -29,16 +29,16 @@ import app.koma.ui.TitleFont
 /** The title's chapters, from its bound source, or the source manga it could be bound to. */
 @OptIn(ExperimentalMaterial3ExpressiveApi::class)
 fun LazyListScope.chapters(chapters: Chapters, model: TitleViewModel) {
-    item(key = "chapters-header") { ChaptersHeader(chapters, model) }
+    section(key = "chapters-header") { ChaptersHeader(chapters, model) }
     when (chapters) {
         Chapters.Loading ->
-            item(key = "chapters-loading") {
+            section(key = "chapters-loading") {
                 Box(Modifier.fillMaxWidth(), contentAlignment = Alignment.Center) {
                     LoadingIndicator(Modifier.size(40.dp).testTag("chapters-loading"))
                 }
             }
         Chapters.Failed ->
-            item(key = "chapters-failed") {
+            section(key = "chapters-failed") {
                 Column(
                     Modifier.fillMaxWidth().padding(horizontal = 16.dp),
                     horizontalAlignment = Alignment.CenterHorizontally,
@@ -54,7 +54,7 @@ fun LazyListScope.chapters(chapters: Chapters, model: TitleViewModel) {
                 }
             }
         is Chapters.Picking -> {
-            item(key = "chapters-picking") {
+            section(key = "chapters-picking") {
                 Note(
                     chapters.note,
                     Modifier.padding(horizontal = 16.dp).testTag("chapters-note"),
@@ -69,7 +69,7 @@ fun LazyListScope.chapters(chapters: Chapters, model: TitleViewModel) {
                 )
             }
             if (chapters.cancel) {
-                item(key = "chapters-keep") {
+                section(key = "chapters-keep") {
                     Box(Modifier.fillMaxWidth(), contentAlignment = Alignment.Center) {
                         PillButton(
                             "Keep Current",
@@ -83,12 +83,17 @@ fun LazyListScope.chapters(chapters: Chapters, model: TitleViewModel) {
         }
         is Chapters.Bound -> {
             chapters.note?.let { note ->
-                item(key = "chapters-empty") {
+                section(key = "chapters-empty") {
                     Note(note, Modifier.padding(horizontal = 16.dp).testTag("chapters-empty"))
                 }
             }
             items(chapters.chapters, key = { "chapter-${it.key}" }) { chapter ->
-                Line(chapter.name, chapter.scanlator, Modifier.testTag("chapter-${chapter.key}"))
+                Line(
+                    chapter.name,
+                    chapter.scanlator,
+                    Modifier.testTag("chapter-${chapter.key}"),
+                    read = chapter.read,
+                )
             }
         }
     }
@@ -96,33 +101,21 @@ fun LazyListScope.chapters(chapters: Chapters, model: TitleViewModel) {
 
 @Composable
 private fun ChaptersHeader(chapters: Chapters, model: TitleViewModel) {
-    val bound = chapters as? Chapters.Bound
     Row(
         Modifier.fillMaxWidth().padding(horizontal = 16.dp).testTag("chapters-header"),
         horizontalArrangement = Arrangement.spacedBy(12.dp),
         verticalAlignment = Alignment.CenterVertically,
     ) {
-        Column(Modifier.weight(1f)) {
-            Text(
-                "Chapters",
-                style =
-                    MaterialTheme.typography.titleLarge.copy(
-                        fontFamily = TitleFont,
-                        fontWeight = FontWeight.SemiBold,
-                    ),
-            )
-            if (bound != null) {
-                Text(
-                    bound.source,
-                    style = MaterialTheme.typography.bodySmall,
-                    color = MaterialTheme.colorScheme.onSurfaceVariant,
-                    maxLines = 1,
-                    overflow = TextOverflow.Ellipsis,
-                    modifier = Modifier.testTag("chapters-source"),
-                )
-            }
-        }
-        if (bound?.changeable == true) {
+        Text(
+            "Chapters",
+            style =
+                MaterialTheme.typography.titleLarge.copy(
+                    fontFamily = TitleFont,
+                    fontWeight = FontWeight.SemiBold,
+                ),
+            modifier = Modifier.weight(1f),
+        )
+        if ((chapters as? Chapters.Bound)?.changeable == true) {
             PillButton(
                 "Change",
                 onClick = model::change,
@@ -133,21 +126,29 @@ private fun ChaptersHeader(chapters: Chapters, model: TitleViewModel) {
     }
 }
 
-/** A chapter or a source manga: its name over a smaller detail. */
+/** A chapter or a source manga: its name over a smaller detail, greyed out once [read]. */
 @Composable
-private fun Line(name: String, detail: String?, modifier: Modifier) {
+private fun Line(name: String, detail: String?, modifier: Modifier, read: Boolean = false) {
+    val colors = MaterialTheme.colorScheme
+    // Material's disabled-content opacity.
+    val alpha = if (read) 0.38f else 1f
     Column(
         modifier
-            .semantics(mergeDescendants = true) {}
+            .semantics(mergeDescendants = true) { if (read) stateDescription = "Read" }
             .fillMaxWidth()
             .padding(horizontal = 16.dp, vertical = 8.dp)
     ) {
-        Text(name, style = MaterialTheme.typography.bodyLarge, maxLines = 2)
+        Text(
+            name,
+            style = MaterialTheme.typography.bodyLarge,
+            color = colors.onSurface.copy(alpha = alpha),
+            maxLines = 2,
+        )
         if (!detail.isNullOrEmpty()) {
             Text(
                 detail,
                 style = MaterialTheme.typography.bodySmall,
-                color = MaterialTheme.colorScheme.onSurfaceVariant,
+                color = colors.onSurfaceVariant.copy(alpha = alpha),
                 maxLines = 1,
             )
         }

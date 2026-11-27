@@ -1,9 +1,14 @@
 package app.koma.title
 
+import androidx.compose.ui.semantics.SemanticsProperties.StateDescription
+import androidx.compose.ui.test.SemanticsMatcher
+import androidx.compose.ui.test.assert
 import androidx.compose.ui.test.assertTextEquals
+import androidx.compose.ui.test.hasStateDescription
 import androidx.compose.ui.test.hasTestTag
 import androidx.compose.ui.test.performScrollToNode
 import app.koma.source.CatalogSource
+import app.koma.source.details
 import app.koma.testing.AppHarness
 import app.koma.testing.BATCH
 import app.koma.testing.CHANGES
@@ -18,6 +23,7 @@ import app.koma.testing.fullSeries
 import app.koma.testing.mangas
 import app.koma.testing.series
 import app.koma.testing.upsert
+import kotlinx.coroutines.runBlocking
 import org.junit.Assert.assertEquals
 import org.junit.Rule
 import org.junit.Test
@@ -32,9 +38,13 @@ class ChaptersTest {
     @get:Rule val app = AppHarness()
 
     /** Solo Leveling, also titled Na Honjaman Level Up, in the library, with [sources]. */
-    private fun solo(vararg sources: Pair<String, Long>) {
+    private fun solo(vararg sources: Pair<String, Long>, progress: Number? = null) {
         app.signedIn()
-        app.network.answer(CHANGES, 200, changes("c1", false, upsert(1, "reading")))
+        app.network.answer(
+            CHANGES,
+            200,
+            changes("c1", false, upsert(1, "reading", progress = progress)),
+        )
         app.network.answer(BATCH, 200, batch(series(1, "Solo Leveling")))
         app.network.answer(
             "$SERIES/1?schema=full",
@@ -47,6 +57,10 @@ class ChaptersTest {
     private fun open() {
         app.tap("manga-1")
     }
+
+    /** The source the title is bound to. */
+    private fun boundSource() =
+        runBlocking { app.container.sources.resolve(details("Solo Leveling")) }?.source
 
     private fun shows(tag: String, vararg text: String) {
         app.node("title-content").performScrollToNode(hasTestTag(tag))
@@ -66,7 +80,6 @@ class ChaptersTest {
         app.launch()
         open()
 
-        shows("chapters-source", "Test Source · NA HONJAMAN — LÉVEL UP!")
         shows("chapter-b/2", "Chapter 2", "Team Z")
         shows("chapter-b/1", "Chapter 1")
         app.missing("chapters-change")
@@ -82,11 +95,9 @@ class ChaptersTest {
         open()
 
         shows("pick-77-a", "Solo Leveling: Ragnarok", "Test Source")
-        app.missing("chapters-source")
         app.missing("chapters-keep")
 
         app.tap("pick-77-a")
-        shows("chapters-source", "Test Source · Solo Leveling: Ragnarok")
         shows("chapter-a/1", "Prologue")
     }
 
@@ -155,17 +166,48 @@ class ChaptersTest {
         app.network.answer("$TEST_SOURCE/manga/a", 200, chapters(chapter("a/1", "Prologue", 1f)))
         app.launch()
         open()
-        shows("chapters-source", "Test Source · Solo Leveling")
+        shows("chapter-a/1", "Prologue")
+        assertEquals(77L, boundSource())
 
         app.tap("chapters-change")
         shows("pick-78-a", "Solo Leveling", "Other Source")
         app.tap("chapters-keep")
-        shows("chapters-source", "Test Source · Solo Leveling")
+        shows("chapter-a/1", "Prologue")
+        assertEquals(77L, boundSource())
 
         app.tap("chapters-change")
         app.node("title-content").performScrollToNode(hasTestTag("pick-78-a"))
         app.tap("pick-78-a")
-        shows("chapters-source", "Other Source · Solo Leveling")
+        shows("chapter-a/1", "Prologue")
+        assertEquals(78L, boundSource())
+    }
+
+    @Test
+    fun `chapters the user's progress reaches are greyed out as read`() {
+        solo("Test Source" to 77, progress = 2)
+        app.network.answer(FIRST, 200, mangas("a" to "Solo Leveling"))
+        app.network.answer(
+            "$TEST_SOURCE/manga/a",
+            200,
+            chapters(
+                chapter("a/3", "Chapter 3", 3f),
+                chapter("a/2.5", "Chapter 2.5", 2.5f),
+                chapter("a/2", "Chapter 2", 2f),
+                chapter("a/1", "Chapter 1", 1f),
+                chapter("a/extra", "Extra", -1f),
+            ),
+        )
+        app.launch()
+        open()
+
+        for (key in listOf("a/2", "a/1")) {
+            app.node("title-content").performScrollToNode(hasTestTag("chapter-$key"))
+            app.node("chapter-$key").assert(hasStateDescription("Read"))
+        }
+        for (key in listOf("a/3", "a/2.5", "a/extra")) {
+            app.node("title-content").performScrollToNode(hasTestTag("chapter-$key"))
+            app.node("chapter-$key").assert(SemanticsMatcher.keyNotDefined(StateDescription))
+        }
     }
 
     @Test

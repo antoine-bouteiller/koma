@@ -3,6 +3,7 @@ package app.koma.source.atsumaru
 import androidx.compose.ui.test.assertTextEquals
 import androidx.compose.ui.test.hasTestTag
 import androidx.compose.ui.test.performScrollToNode
+import app.koma.source.details
 import app.koma.source.sources
 import app.koma.testing.AppHarness
 import app.koma.testing.BATCH
@@ -14,6 +15,7 @@ import app.koma.testing.fullSeries
 import app.koma.testing.series
 import app.koma.testing.upsert
 import java.security.MessageDigest
+import kotlinx.coroutines.runBlocking
 import okhttp3.HttpUrl.Companion.toHttpUrl
 import org.junit.Assert.assertEquals
 import org.junit.Rule
@@ -69,7 +71,11 @@ class AtsumaruTest {
         app.launch()
         app.tap("manga-3397")
 
-        shows("chapters-source", "Atsumaru · I Level Up Alone")
+        shows("chapters-empty", "No chapters yet.")
+        val bound = runBlocking {
+            app.container.sources.resolve(details("Solo Leveling", id = "3397"))
+        }
+        assertEquals("B", bound?.mangaUrl)
         app.missing("chapters-note")
         assertEquals(
             listOf("medium:!=[`Novel`] && views:>0 && hidden:!=true"),

@@ -70,8 +70,6 @@ sealed interface Chapters {
     data class Picking(val note: String, val candidates: List<Pick>, val cancel: Boolean) : Chapters
 
     data class Bound(
-        /** As "Atsumaru · Solo Leveling". */
-        val source: String,
         val chapters: List<ChapterRow>,
         /** Whether another source could replace this one. */
         val changeable: Boolean,
@@ -80,12 +78,36 @@ sealed interface Chapters {
     ) : Chapters
 }
 
-data class ChapterRow(val key: String, val name: String, val scanlator: String?)
+data class ChapterRow(
+    val key: String,
+    val name: String,
+    val scanlator: String?,
+    /** Null when the source gives the chapter no number. */
+    val number: Double?,
+    /** Whether the user's progress covers it. */
+    val read: Boolean = false,
+)
 
 /** A source manga the title can be bound to. */
 data class Pick(val key: String, val source: String, val title: String)
 
-fun chapterRow(chapter: SChapter) = ChapterRow(chapter.url, chapter.name, chapter.scanlator)
+fun chapterRow(chapter: SChapter) =
+    ChapterRow(chapter.url, chapter.name, chapter.scanlator, number(chapter))
+
+/** A source's chapter number; through its decimal string, so chapter 10.1f is progress 10.1. */
+fun number(chapter: SChapter): Double? =
+    chapter.chapter_number.takeIf { it >= 0f }?.toString()?.toDouble()
+
+/** [chapters] with each chapter [progress] reaches marked read; one without a number never is. */
+fun readChapters(chapters: Chapters?, progress: Double?): Chapters? =
+    if (chapters !is Chapters.Bound) chapters
+    else
+        chapters.copy(
+            chapters =
+                chapters.chapters.map { row ->
+                    row.copy(read = row.number != null && row.number <= (progress ?: 0.0))
+                }
+        )
 
 fun pickingChapters(candidates: List<Candidate>, cancel: Boolean) =
     Chapters.Picking(
@@ -99,9 +121,8 @@ fun pickingChapters(candidates: List<Candidate>, cancel: Boolean) =
         cancel = cancel,
     )
 
-fun boundChapters(source: String, title: String, chapters: List<SChapter>, changeable: Boolean) =
+fun boundChapters(chapters: List<SChapter>, changeable: Boolean) =
     Chapters.Bound(
-        source = "$source · $title",
         chapters = chapters.map(::chapterRow),
         changeable = changeable,
         note = "No chapters yet.".takeIf { chapters.isEmpty() },
