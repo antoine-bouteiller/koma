@@ -9,6 +9,7 @@ import androidx.core.graphics.ColorUtils
 import com.materialkolor.contrast.Contrast
 import com.materialkolor.dynamiccolor.DynamicScheme
 import com.materialkolor.hct.Hct
+import com.materialkolor.palettes.TonalPalette
 import com.materialkolor.quantize.QuantizerCelebi
 import com.materialkolor.scheme.SchemeContent
 import com.materialkolor.score.Score
@@ -21,13 +22,15 @@ fun colorScheme(settings: ThemeSettings, dark: Boolean, wallpaper: ColorScheme?)
         when {
             style == ColorStyle.MaterialYou && wallpaper != null -> wallpaper
             style == ColorStyle.Monochrome ->
-                baseline.withAccents(0f, 0f, dark).withNeutrals { (_, _, l) -> hsl(0f, 0f, l) }
+                baseline.withAccents(Hct.from(0.0, 0.0, 50.0), dark).withNeutrals { (_, _, l) ->
+                    hsl(0f, 0f, l)
+                }
             else -> baseline
         }
     val accent = settings.accent
     if (accent != null && style != ColorStyle.MaterialYou) {
-        val (hue, saturation) = hslOf(Color(accent))
-        scheme = scheme.withAccents(hue, saturation, dark)
+        val hue = hslOf(Color(accent))[0]
+        scheme = scheme.withAccents(Hct.fromInt(accent), dark)
         // Monochrome keeps its grey surfaces under an accent.
         if (style != ColorStyle.Monochrome) {
             scheme = scheme.withNeutrals { (_, s, l) -> hsl(hue, s, l) }
@@ -133,28 +136,30 @@ private fun ColorScheme.trueBlack(): ColorScheme {
     )
 }
 
-/** Primary, secondary and tertiary roles from one hue, at the lightness each role takes. */
-private fun ColorScheme.withAccents(hue: Float, saturation: Float, dark: Boolean): ColorScheme {
-    fun tone(light: Float, darkTone: Float, s: Float = saturation, h: Float = hue) =
-        hsl(h, s, if (dark) darkTone else light)
-    val muted = saturation * 0.35f
-    val third = (hue + 60f) % 360f
-    val tertiarySaturation = saturation * 0.6f
+/**
+ * Primary, secondary and tertiary roles from [accent]'s hue, at Material's tones. Tones, unlike HSL
+ * lightness, track perceived lightness, so each role contrasts with its text at any hue.
+ */
+private fun ColorScheme.withAccents(accent: Hct, dark: Boolean): ColorScheme {
+    val primary = TonalPalette.fromHueAndChroma(accent.hue, accent.chroma)
+    val secondary = TonalPalette.fromHueAndChroma(accent.hue, accent.chroma * 0.35)
+    val tertiary = TonalPalette.fromHueAndChroma((accent.hue + 60) % 360, accent.chroma * 0.6)
+    fun TonalPalette.at(light: Int, darkTone: Int) = Color(tone(if (dark) darkTone else light))
     return copy(
-        primary = tone(0.40f, 0.78f),
-        onPrimary = tone(0.98f, 0.16f),
-        primaryContainer = tone(0.88f, 0.30f),
-        onPrimaryContainer = tone(0.12f, 0.90f),
-        inversePrimary = tone(0.78f, 0.40f),
-        surfaceTint = tone(0.40f, 0.78f),
-        secondary = tone(0.40f, 0.78f, muted),
-        onSecondary = tone(0.98f, 0.16f, muted),
-        secondaryContainer = tone(0.88f, 0.30f, muted),
-        onSecondaryContainer = tone(0.12f, 0.90f, muted),
-        tertiary = tone(0.40f, 0.78f, tertiarySaturation, third),
-        onTertiary = tone(0.98f, 0.16f, tertiarySaturation, third),
-        tertiaryContainer = tone(0.88f, 0.30f, tertiarySaturation, third),
-        onTertiaryContainer = tone(0.12f, 0.90f, tertiarySaturation, third),
+        primary = primary.at(40, 80),
+        onPrimary = primary.at(100, 20),
+        primaryContainer = primary.at(90, 30),
+        onPrimaryContainer = primary.at(10, 90),
+        inversePrimary = primary.at(80, 40),
+        surfaceTint = primary.at(40, 80),
+        secondary = secondary.at(40, 80),
+        onSecondary = secondary.at(100, 20),
+        secondaryContainer = secondary.at(90, 30),
+        onSecondaryContainer = secondary.at(10, 90),
+        tertiary = tertiary.at(40, 80),
+        onTertiary = tertiary.at(100, 20),
+        tertiaryContainer = tertiary.at(90, 30),
+        onTertiaryContainer = tertiary.at(10, 90),
     )
 }
 

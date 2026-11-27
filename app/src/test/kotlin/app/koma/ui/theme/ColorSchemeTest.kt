@@ -7,6 +7,7 @@ import androidx.compose.ui.graphics.Color
 import androidx.compose.ui.graphics.luminance
 import androidx.compose.ui.graphics.toArgb
 import androidx.core.graphics.ColorUtils
+import com.materialkolor.hct.Hct
 import org.junit.Assert.assertEquals
 import org.junit.Assert.assertNotEquals
 import org.junit.Assert.assertNull
@@ -50,7 +51,7 @@ class ColorSchemeTest {
     fun `an accent sets the primary hue, also where Material You is missing`() {
         val settings = ThemeSettings(style = ColorStyle.MaterialYou, accent = green.toArgb())
         val primary = colorScheme(settings, dark = true, wallpaper = null).primary
-        assertEquals(hue(green), hue(primary), 1f)
+        assertEquals(Hct.fromInt(green.toArgb()).hue, Hct.fromInt(primary.toArgb()).hue, 1.0)
     }
 
     @Test
@@ -108,6 +109,33 @@ class ColorSchemeTest {
             assertTrue("dark=$dark: $contrast", contrast >= 7.0)
         }
     }
+
+    @Test
+    fun `an accent of any hue keeps text readable on its colors`() {
+        for (hue in 0 until 360 step 15) {
+            val accent = ColorUtils.HSLToColor(floatArrayOf(hue.toFloat(), 1f, 0.5f))
+            for (dark in listOf(false, true)) {
+                val scheme = colorScheme(ThemeSettings(accent = accent), dark, null)
+                for ((name, pair) in accentPairs(scheme)) {
+                    val contrast = ColorUtils.calculateContrast(pair.first, pair.second)
+                    assertTrue("hue=$hue dark=$dark $name: $contrast", contrast >= 4.5)
+                }
+            }
+        }
+    }
+
+    private fun accentPairs(scheme: ColorScheme): Map<String, Pair<Int, Int>> =
+        with(scheme) {
+            mapOf(
+                    "primary" to (onPrimary to primary),
+                    "primaryContainer" to (onPrimaryContainer to primaryContainer),
+                    "secondary" to (onSecondary to secondary),
+                    "secondaryContainer" to (onSecondaryContainer to secondaryContainer),
+                    "tertiary" to (onTertiary to tertiary),
+                    "tertiaryContainer" to (onTertiaryContainer to tertiaryContainer),
+                )
+                .mapValues { (_, it) -> it.first.toArgb() to it.second.toArgb() }
+        }
 
     private fun hue(color: Color): Float =
         FloatArray(3).also { ColorUtils.colorToHSL(color.toArgb(), it) }[0]
