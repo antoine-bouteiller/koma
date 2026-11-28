@@ -75,6 +75,7 @@ class AppHarness : TestRule {
     val network = FakeNetwork()
     val secrets = MemorySecretStore()
     val preferences = MemoryPreferenceStore()
+    val permissions = FakePermissions()
     val browser = FakeBrowser()
     /** The APKs handed to Android's installer. */
     val installed = mutableListOf<File>()
@@ -161,6 +162,7 @@ class AppHarness : TestRule {
                 backend = backend ?: MangaBakaBackend(http, secrets, browser, clock),
                 sources = sources(),
                 preferences = preferences,
+                permissions = permissions,
                 clock = clock,
                 zone = { zone },
                 installedVersion = "0.1.0",

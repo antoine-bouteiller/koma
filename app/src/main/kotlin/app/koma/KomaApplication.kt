@@ -34,6 +34,7 @@ class KomaApplication : Application() {
             backend = MangaBakaBackend(http, KeystoreSecretStore(this), browser, clock),
             sources = sources(),
             preferences = SharedPreferenceStore(this),
+            permissions = AndroidPermissions(this),
             clock = clock,
             zone = { ZoneId.systemDefault() },
             installedVersion = BuildConfig.VERSION_NAME,

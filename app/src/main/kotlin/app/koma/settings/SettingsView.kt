@@ -53,6 +53,7 @@ fun SettingsView(
             null -> SettingsRoot(account, onOpen)
             SettingsPage.Theme -> ThemeView(container)
             SettingsPage.Account -> AccountSettings(account, onSignIn, onSignOut)
+            SettingsPage.Permissions -> PermissionsView(container)
         }
     }
 }
@@ -80,6 +81,16 @@ private fun SettingsRoot(account: Account, onOpen: (SettingsPage) -> Unit) {
                         tag = "settings-account",
                         subtitle = accountSummary(account),
                         onClick = { onOpen(SettingsPage.Account) },
+                    )
+                },
+                GroupRow { shape ->
+                    SettingsRow(
+                        title = "Permissions",
+                        icon = R.drawable.ic_verified_user,
+                        shape = shape,
+                        tag = "settings-permissions",
+                        subtitle = "Notifications and battery optimization",
+                        onClick = { onOpen(SettingsPage.Permissions) },
                     )
                 },
             )

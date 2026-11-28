@@ -18,7 +18,7 @@ Koma is a Kotlin and Jetpack Compose app in one Gradle module, `app/`, with pack
 | `app.koma.updates` | The Updates tab: the new chapters of library titles |
 | `app.koma.title` | A title's screen: the backend's facts, summary and tags, and its library status and rating |
 | `app.koma.update` | The header pill offering a newer release, its download and its hand-off to the installer |
-| `app.koma.settings` | The Settings tab: the Theme and account pages |
+| `app.koma.settings` | The Settings tab: the Theme, account and Permissions pages |
 | `app.koma.ui` | The app shell: tabs, header, empty states, settings rows, option groups, day labels, theme |
 | `app.koma.version` | `versionCode`, also compiled by `buildSrc` for the build |
 

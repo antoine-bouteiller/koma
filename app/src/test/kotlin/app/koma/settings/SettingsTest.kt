@@ -1,5 +1,7 @@
 package app.koma.settings
 
+import androidx.compose.ui.test.assertIsEnabled
+import androidx.compose.ui.test.assertIsNotEnabled
 import androidx.compose.ui.test.assertIsOff
 import androidx.compose.ui.test.assertIsOn
 import androidx.compose.ui.test.assertTextEquals
@@ -8,6 +10,7 @@ import app.koma.testing.CHANGES
 import app.koma.testing.PROFILE
 import app.koma.testing.changes
 import app.koma.testing.profile
+import org.junit.Assert.assertEquals
 import org.junit.Rule
 import org.junit.Test
 import org.junit.runner.RunWith
@@ -84,5 +87,35 @@ class SettingsTest {
         app.node("settings-account").assertTextEquals("MangaBaka", "Signed in")
         app.tap("settings-account")
         app.text("account-name-title", "MangaBaka account")
+    }
+
+    @Test
+    fun `the Permissions page opens the settings of each permission not yet granted`() {
+        app.launch()
+        app.tap("tab-settings")
+        app.tap("settings-permissions")
+        app.text("title-permissions", "Permissions")
+        app.node("permission-notifications").assertIsEnabled()
+        app.tap("permission-notifications")
+        app.tap("permission-battery")
+        assertEquals(listOf("notifications", "battery"), app.permissions.opened)
+    }
+
+    @Test
+    fun `a granted permission says so and opens nothing`() {
+        app.permissions.notifications = true
+        app.permissions.batteryOptimizationOff = true
+        app.launch()
+        app.tap("tab-settings")
+        app.tap("settings-permissions")
+        app.node("permission-notifications")
+            .assertIsNotEnabled()
+            .assertTextEquals("Enable notifications", "Already enabled")
+        app.node("permission-battery")
+            .assertIsNotEnabled()
+            .assertTextEquals("Disable battery optimization", "Already disabled")
+        app.tap("permission-notifications")
+        app.tap("permission-battery")
+        assertEquals(emptyList<String>(), app.permissions.opened)
     }
 }

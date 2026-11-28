@@ -43,6 +43,19 @@ interface PreferenceStore {
     fun set(key: String, value: String)
 }
 
+/** What Android lets Koma do in the background, and the system settings that change it. */
+interface Permissions {
+    fun notificationsEnabled(): Boolean
+
+    fun batteryOptimizationDisabled(): Boolean
+
+    /** Opens Android's notification settings for Koma. */
+    fun enableNotifications()
+
+    /** Asks Android to stop optimizing Koma's battery use. */
+    fun disableBatteryOptimization()
+}
+
 fun interface AuthBrowser {
     /** Opens [url] and answers the [redirect] it comes back to, or null when cancelled. */
     suspend fun open(url: String, redirect: String): Uri?
@@ -57,6 +70,7 @@ class AppContainer(
     /** The sources chapters come from, in the order binding tries them. */
     sources: List<CatalogSource>,
     val preferences: PreferenceStore,
+    val permissions: Permissions,
     val clock: Clock,
     val zone: () -> ZoneId,
     val installedVersion: String,

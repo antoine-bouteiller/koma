@@ -7,6 +7,7 @@ import app.koma.data.httpClient
 import app.koma.testing.AppHarness
 import app.koma.testing.FakeBackend
 import app.koma.testing.FakeNetwork
+import app.koma.testing.FakePermissions
 import app.koma.testing.MemoryPreferenceStore
 import app.koma.testing.TEST_SOURCE
 import app.koma.testing.TestSource
@@ -90,6 +91,7 @@ class SourceRuntimeTest {
             backend = FakeBackend(),
             sources = listOf(CatalogSource(TestSource())),
             preferences = MemoryPreferenceStore(),
+            permissions = FakePermissions(),
             clock = Clock.systemUTC(),
             zone = { ZoneOffset.UTC },
             installedVersion = "0.1.0",
