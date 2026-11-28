@@ -78,22 +78,47 @@ class SourceRepository(private val store: Store, private val sources: List<Catal
     }
 
     /**
-     * The chapters of [binding]'s manga, one load of a manga at a time. Null when Koma no longer
-     * lists its source.
+     * The chapters of [binding]'s manga: the stored ones, else fetched from the source and stored.
+     * [refresh] fetches them even when stored. One load of a manga at a time. Null when Koma no
+     * longer lists its source.
      */
-    suspend fun chapters(binding: Binding): List<SChapter>? {
+    suspend fun chapters(binding: Binding, refresh: Boolean = false): List<SChapter>? {
         val source = source(binding.source) ?: return null
-        val manga =
-            SManga.create().apply {
-                url = binding.mangaUrl
-                title = binding.title
-            }
         val load = loads.computeIfAbsent(binding.source to binding.mangaUrl) { Mutex() }
         return load.withLock {
-            source
-                .getMangaUpdate(manga, emptyList(), fetchDetails = false, fetchChapters = true)
-                .chapters
+            if (!refresh)
+                stored(binding)?.let {
+                    return@withLock it
+                }
+            val manga =
+                SManga.create().apply {
+                    url = binding.mangaUrl
+                    title = binding.title
+                }
+            val chapters =
+                source
+                    .getMangaUpdate(manga, emptyList(), fetchDetails = false, fetchChapters = true)
+                    .chapters
+            store.write { put(binding, chapters) }
+            chapters
         }
+    }
+
+    private fun stored(binding: Binding): List<SChapter>? = store.read {
+        if (chapterQueries.listed(binding.source, binding.mangaUrl).executeAsOne() == 0L) {
+            return@read null
+        }
+        chapterQueries
+            .stored(binding.source, binding.mangaUrl) { url, name, scanlator, number, uploaded ->
+                SChapter.create().apply {
+                    this.url = url
+                    this.name = name
+                    this.scanlator = scanlator
+                    chapter_number = number.toFloat()
+                    date_upload = uploaded
+                }
+            }
+            .executeAsList()
     }
 
     /** How many sources Koma lists. */
@@ -126,6 +151,23 @@ class SourceRepository(private val store: Store, private val sources: List<Catal
                 }
         }
         return null
+    }
+
+    private fun KomaDatabase.put(binding: Binding, chapters: List<SChapter>) {
+        chapterQueries.clear(binding.source, binding.mangaUrl)
+        chapters.forEachIndexed { position, chapter ->
+            chapterQueries.put(
+                binding.source,
+                binding.mangaUrl,
+                position.toLong(),
+                chapter.url,
+                chapter.name,
+                chapter.scanlator,
+                chapter.chapter_number.toDouble(),
+                chapter.date_upload,
+            )
+        }
+        chapterQueries.list(binding.source, binding.mangaUrl)
     }
 
     private fun KomaDatabase.put(ref: MediaRef, binding: Binding) =

@@ -26,6 +26,13 @@ import kotlinx.coroutines.launch
 
 private data class Save(val saving: Change? = null, val failed: Change? = null)
 
+private data class Screen(
+    val load: Load,
+    val save: Save,
+    val chapters: Chapters?,
+    val refreshing: Boolean,
+)
+
 private data class Load(
     val ready: Boolean = false,
     val failed: Boolean = false,
@@ -39,6 +46,7 @@ class TitleViewModel(private val container: AppContainer, private val ref: Media
     private var loading: Job? = null
     private val hasSources = container.sources.count > 0
     private val reading = MutableStateFlow<Chapters?>(if (hasSources) Chapters.Loading else null)
+    private val refreshing = MutableStateFlow(false)
     private var readingJob: Job? = null
     private var details: MediaDetails? = null
     /** The candidates [Chapters.Picking] shows, by [pickKey]. */
@@ -53,8 +61,8 @@ class TitleViewModel(private val container: AppContainer, private val ref: Media
                 container.media.media(ref),
                 container.library.entry(ref),
                 container.media.details(ref),
-                combine(loaded, save, reading, ::Triple),
-            ) { media, entry, details, (load, s, chapters) ->
+                combine(loaded, save, reading, refreshing, ::Screen),
+            ) { media, entry, details, (load, s, chapters, pulled) ->
                 titleState(
                         backend,
                         media,
@@ -66,7 +74,10 @@ class TitleViewModel(private val container: AppContainer, private val ref: Media
                         load.ready,
                         load.seed,
                     )
-                    .copy(chapters = readChapters(chapters, entry?.progress))
+                    .copy(
+                        chapters = readChapters(chapters, entry?.progress),
+                        refreshing = pulled,
+                    )
             }
             // Stops watching the store once the screen is gone, as one model is kept per title.
             .stateIn(
@@ -128,17 +139,28 @@ class TitleViewModel(private val container: AppContainer, private val ref: Media
                 if (failed) {
                     loaded.value = Load(ready = true, failed = true)
                     reading.value = null
-                } else loadChapters()
+                } else listChapters(fetch = false, keep = false)
             }
     }
 
-    /** Binds the title to a source manga, unless one is stored, then lists its chapters. */
-    fun loadChapters() {
+    /** Asks the source again for the chapters. */
+    fun loadChapters() = listChapters(fetch = true, keep = false)
+
+    /** Asks again for the chapters, or for the details when they failed, keeping what shows. */
+    fun refresh() {
+        if (details == null) load() else listChapters(fetch = true, keep = true)
+    }
+
+    /**
+     * Binds the title to a source manga, unless one is stored, then lists its chapters: the stored
+     * ones unless [fetch]. [keep] shows the current chapters until the new ones are in.
+     */
+    private fun listChapters(fetch: Boolean, keep: Boolean) {
         val details = details ?: return
         if (!hasSources) return
-        read {
+        read(keep) {
             val binding = container.sources.resolve(details)
-            if (binding == null) picking(details, cancel = false) else bound(binding)
+            if (binding == null) picking(details, cancel = false) else bound(binding, fetch)
         }
     }
 
@@ -163,9 +185,9 @@ class TitleViewModel(private val container: AppContainer, private val ref: Media
     }
 
     // One source request at a time per screen.
-    private fun read(work: suspend () -> Chapters) {
+    private fun read(keep: Boolean = false, work: suspend () -> Chapters) {
         if (readingJob?.isActive == true) return
-        reading.value = Chapters.Loading
+        if (keep) refreshing.value = true else reading.value = Chapters.Loading
         readingJob =
             viewModelScope.launch(container.work) {
                 reading.value =
@@ -175,6 +197,8 @@ class TitleViewModel(private val container: AppContainer, private val ref: Media
                         throw e
                     } catch (_: Exception) {
                         Chapters.Failed
+                    } finally {
+                        refreshing.value = false
                     }
             }
     }
@@ -185,10 +209,11 @@ class TitleViewModel(private val container: AppContainer, private val ref: Media
         return pickingChapters(found, cancel)
     }
 
-    private suspend fun bound(binding: Binding): Chapters {
+    private suspend fun bound(binding: Binding, fetch: Boolean = false): Chapters {
         val details = checkNotNull(details)
         val chapters =
-            container.sources.chapters(binding) ?: return picking(details, cancel = false)
+            container.sources.chapters(binding, refresh = fetch)
+                ?: return picking(details, cancel = false)
         return boundChapters(chapters, changeable = container.sources.count > 1).also { bound = it }
     }
 

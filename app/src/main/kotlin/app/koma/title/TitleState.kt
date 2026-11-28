@@ -58,6 +58,8 @@ data class TitleState(
     val seed: Int?,
     /** Null when Koma lists no source. */
     val chapters: Chapters? = null,
+    /** Whether the chapters are being asked for again while the current ones show. */
+    val refreshing: Boolean = false,
 )
 
 /** Where the title's chapters come from, and what they are. */

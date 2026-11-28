@@ -1,0 +1,20 @@
+-- Public data, kept across sign-outs: the chapters a source last listed for a manga, in its order. `source` is Mihon's Source.id.
+CREATE TABLE IF NOT EXISTS chapter (source INTEGER NOT NULL, manga_url TEXT NOT NULL, position INTEGER NOT NULL, url TEXT NOT NULL, name TEXT NOT NULL, scanlator TEXT, number REAL NOT NULL, uploaded INTEGER NOT NULL, PRIMARY KEY (source, manga_url, position));
+
+-- The source manga whose chapters are stored, so a manga without chapters is told from one never listed.
+CREATE TABLE IF NOT EXISTS chapter_list (source INTEGER NOT NULL, manga_url TEXT NOT NULL, PRIMARY KEY (source, manga_url));
+
+listed:
+SELECT count(*) FROM chapter_list WHERE source = ? AND manga_url = ?;
+
+stored:
+SELECT url, name, scanlator, number, uploaded FROM chapter WHERE source = ? AND manga_url = ? ORDER BY position;
+
+clear:
+DELETE FROM chapter WHERE source = ? AND manga_url = ?;
+
+put:
+INSERT INTO chapter (source, manga_url, position, url, name, scanlator, number, uploaded) VALUES (?, ?, ?, ?, ?, ?, ?, ?);
+
+list:
+INSERT OR REPLACE INTO chapter_list (source, manga_url) VALUES (?, ?);

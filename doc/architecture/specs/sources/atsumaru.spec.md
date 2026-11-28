@@ -165,7 +165,7 @@ internal class AtsumaruFinder(private val source: AtsumaruSource) : Finder {
 @Serializable private class Ids(val mangaBakaId: String? = null)
 ```
 
-`variants` is `doc/architecture/specs/sources/sources.spec.md` `[CT-19]`'s. It searches each
+`variants` is `doc/architecture/specs/sources/sources.spec.md` `[CT-19.1]`'s. It searches each
 variant in order and reads the manga page of its top three hits not read for an earlier variant.
 It answers the first hit whose `mangaBakaId` equals `media.ref.id`, and stops there. `AdultFilter`
 is the extension's `internal` class, visible because Koma builds one module (`[KD-30]`). The

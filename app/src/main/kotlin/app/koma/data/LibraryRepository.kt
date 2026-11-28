@@ -75,6 +75,9 @@ class LibraryRepository(
             Library(synced, items)
         }
 
+    /** Whether the library has been read from the backend. */
+    fun synced(): Boolean = store.meta(CURSOR) != null
+
     /** Null when the stored library does not hold [ref]. */
     fun entry(ref: MediaRef): Flow<ListEntry?> =
         store.watch({ listOf(libraryEntryQueries.entry(ref.backend.name, ref.id)) }) {

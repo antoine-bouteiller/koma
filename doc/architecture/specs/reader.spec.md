@@ -102,7 +102,7 @@ create table reading_mode (
 The tables extend `doc/architecture/specs/app.spec.md` `[CT-4.5]` through an additive migration.
 `status` and `mode` hold enum names; `source` is Mihon's `Source.id`. The store holds no read flags
 (`[KD-13]`). `[KD-10]` rewrites `media_id` in `library_entry`, `progress_outbox`, `reading_mode`
-and `doc/architecture/specs/sources/sources.spec.md` `[CT-13]`'s `binding`.
+and `doc/architecture/specs/sources/sources.spec.md` `[CT-13.1]`'s `binding`.
 
 ### [CT-5.1] Read state
 

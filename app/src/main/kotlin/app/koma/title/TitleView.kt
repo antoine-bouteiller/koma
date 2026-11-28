@@ -44,6 +44,9 @@ import androidx.compose.material3.MaterialTheme
 import androidx.compose.material3.ModalBottomSheet
 import androidx.compose.material3.Surface
 import androidx.compose.material3.Text
+import androidx.compose.material3.pulltorefresh.PullToRefreshBox
+import androidx.compose.material3.pulltorefresh.PullToRefreshDefaults
+import androidx.compose.material3.pulltorefresh.rememberPullToRefreshState
 import androidx.compose.material3.rememberModalBottomSheetState
 import androidx.compose.runtime.Composable
 import androidx.compose.runtime.getValue
@@ -102,7 +105,7 @@ fun TitleView(container: AppContainer, ref: MediaRef, contentPadding: PaddingVal
     }
 }
 
-@OptIn(ExperimentalMaterial3ExpressiveApi::class)
+@OptIn(ExperimentalMaterial3Api::class, ExperimentalMaterial3ExpressiveApi::class)
 @Composable
 private fun TitleContent(
     container: AppContainer,
@@ -114,45 +117,64 @@ private fun TitleContent(
     var rating by rememberSaveable { mutableStateOf(false) }
     val list = rememberLazyListState()
     TrackHeaderBackdrop(list)
-    LazyColumn(
-        state = list,
-        contentPadding = PaddingValues(bottom = contentPadding.calculateBottomPadding() + 16.dp),
-        modifier = Modifier.fillMaxSize().testTag("title-content"),
+    val pull = rememberPullToRefreshState()
+    PullToRefreshBox(
+        isRefreshing = state.refreshing,
+        onRefresh = model::refresh,
+        state = pull,
+        enabled = state.chapters != null,
+        indicator = {
+            PullToRefreshDefaults.LoadingIndicator(
+                state = pull,
+                isRefreshing = state.refreshing,
+                modifier =
+                    Modifier.align(Alignment.TopCenter)
+                        .padding(top = contentPadding.calculateTopPadding()),
+            )
+        },
     ) {
-        item(key = "header") {
-            Header(state, container.images, contentPadding.calculateTopPadding())
-        }
-        section(key = "status") {
-            StatusButton(state, onPick = { picking = true }, onRate = { rating = true })
-        }
-        when (val about = state.about) {
-            About.Loading -> Unit
-            About.Failed ->
-                section(key = "failed") {
-                    Column(
-                        Modifier.fillMaxWidth().padding(horizontal = 16.dp),
-                        horizontalAlignment = Alignment.CenterHorizontally,
-                        verticalArrangement = Arrangement.spacedBy(12.dp),
-                    ) {
-                        Text(
-                            "${model.backend} did not answer.",
-                            style = MaterialTheme.typography.bodyMedium,
-                            color = MaterialTheme.colorScheme.onSurfaceVariant,
-                        )
-                        PillButton(
-                            "Try Again",
-                            onClick = model::load,
-                            outlined = true,
-                            modifier = Modifier.testTag("title-retry"),
-                        )
-                    }
-                }
-            is About.Loaded -> {
-                if (about.summary.isNotEmpty()) section(key = "summary") { Summary(about.summary) }
-                if (about.tags.isNotEmpty()) section(key = "tags") { Tags(about.tags) }
+        LazyColumn(
+            state = list,
+            contentPadding =
+                PaddingValues(bottom = contentPadding.calculateBottomPadding() + 16.dp),
+            modifier = Modifier.fillMaxSize().testTag("title-content"),
+        ) {
+            item(key = "header") {
+                Header(state, container.images, contentPadding.calculateTopPadding())
             }
+            section(key = "status") {
+                StatusButton(state, onPick = { picking = true }, onRate = { rating = true })
+            }
+            when (val about = state.about) {
+                About.Loading -> Unit
+                About.Failed ->
+                    section(key = "failed") {
+                        Column(
+                            Modifier.fillMaxWidth().padding(horizontal = 16.dp),
+                            horizontalAlignment = Alignment.CenterHorizontally,
+                            verticalArrangement = Arrangement.spacedBy(12.dp),
+                        ) {
+                            Text(
+                                "${model.backend} did not answer.",
+                                style = MaterialTheme.typography.bodyMedium,
+                                color = MaterialTheme.colorScheme.onSurfaceVariant,
+                            )
+                            PillButton(
+                                "Try Again",
+                                onClick = model::load,
+                                outlined = true,
+                                modifier = Modifier.testTag("title-retry"),
+                            )
+                        }
+                    }
+                is About.Loaded -> {
+                    if (about.summary.isNotEmpty())
+                        section(key = "summary") { Summary(about.summary) }
+                    if (about.tags.isNotEmpty()) section(key = "tags") { Tags(about.tags) }
+                }
+            }
+            state.chapters?.let { chapters(it, model) }
         }
-        state.chapters?.let { chapters(it, model) }
     }
     if (picking) {
         StatusSheet(

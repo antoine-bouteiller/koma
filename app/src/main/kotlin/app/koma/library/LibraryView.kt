@@ -49,7 +49,7 @@ fun LibraryView(
                     "${model.backend} did not answer.",
                     Modifier.padding(contentPadding),
                 ) {
-                    Button(onClick = model::sync, modifier = Modifier.testTag("library-retry")) {
+                    Button(onClick = model::refresh, modifier = Modifier.testTag("library-retry")) {
                         Text("Try Again")
                     }
                 }
@@ -64,7 +64,7 @@ fun LibraryView(
                     model.backend,
                     container.images,
                     contentPadding,
-                    model::sync,
+                    model::refresh,
                     onOpen,
                 )
         }

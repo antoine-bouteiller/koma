@@ -96,7 +96,8 @@ class AtsumaruTest {
 
         shows("pick-$ATSUMARU-A", "Solo Leveling", "Atsumaru")
         shows("pick-$ATSUMARU-B", "I Level Up Alone", "Atsumaru")
-        assertEquals(listOf("${PAGE}A", "${PAGE}B"), app.network.requested(PAGE))
+        // The library's first update asked the same pages.
+        assertEquals(listOf("${PAGE}A", "${PAGE}B"), app.network.requested(PAGE).distinct())
         // The candidates' search, the last, leaves adult titles out.
         assertEquals(
             "medium:!=[`Novel`] && isAdult:=false && views:>0 && hidden:!=true",

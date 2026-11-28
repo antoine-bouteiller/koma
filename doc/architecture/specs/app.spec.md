@@ -1,6 +1,6 @@
 ---
 title: Koma
-status: implemented
+status: amended
 author: Antoine Bouteiller
 date: 2026-11-26
 module:
@@ -67,6 +67,7 @@ MangaBaka without a manual step. Koma is a personal Android app in Kotlin and Je
 | `[KD-1.1]` Framework | Native Android: Kotlin and Jetpack Compose in one Gradle module, `app/`, with SQLite through SQLDelight | Android is the only host (`[KD-2.1]`), and Gradle builds it with no Rust, Hermes or wasm toolchain. |
 | `[KD-2.1]` Host | Android only (`[NG-1]`) | Scope choice for a personal app. Only the UI and the platform seams depend on Android (`[PI-2.2]`). |
 | `[KD-8.1]` Library | The backend library grouped by status, cached in SQLite. Read whole once through `changes(null)`, then kept current with a stored cursor. A refused cursor (`ExpiredCursorException`) triggers one full read. A backend without a changes feed refuses every cursor. | `[NG-2]`. The feed carries removals, so the cache never keeps a deleted entry. One member serves backends with and without a feed. |
+| `[KD-31]` Library refresh | The library syncs, then updates its titles' chapters (`doc/architecture/specs/sources/sources.spec.md` `[CT-22]`), when the user pulls the Library down, when it first shows after a sign-in in this process, and while it was never synced. A launch over a synced library sends no request for it. | Mihon's model: a launch costs no request, and the user decides when the library and its chapters refresh. The first update after a sign-in fetches every title's chapters once. |
 | `[KD-21]` Repositories | `MediaRepository`, `LibraryRepository`, `HistoryRepository` and `AccountRepository` in `app.koma.data`, one instance each, built by `AppContainer` (`[CT-10.4]`). Library and history sync run inside them. | Android's data-layer guidance: one repository per kind of data, over the network and the database. Any screen reuses the same data. |
 | `[KD-22]` Backend name in copy | UI strings that name the backend read `Backend.name`. | Replacing the backend touches no screen. |
 | `[KD-23]` Rating | The title screen's status button splits once the library holds the title: its trailing half shows the user's rating and opens a gauge from 0 to 5 in half points. 0 clears the rating. | MangaBaka rates out of 100 and stores 0 as none. Half points keep a drag along the gauge's arc precise. |
@@ -146,7 +147,7 @@ history cursors and is cleared at sign-out with `library_entry` and `read_event`
 converts stored scores to the 0.0–5.0 scale. `library_entry.score` is null when the user has not
 rated the media. The migration that adds it drops the library cursor, so the next sync reads the
 library whole and fills it in. Sources, the reader and Discover add their tables through additive
-migrations (`doc/architecture/specs/sources/sources.spec.md` `[CT-13]`,
+migrations (`doc/architecture/specs/sources/sources.spec.md` `[CT-13.1]`,
 `doc/architecture/specs/reader.spec.md` `[CT-14]`, `doc/architecture/specs/discover.spec.md`
 `[CT-15]`).
 
@@ -173,6 +174,7 @@ data class Library(val synced: Boolean, val items: List<LibraryItem>)
 
 class LibraryRepository(store: Store, backend: Backend, media: MediaRepository, clock: Clock) {
     val library: Flow<Library>
+    fun synced(): Boolean                                       // the library was read once
     fun entry(ref: MediaRef): Flow<ListEntry?>
     suspend fun sync()
     suspend fun setStatus(ref: MediaRef, status: ListStatus)

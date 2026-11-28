@@ -1,0 +1,3 @@
+-- The chapters each source manga last listed.
+CREATE TABLE IF NOT EXISTS chapter (source INTEGER NOT NULL, manga_url TEXT NOT NULL, position INTEGER NOT NULL, url TEXT NOT NULL, name TEXT NOT NULL, scanlator TEXT, number REAL NOT NULL, uploaded INTEGER NOT NULL, PRIMARY KEY (source, manga_url, position));
+CREATE TABLE IF NOT EXISTS chapter_list (source INTEGER NOT NULL, manga_url TEXT NOT NULL, PRIMARY KEY (source, manga_url));

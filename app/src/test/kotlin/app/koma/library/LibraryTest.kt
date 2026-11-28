@@ -51,6 +51,11 @@ class LibraryTest {
         app.launch()
     }
 
+    private fun pull() {
+        app.node("library-reading").performTouchInput { swipeDown(top + height / 4, bottom) }
+        app.awaitIdle()
+    }
+
     private fun barTop(): Dp = app.node("tabs").getUnclippedBoundsInRoot().top
 
     private fun rootBottom(): Dp = app.node("root").getUnclippedBoundsInRoot().bottom
@@ -288,7 +293,7 @@ class LibraryTest {
             ),
         )
         app.network.answer("$BATCH?id=7", 200, batch(series(7, "Pluto")))
-        app.reload()
+        pull()
         app.text("manga-7", "Pluto")
         app.text("manga-2", "Vagabond")
         app.missing("manga-1")
@@ -315,7 +320,7 @@ class LibraryTest {
             200,
             changes("c2", false, upsert(2, "reading", "2026-01-02T00:00:00Z")),
         )
-        app.reload()
+        pull()
         app.text("manga-2", "Vagabond")
         app.missing("manga-1")
     }

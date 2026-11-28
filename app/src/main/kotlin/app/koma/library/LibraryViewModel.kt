@@ -29,23 +29,29 @@ class LibraryViewModel(private val container: AppContainer) : ViewModel() {
             )
             .stateIn(viewModelScope, SharingStarted.Eagerly, LibraryState.Loading)
 
-    /** Syncs once per sign-in, when the library first shows. */
+    /**
+     * Updates the library and its chapters when it first shows after a sign-in in this process, or
+     * while it was never synced. Otherwise it waits for [refresh].
+     */
     fun open() {
         val session = container.account.signIns
         if (openedFor == session) return
         openedFor = session
-        sync()
+        update { session > 0 || !container.library.synced() }
     }
 
-    fun sync() {
+    fun refresh() = update { true }
+
+    private fun update(wanted: () -> Boolean) {
         if (job?.isActive == true) return
-        syncing.value = true
-        lastFailed.value = false
         job =
             viewModelScope.launch(container.work) {
+                if (!wanted()) return@launch
+                syncing.value = true
+                lastFailed.value = false
                 // Newer reads reorder the shelves; without them, they keep their order.
                 launch { failed { container.history.syncNewer() } }
-                lastFailed.value = failed { container.library.sync() }
+                lastFailed.value = failed { container.updater.update() }
                 syncing.value = false
             }
     }

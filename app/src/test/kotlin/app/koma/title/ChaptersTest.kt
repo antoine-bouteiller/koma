@@ -7,6 +7,8 @@ import androidx.compose.ui.test.assertTextEquals
 import androidx.compose.ui.test.hasStateDescription
 import androidx.compose.ui.test.hasTestTag
 import androidx.compose.ui.test.performScrollToNode
+import androidx.compose.ui.test.performTouchInput
+import androidx.compose.ui.test.swipeDown
 import app.koma.source.CatalogSource
 import app.koma.source.details
 import app.koma.testing.AppHarness
@@ -102,7 +104,7 @@ class ChaptersTest {
     }
 
     @Test
-    fun `a bound title lists its chapters again without searching`() {
+    fun `a title lists its stored chapters again without asking the source`() {
         solo("Test Source" to 77)
         app.network.answer(FIRST, 200, mangas("a" to "Solo Leveling"))
         app.network.answer("$TEST_SOURCE/manga/a", 200, chapters(chapter("a/1", "Prologue", 1f)))
@@ -115,6 +117,27 @@ class ChaptersTest {
 
         shows("chapter-a/1", "Prologue")
         assertEquals(1, app.network.requested(FIRST).size)
+        assertEquals(1, app.network.requested("$TEST_SOURCE/manga/a").size)
+    }
+
+    @Test
+    fun `pulling a title down lists its chapters again from the source`() {
+        solo("Test Source" to 77)
+        app.network.answer(FIRST, 200, mangas("a" to "Solo Leveling"))
+        app.network.answer("$TEST_SOURCE/manga/a", 200, chapters(chapter("a/1", "Prologue", 1f)))
+        app.launch()
+        open()
+        app.network.answer(
+            "$TEST_SOURCE/manga/a",
+            200,
+            chapters(chapter("a/2", "Chapter 2", 2f), chapter("a/1", "Prologue", 1f)),
+        )
+
+        app.node("title-content").performTouchInput { swipeDown(top + height / 4, bottom) }
+        app.awaitIdle()
+
+        shows("chapter-a/2", "Chapter 2")
+        assertEquals(2, app.network.requested("$TEST_SOURCE/manga/a").size)
     }
 
     @Test
