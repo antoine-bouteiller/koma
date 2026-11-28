@@ -55,7 +55,7 @@ proves the match before binding it.
 | `[KD-34]` Unmatched titles | A title no source binds is stored as unmatched, and storing a binding clears it. A library update still searches it each time (`[C-15]`), and notifies the titles it found no source for once it ends. Each unmatched Library cover shows a red error badge in place of its unread count. A failed request marks nothing. | Mihon's model: a library update reports the titles it could not update. The badge tells which titles need a binding picked on their title screen without opening each one. |
 | `[KD-35]` New chapters | A refetch that lists chapters the stored list lacked stores each as found, at the time it found it; a manga's first fetch finds none. The Updates tab lists the found chapters of library titles, without hidden scanlators', and tapping one opens its title. A library update then notifies the chapters it found, by title; a title screen's pull notifies nothing. Sign-out forgets the found chapters. | Mihon's model: the Updates tab gathers what each update brought, and a notification tells of it without opening the app. A first fetch lists a title's whole history, which is not news. The user pulling a title already sees its new chapters. |
 | `[KD-36]` Outdated part chapters | A chapter whose number is not whole, as 126.1, is hidden once the stored list holds a chapter of a later whole number, as 127 or 127.5, whatever its scanlator. While none does, as with 126.1 and 126.2 the latest, it shows. The title screen, the unread badge, the Updates tab and the new-chapters notification leave hidden ones out. | Sources often list a hiatus or delay notice as a part chapter, which a later chapter makes stale. Hiding it everywhere keeps the badge and the Updates tab equal to what the title screen shows. |
-| `[KD-37]` Automatic updates | The Library header's menu opens "Automatic updates": an interval, Off by default, and the restrictions Wi-Fi only (on by default), while charging, and battery not low. Set, the library update (`[CT-22.2]`) runs every interval as a WorkManager periodic work whose constraints are the restrictions and a network connection; a run due while one fails waits until all hold. It updates the stored library's chapters without syncing the library first. A pull ignores the restrictions. | Mihon's model: the library stays current without opening the app, on the user's terms. WorkManager defers a due run until its constraints hold rather than skipping it. |
+| `[KD-37]` Automatic updates | The Library header's menu opens "Automatic updates": an interval, Off by default, and the restrictions Wi-Fi only (on by default), while charging, and battery not low. Set, the library update (`[CT-22.2]`) runs every interval as a WorkManager periodic work whose constraints are the restrictions and a network connection; a run due while one fails waits until all hold. Each run is what a pull runs: it syncs the library and the newer reads, then updates the chapters once the library synced. A pull ignores the restrictions. | Mihon's model: the library stays current without opening the app, on the user's terms. WorkManager defers a due run until its constraints hold rather than skipping it. |
 | `[KD-28]` Source runtime | Koma has no KSP processor and no Mihon app around the extension. It writes by hand what keiyoushi's build generates (`[CT-18]`), and registers in Injekt what Mihon's app provides: the `Application`, a `NetworkHelper` over `AppContainer.http`, and a `Json`. | The copied `KeiSource` and helpers read these through Injekt and check the client's interceptors by class name, so they run unchanged. |
 
 | Leaf | Module |
@@ -393,8 +393,11 @@ data class FoundChapters(val title: String, val chapters: List<String>)
 data class UpdateReport(val unmatched: List<String>, val found: List<FoundChapters>)
 
 class LibraryUpdater(
-    store: Store, library: LibraryRepository, media: MediaRepository, sources: SourceRepository,
+    store: Store, library: LibraryRepository, history: HistoryRepository,
+    media: MediaRepository, sources: SourceRepository,
 ) {
+    suspend fun sync(): Boolean          // library.sync() beside history.syncNewer(); false when the library failed
+    suspend fun refresh(onTitle: suspend (ChapterUpdate) -> Unit = {}): UpdateReport  // sync(), then updateChapters() once it succeeds
     suspend fun updateChapters(onTitle: suspend (ChapterUpdate) -> Unit = {}): UpdateReport
 }
 
@@ -434,8 +437,9 @@ Android 13 and later until it is granted.
 media. A Library cover whose title it holds shows a badge in `colorScheme.error` with the error icon,
 tagged `unmatched-<id>`, instead of its unread count.
 
-The library screen runs `library.sync()` as `doc/architecture/specs/app.spec.md` `[KD-31.1]` says,
-with its refresh indicator, and calls `startLibraryUpdate()` once the sync succeeds.
+The library screen runs `updater.sync()` as `doc/architecture/specs/app.spec.md` `[KD-31.1]` says,
+with its refresh indicator, and calls `startLibraryUpdate()` once the sync succeeds. The periodic
+work (`[CT-24]`) runs `refresh`, so it does the same in one run.
 
 ### [CT-24] Automatic updates
 
@@ -465,7 +469,8 @@ scheduleLibraryUpdate: (AutoUpdate) -> Unit
 
 `LibraryUpdateWorker.schedule` cancels the unique periodic work `library-update-periodic` when the
 interval is `Off`. Otherwise it enqueues it with `ExistingPeriodicWorkPolicy.UPDATE`, the interval
-and a 10-minute flex, so the first run comes an interval after turning it on and a change of
+a 10-minute flex, and the input `sync = true`, which makes the worker run `refresh` rather than
+`updateChapters`, so the first run comes an interval after turning it on and a change of
 restrictions keeps the next run's time. Its constraints: `NetworkType.UNMETERED` when `wifiOnly`,
 else `CONNECTED`, then `requiresCharging` and `requiresBatteryNotLow`. Either work skips its run
 while the other's runs in the process.
@@ -560,7 +565,9 @@ Source tests stub each source's API with `FakeNetwork`, through the client sourc
   the restrictions are disabled with only Wi-Fi checked, and nothing is scheduled; when Daily is
   picked, then charging checked and Wi-Fi unchecked, then each change schedules the settings it
   leaves; after a restart the sheet shows Daily with charging only; when Off is picked, then Off
-  is scheduled and the restrictions are disabled. — demonstrates `[SO-20]`
+  is scheduled and the restrictions are disabled. Given the library of `[VC-21]`, when the feed
+  files the completed title `reading` and a scheduled run follows, then both titles' chapters are
+  refetched; when the feed fails, the run fetches no chapters. — demonstrates `[SO-20]`
 
 ## Caveats
 

@@ -3,7 +3,6 @@ package app.koma.library
 import androidx.lifecycle.ViewModel
 import androidx.lifecycle.viewModelScope
 import app.koma.AppContainer
-import app.koma.data.failed
 import kotlinx.coroutines.Job
 import kotlinx.coroutines.flow.MutableStateFlow
 import kotlinx.coroutines.flow.SharingStarted
@@ -51,9 +50,7 @@ class LibraryViewModel(private val container: AppContainer) : ViewModel() {
                 if (!wanted()) return@launch
                 syncing.value = true
                 lastFailed.value = false
-                // Newer reads reorder the shelves; without them, they keep their order.
-                launch { failed { container.history.syncNewer() } }
-                lastFailed.value = failed { container.library.sync() }
+                lastFailed.value = !container.updater.sync()
                 syncing.value = false
                 if (!lastFailed.value) container.startLibraryUpdate()
             }

@@ -20,6 +20,7 @@ import androidx.work.OneTimeWorkRequestBuilder
 import androidx.work.PeriodicWorkRequestBuilder
 import androidx.work.WorkManager
 import androidx.work.WorkerParameters
+import androidx.work.workDataOf
 import app.koma.data.AutoUpdate
 import app.koma.data.ChapterUpdate
 import app.koma.data.FoundChapters
@@ -36,10 +37,13 @@ private const val NOTIFICATION = 1
 private const val UNMATCHED_NOTIFICATION = 2
 private const val FOUND_NOTIFICATION = 3
 private const val FLEX_MINUTES = 10L
+/** Input of a run that syncs the library first, as a pull does before it starts one. */
+private const val SYNC = "sync"
 
 /**
  * Updates the library's chapters in a foreground service whose notification names each title, then
- * notifies the chapters found and the titles no source bound.
+ * notifies the chapters found and the titles no source bound. A scheduled run syncs the library
+ * first, as a pull does.
  */
 class LibraryUpdateWorker(context: Context, params: WorkerParameters) :
     CoroutineWorker(context, params) {
@@ -76,8 +80,10 @@ class LibraryUpdateWorker(context: Context, params: WorkerParameters) :
                 .setName("New chapters")
                 .build()
         )
+        val updater = (applicationContext as KomaApplication).container.updater
         val report =
-            (applicationContext as KomaApplication).container.updater.updateChapters(::show)
+            if (inputData.getBoolean(SYNC, false)) updater.refresh(::show)
+            else updater.updateChapters(::show)
         if (report.found.isNotEmpty()) notifyFound(notifications, report.found)
         if (report.unmatched.isNotEmpty()) notifyUnmatched(notifications, report.unmatched)
         return Result.success()
@@ -206,6 +212,7 @@ class LibraryUpdateWorker(context: Context, params: WorkerParameters) :
                         TimeUnit.MINUTES,
                     )
                     .setConstraints(constraints)
+                    .setInputData(workDataOf(SYNC to true))
                     .build()
             work.enqueueUniquePeriodicWork(
                 PERIODIC_WORK,

@@ -100,7 +100,7 @@ class AppContainer(
     val history = HistoryRepository(store, backend, media)
     val account = AccountRepository(store, backend)
     val sources = SourceRepository(store, sources, clock)
-    val updater = LibraryUpdater(store, library, media, this.sources)
+    val updater = LibraryUpdater(store, library, history, media, this.sources)
     val theme = ThemePreferences(preferences)
     val autoUpdate = AutoUpdatePreferences(preferences, scheduleLibraryUpdate)
 

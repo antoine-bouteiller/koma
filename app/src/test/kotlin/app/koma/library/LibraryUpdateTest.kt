@@ -22,6 +22,8 @@ import app.koma.testing.fullSeries
 import app.koma.testing.mangas
 import app.koma.testing.series
 import app.koma.testing.upsert
+import kotlinx.coroutines.MainScope
+import kotlinx.coroutines.launch
 import org.junit.Assert.assertEquals
 import org.junit.Rule
 import org.junit.Test
@@ -67,6 +69,12 @@ class LibraryUpdateTest {
 
     private fun unmatched(id: Int) =
         app.compose.onNodeWithTag("unmatched-$id", useUnmergedTree = true)
+
+    /** Runs what the periodic work runs, on the main looper the harness's work runs on. */
+    private fun scheduledUpdate() {
+        MainScope().launch { app.container.updater.refresh() }
+        app.awaitIdle()
+    }
 
     private fun fetched() =
         app.network.requested(READING).size to app.network.requested(COMPLETED).size
@@ -275,6 +283,27 @@ class LibraryUpdateTest {
         assertEquals(listOf(emptyList<FoundChapters>()), app.found)
         app.tap("tab-updates")
         app.has("update-1:solo/2")
+    }
+
+    @Test
+    fun `a scheduled update syncs the library first, as a pull does, and updates nothing when that fails`() {
+        library()
+        app.launch()
+        assertEquals(1 to 1, fetched())
+
+        // Filed reading elsewhere, Pluto is now refetched on each update.
+        app.network.answer(
+            "$CHANGES?limit=1000&cursor=c1",
+            200,
+            changes("c2", false, upsert(2, "reading")),
+        )
+        app.network.answer("$CHANGES?limit=1000&cursor=c2", 200, changes("c2", false))
+        scheduledUpdate()
+        assertEquals(2 to 2, fetched())
+
+        app.network.fail("$CHANGES?limit=1000&cursor=c2")
+        scheduledUpdate()
+        assertEquals(2 to 2, fetched())
     }
 
     @Test

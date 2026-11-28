@@ -1,7 +1,9 @@
 package app.koma.data
 
 import kotlin.coroutines.cancellation.CancellationException
+import kotlinx.coroutines.coroutineScope
 import kotlinx.coroutines.flow.first
+import kotlinx.coroutines.launch
 
 private val FOLLOWED = setOf(ListStatus.Reading, ListStatus.Rereading)
 
@@ -21,9 +23,21 @@ data class UpdateReport(val unmatched: List<String>, val found: List<FoundChapte
 class LibraryUpdater(
     private val store: Store,
     private val library: LibraryRepository,
+    private val history: HistoryRepository,
     private val media: MediaRepository,
     private val sources: SourceRepository,
 ) {
+    /** Syncs the library, and the newer reads beside it; answers whether the library synced. */
+    suspend fun sync(): Boolean = coroutineScope {
+        // Newer reads reorder the shelves; without them, they keep their order.
+        launch { failed { history.syncNewer() } }
+        !failed { library.sync() }
+    }
+
+    /** What a pull on the library runs: [sync], then [updateChapters] once the library synced. */
+    suspend fun refresh(onTitle: suspend (ChapterUpdate) -> Unit = {}): UpdateReport =
+        if (sync()) updateChapters(onTitle) else UpdateReport(emptyList(), emptyList())
+
     /**
      * Announces each title to [onTitle] before loading its chapters. A title whose chapters fail to
      * load is skipped. Found chapters of hidden scanlators, and outdated part chapters, go
