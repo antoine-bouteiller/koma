@@ -64,7 +64,7 @@ class AppContainer(
     val installApk: (File) -> Unit,
     /**
      * Runs [LibraryUpdater.updateChapters] in the background, showing its progress and then the
-     * titles no source bound, unless it already runs.
+     * chapters found and the titles no source bound, unless it already runs.
      */
     val startLibraryUpdate: () -> Unit,
     /**
@@ -78,7 +78,7 @@ class AppContainer(
     val library = LibraryRepository(store, backend, media, clock)
     val history = HistoryRepository(store, backend, media)
     val account = AccountRepository(store, backend)
-    val sources = SourceRepository(store, sources)
+    val sources = SourceRepository(store, sources, clock)
     val updater = LibraryUpdater(store, library, media, this.sources)
     val theme = ThemePreferences(preferences)
 

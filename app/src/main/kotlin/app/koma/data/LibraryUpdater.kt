@@ -8,6 +8,12 @@ private val FOLLOWED = setOf(ListStatus.Reading, ListStatus.Rereading)
 /** The library title a chapter update is on: the [position]th of [total], counted from 1. */
 data class ChapterUpdate(val title: String, val position: Int, val total: Int)
 
+/** The chapters an update found on [title], by their source's names, in its order. */
+data class FoundChapters(val title: String, val chapters: List<String>)
+
+/** What an update reports, in library order: the titles no source bound, and the chapters found. */
+data class UpdateReport(val unmatched: List<String>, val found: List<FoundChapters>)
+
 /**
  * Brings the chapters of the stored library's titles up to date: a followed title's on every
  * update, any other's until some are stored. A title not bound yet is bound without a prompt.
@@ -20,32 +26,38 @@ class LibraryUpdater(
 ) {
     /**
      * Announces each title to [onTitle] before loading its chapters. A title whose chapters fail to
-     * load is skipped. Answers the titles no source bound, in library order.
+     * load is skipped. Found chapters of hidden scanlators go unreported.
      */
-    suspend fun updateChapters(onTitle: suspend (ChapterUpdate) -> Unit = {}): List<String> {
+    suspend fun updateChapters(onTitle: suspend (ChapterUpdate) -> Unit = {}): UpdateReport {
+        val none = UpdateReport(emptyList(), emptyList())
         val generation = store.generation
-        if (sources.count == 0) return emptyList()
+        if (sources.count == 0) return none
         val items = library.library.first().items.filter { it.media.kind != Kind.Novel }
         val unmatched = mutableListOf<String>()
+        val found = mutableListOf<FoundChapters>()
         for ((index, item) in items.withIndex()) {
-            if (generation != store.generation) return emptyList()
+            if (generation != store.generation) return none
             onTitle(ChapterUpdate(item.media.title, index + 1, items.size))
             try {
-                if (!update(item.media.ref, refresh = item.status in FOLLOWED)) {
-                    unmatched += item.media.title
+                val chapters = update(item.media.ref, refresh = item.status in FOLLOWED)
+                when {
+                    chapters == null -> unmatched += item.media.title
+                    chapters.isNotEmpty() -> found += FoundChapters(item.media.title, chapters)
                 }
             } catch (e: CancellationException) {
                 throw e
             } catch (_: Exception) {}
         }
-        return unmatched
+        return UpdateReport(unmatched, found)
     }
 
-    /** False when no source binds the title. */
-    private suspend fun update(ref: MediaRef, refresh: Boolean): Boolean {
+    /** The names of the chapters found on the title; null when no source binds it. */
+    private suspend fun update(ref: MediaRef, refresh: Boolean): List<String>? {
         val binding =
-            sources.binding(ref).first() ?: sources.resolve(media.loadDetails(ref)) ?: return false
-        sources.chapters(binding, refresh)
-        return true
+            sources.binding(ref).first() ?: sources.resolve(media.loadDetails(ref)) ?: return null
+        val found = sources.newChapters(binding, refresh).orEmpty()
+        if (found.isEmpty()) return emptyList()
+        val excluded = sources.excludedScanlators(ref).first()
+        return found.filter { it.scanlator == null || it.scanlator !in excluded }.map { it.name }
     }
 }

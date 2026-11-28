@@ -4,6 +4,9 @@ CREATE TABLE IF NOT EXISTS chapter (source INTEGER NOT NULL, manga_url TEXT NOT 
 -- The source manga whose chapters are stored, so a manga without chapters is told from one never listed.
 CREATE TABLE IF NOT EXISTS chapter_list (source INTEGER NOT NULL, manga_url TEXT NOT NULL, PRIMARY KEY (source, manga_url));
 
+-- The signed-in person's data, cleared at sign-out: the chapters a refetch found missing from the stored list, at `found_at` (epoch ms).
+CREATE TABLE IF NOT EXISTS chapter_update (source INTEGER NOT NULL, manga_url TEXT NOT NULL, url TEXT NOT NULL, found_at INTEGER NOT NULL, PRIMARY KEY (source, manga_url, url));
+
 listed:
 SELECT count(*) FROM chapter_list WHERE source = ? AND manga_url = ?;
 
@@ -18,6 +21,24 @@ INSERT INTO chapter (source, manga_url, position, url, name, scanlator, number, 
 
 list:
 INSERT OR REPLACE INTO chapter_list (source, manga_url) VALUES (?, ?);
+
+found:
+INSERT OR IGNORE INTO chapter_update (source, manga_url, url, found_at) VALUES (?, ?, ?, ?);
+
+-- The found chapters each library title's screen shows, newest found first, each title's in its source's order.
+updates:
+SELECT u.found_at, c.url, c.name, m.* FROM chapter_update u
+JOIN chapter c ON c.source = u.source AND c.manga_url = u.manga_url AND c.url = u.url
+JOIN binding b ON b.source = u.source AND b.manga_url = u.manga_url
+JOIN library_entry e ON e.backend = b.backend AND e.media_id = b.media_id
+JOIN media m ON m.backend = b.backend AND m.id = b.media_id
+WHERE b.backend = ? AND m.title != '' AND NOT EXISTS (
+  SELECT 1 FROM excluded_scanlator x WHERE x.backend = b.backend AND x.media_id = b.media_id AND x.scanlator = c.scanlator
+)
+ORDER BY u.found_at DESC, m.id, c.position;
+
+clearUpdates:
+DELETE FROM chapter_update;
 
 -- The chapters each library title's screen shows: its bound source manga's, without hidden scanlators'.
 shownInLibrary:

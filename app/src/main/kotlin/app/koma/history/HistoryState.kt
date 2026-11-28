@@ -2,6 +2,8 @@ package app.koma.history
 
 import app.koma.data.History
 import app.koma.data.Read
+import app.koma.ui.formatDay
+import app.koma.ui.formatTime
 import java.time.Instant
 import java.time.ZoneId
 import java.util.Locale

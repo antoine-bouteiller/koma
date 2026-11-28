@@ -6,6 +6,7 @@ import androidx.compose.ui.test.onNodeWithTag
 import androidx.compose.ui.test.performTouchInput
 import androidx.compose.ui.test.swipeDown
 import app.koma.data.ChapterUpdate
+import app.koma.data.FoundChapters
 import app.koma.source.CatalogSource
 import app.koma.testing.AppHarness
 import app.koma.testing.BATCH
@@ -160,6 +161,82 @@ class LibraryUpdateTest {
         pull()
         unmatched(2).assertDoesNotExist()
         assertEquals(emptyList<String>(), app.unmatched.last())
+    }
+
+    @Test
+    fun `an update reports and lists the chapters a refetch adds, but none on the first fetch`() {
+        library()
+        app.launch()
+        assertEquals(listOf(emptyList<FoundChapters>()), app.found)
+
+        app.network.answer(
+            READING,
+            200,
+            chapters(
+                chapter("solo/3", "Chapter 3", 3f),
+                chapter("solo/2", "Chapter 2", 2f),
+                chapter("solo/1", "Chapter 1", 1f),
+            ),
+        )
+        pull()
+        assertEquals(
+            listOf(FoundChapters("Solo Leveling", listOf("Chapter 3", "Chapter 2"))),
+            app.found.last(),
+        )
+
+        pull()
+        assertEquals(emptyList<FoundChapters>(), app.found.last())
+
+        app.tap("tab-updates")
+        assertEquals(
+            listOf("updates-day-2026-01-01", "update-1:solo/3", "update-1:solo/2"),
+            app.childTags("updates"),
+        )
+        app.node("update-1:solo/3").assertTextEquals("Solo Leveling", "Chapter 3")
+        app.tap("update-1:solo/3")
+        app.text("title-name", "Solo Leveling")
+    }
+
+    @Test
+    fun `chapters of a hidden scanlator are neither reported nor listed`() {
+        library()
+        app.network.answer(READING, 200, chapters(chapter("solo/1", "Chapter 1", 1f, "Team Z")))
+        app.launch()
+        app.tap("manga-1")
+        app.tap("title-scanlators")
+        app.tap("scanlator-Team Z")
+        app.back()
+
+        app.network.answer(
+            READING,
+            200,
+            chapters(
+                chapter("solo/2z", "Chapter 2", 2f, "Team Z"),
+                chapter("solo/1", "Chapter 1", 1f, "Team Z"),
+            ),
+        )
+        pull()
+        assertEquals(emptyList<FoundChapters>(), app.found.last())
+        app.tap("tab-updates")
+        app.has("empty-updates")
+    }
+
+    @Test
+    fun `a chapter a title's pull adds is listed without a report`() {
+        library()
+        app.launch()
+        app.tap("manga-1")
+        app.network.answer(
+            READING,
+            200,
+            chapters(chapter("solo/2", "Chapter 2", 2f), chapter("solo/1", "Chapter 1", 1f)),
+        )
+        app.node("title-content").performTouchInput { swipeDown(top + height / 4, bottom) }
+        app.awaitIdle()
+
+        assertEquals(listOf(emptyList<FoundChapters>()), app.found)
+        app.tap("tab-updates")
+        app.has("update-1:solo/2")
     }
 
     @Test

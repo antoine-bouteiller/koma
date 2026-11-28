@@ -72,6 +72,7 @@ import app.koma.ui.theme.KomaTheme
 import app.koma.update.UpdateDialog
 import app.koma.update.UpdatePill
 import app.koma.update.UpdateViewModel
+import app.koma.updates.UpdatesView
 import java.util.UUID
 import kotlinx.serialization.Serializable
 
@@ -276,6 +277,10 @@ fun KomaApp(container: AppContainer) {
                                 contentPadding = contentPadding,
                                 onSignIn = openSignIn,
                             )
+                        root == Tab.Updates && session.signedIn ->
+                            UpdatesView(container, contentPadding) {
+                                stack += Route.Title(it, UUID.randomUUID().toString())
+                            }
                         root == Tab.History && session.signedIn ->
                             HistoryView(container, contentPadding)
                         root == Tab.History ->

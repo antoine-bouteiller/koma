@@ -13,6 +13,7 @@ module:
   - app/src/main/kotlin/app/koma/data/LibraryUpdater.kt
   - app/src/main/kotlin/app/koma/LibraryUpdateWorker.kt
   - app/src/main/kotlin/app/koma/library/
+  - app/src/main/kotlin/app/koma/updates/
   - app/src/main/kotlin/app/koma/data/Store.kt
   - app/src/main/kotlin/app/koma/data/Http.kt
   - app/src/main/kotlin/app/koma/title/
@@ -48,9 +49,10 @@ proves the match before binding it.
 | --- | --- | --- |
 | `[KD-11.1]` Title to source binding | On first read, try the user's ordered preferred sources. A source with a `Finder` binds only what its finder answers. A source without one is searched with every backend title variant and binds on an exact normalized title match. When no source binds, the title screen shows ranked search candidates from every source. The binding is editable from the title screen when Koma lists more than one source. `[CT-19.1]` gives the algorithm. | A backend id proves the match, so a same-titled novel or edition never binds. Title matching stays for sources without ids. Finders live in Koma, so copied extensions stay as upstream ships them. |
 | `[KD-18.2]` Sources | Mihon's extension API, at the version keiyoushi's extensions build against. Koma ships the `eu.kanade.tachiyomi.source` and `eu.kanade.tachiyomi.network` packages, and the keiyoushi helper packages a copied extension imports (`[CT-18]`). v1 copies the extensions it uses from `keiyoushi/extensions-source` into `app/src/main/kotlin/eu/kanade/tachiyomi/extension/`, and lists them in `app/src/main/kotlin/app/koma/source/Sources.kt`. v1 lists Atsumaru only. | A copied extension builds with few or no edits and stays comparable with upstream. The same API can later load installed extension APKs (`[NG-3.1]`). Atsumaru's JSON API answers plain HTTPS with no Cloudflare challenge, and its 33,632 series (2026-11-18) cover the titles the user reads. |
-| `[KD-32]` Chapter store | A source manga's chapter list is stored on its first load, and the title screen shows the stored list. Only a library update (`[CT-22.1]`) or a pull on the title screen fetches it again. A library update refetches the titles filed `Reading` or `Rereading`, and fetches any other title's list only until one is stored. | Mihon's model: opening a title costs no source request, and the titles being read stay current. Titles the user does not follow cost one request in total. `LibraryUpdater` holds no screen state, so a periodic job can run it unchanged. |
+| `[KD-32]` Chapter store | A source manga's chapter list is stored on its first load, and the title screen shows the stored list. Only a library update (`[CT-22.2]`) or a pull on the title screen fetches it again. A library update refetches the titles filed `Reading` or `Rereading`, and fetches any other title's list only until one is stored. | Mihon's model: opening a title costs no source request, and the titles being read stay current. Titles the user does not follow cost one request in total. `LibraryUpdater` holds no screen state, so a periodic job can run it unchanged. |
 | `[KD-33]` Unread badge | Each Library cover shows how many chapters its title screen shows unread (`doc/architecture/specs/reader.spec.md` `[CT-5.1]`): chapters of hidden scanlators are left out, and an unnumbered chapter counts. A title with none unread, or without a stored chapter list, shows no badge. The count is derived from the stored chapters and the library entry's progress, never stored. Only the Library shows it. | Mihon's model: the library tells which titles have chapters to read without opening them. Deriving the count follows `[KD-13]`, so it follows progress edited elsewhere and the next library update. |
 | `[KD-34]` Unmatched titles | A title no source binds is stored as unmatched, and storing a binding clears it. A library update still searches it each time (`[C-15]`), and notifies the titles it found no source for once it ends. Each unmatched Library cover shows a red error badge in place of its unread count. A failed request marks nothing. | Mihon's model: a library update reports the titles it could not update. The badge tells which titles need a binding picked on their title screen without opening each one. |
+| `[KD-35]` New chapters | A refetch that lists chapters the stored list lacked stores each as found, at the time it found it; a manga's first fetch finds none. The Updates tab lists the found chapters of library titles, without hidden scanlators', and tapping one opens its title. A library update then notifies the chapters it found, by title; a title screen's pull notifies nothing. Sign-out forgets the found chapters. | Mihon's model: the Updates tab gathers what each update brought, and a notification tells of it without opening the app. A first fetch lists a title's whole history, which is not news. The user pulling a title already sees its new chapters. |
 | `[KD-28]` Source runtime | Koma has no KSP processor and no Mihon app around the extension. It writes by hand what keiyoushi's build generates (`[CT-18]`), and registers in Injekt what Mihon's app provides: the `Application`, a `NetworkHelper` over `AppContainer.http`, and a `Json`. | The copied `KeiSource` and helpers read these through Injekt and check the client's interceptors by class name, so they run unchanged. |
 
 | Leaf | Module |
@@ -75,6 +77,9 @@ proves the match before binding it.
   follows the user's progress and scanlator filter. — demonstrated by `[VC-23]`
 - `[SO-17]` A library update notifies the titles it found no source for, and their Library covers
   show an error badge until a source binds them. — demonstrated by `[VC-24]`
+- `[SO-18]` A library update notifies the chapters it adds to a title's stored list, and the
+  Updates tab lists them by the day they were found. A title's first fetch adds none.
+  — demonstrated by `[VC-25]`, `[VC-26]`
 
 ## Contracts
 
@@ -227,7 +232,7 @@ package app.koma.data
 data class Binding(val source: Long, val mangaUrl: String, val title: String)
 data class Candidate(val source: Long, val sourceName: String, val manga: SManga)
 
-class SourceRepository(store: Store, sources: List<CatalogSource>) {
+class SourceRepository(store: Store, sources: List<CatalogSource>, clock: Clock) {
     fun binding(ref: MediaRef): Flow<Binding?>                 // from the store
     suspend fun resolve(details: MediaDetails): Binding?       // stored, else bound now, else null
     suspend fun candidates(details: MediaDetails): List<Candidate>
@@ -235,6 +240,9 @@ class SourceRepository(store: Store, sources: List<CatalogSource>) {
     suspend fun chapters(binding: Binding, refresh: Boolean = false): List<SChapter>?
                                                                // stored unless refresh; null when
                                                                // sources() lacks it
+    suspend fun newChapters(binding: Binding, refresh: Boolean): List<SChapter>?
+                                                               // loads as chapters does; answers
+                                                               // what the fetch found
     fun excludedScanlators(ref: MediaRef): Flow<Set<String>>   // from the store
     suspend fun showScanlator(ref: MediaRef, scanlator: String, shown: Boolean)
     fun source(id: Long): HttpSource?                          // null when sources() lacks it
@@ -242,8 +250,8 @@ class SourceRepository(store: Store, sources: List<CatalogSource>) {
 }
 ```
 
-`AppContainer` builds one from its `sources`. The title screen calls `resolve` when it first loads
-a title's chapter list, and `[CT-22.1]` calls it for a library title without a binding. On `null` it lists `candidates`, and picking one calls `bind`. When Koma
+`AppContainer` builds one from its `sources` and `clock`. The title screen calls `resolve` when it
+first loads a title's chapter list, and `[CT-22.2]` calls it for a library title without a binding. On `null` it lists `candidates`, and picking one calls `bind`. When Koma
 lists more than one source, the binding action on a bound title also lists `candidates`; with one
 source, the title screen offers no binding action.
 
@@ -287,6 +295,11 @@ load stores nothing. It holds a lock per `(source, mangaUrl)` for the whole call
 one binding, such as a title opened during a library update, run in turn instead of failing, and
 the second reads what the first stored.
 
+A fetch that replaces a stored list stores each chapter whose `url` the stored list lacked as a
+`chapter_update` row found at `clock.millis()`. A fetch with no stored list, the manga's first,
+stores none. `newChapters` answers the chapters a fetch stored as found, and none when it read the
+stored list.
+
 ### [CT-13.1] Source store
 
 Kind: schema · Anchor: `app/src/main/sqldelight/app/koma/data/db/Binding.sq`
@@ -316,14 +329,20 @@ create table unmatched (
   backend text not null, media_id text not null,
   primary key (backend, media_id)
 );
+create table chapter_update (
+  source integer not null, manga_url text not null, url text not null,
+  found_at integer not null,
+  primary key (source, manga_url, url)
+);
 ```
 
 `source` is Mihon's `Source.id`. The tables extend `doc/architecture/specs/app.spec.md`
 `[CT-4.5]` through additive migrations: `6.sqm` adds `binding` and `preferred_source`, whose queries
 live in `Binding.sq`, and `7.sqm` adds `chapter` and `chapter_list`, whose queries live in
 `Chapter.sq`, `8.sqm` adds `excluded_scanlator`, whose queries live in `ExcludedScanlator.sq`,
-and `9.sqm` adds `unmatched`, whose queries live in `Binding.sq`. All six keep data that sign-out
-leaves in place. v1 writes no
+`9.sqm` adds `unmatched`, whose queries live in `Binding.sq`, and `10.sqm` adds `chapter_update`,
+whose queries live in `Chapter.sq`. All but `chapter_update` keep data that sign-out leaves in
+place; `Store.clearUserData` clears `chapter_update`. v1 writes no
 `preferred_source` row, so sources are tried in `sources()` order.
 
 `chapter` holds a source manga's chapters in the order the source answered them: `SChapter.url`,
@@ -335,12 +354,19 @@ binding change keeps it.
 
 `unmatched` holds the media no source bound on its last search (`[KD-34]`).
 
+`chapter_update` holds the chapters a refetch found (`[KD-35]`), keyed like `chapter`, at their
+first finding (epoch ms). A row whose chapter the stored list no longer holds shows nowhere.
+
 ### ~~[CT-22] Library update~~
 
 ~~`LibraryUpdater.update()` synced the library, then updated its titles' chapters, and the library
 screen showed its refresh indicator until it returned.~~
 
-### [CT-22.1] Library update
+### ~~[CT-22.1] Library update~~
+
+~~`updateChapters` answered only the titles no source bound, as a `List<String>`.~~
+
+### [CT-22.2] Library update
 
 Kind: api · Anchor: `app/src/main/kotlin/app/koma/data/LibraryUpdater.kt`,
 `app/src/main/kotlin/app/koma/LibraryUpdateWorker.kt`
@@ -351,11 +377,16 @@ package app.koma.data
 /** The library title a chapter update is on: the [position]th of [total], counted from 1. */
 data class ChapterUpdate(val title: String, val position: Int, val total: Int)
 
+/** The chapters an update found on [title], by their source's names, in its order. */
+data class FoundChapters(val title: String, val chapters: List<String>)
+
+/** What an update reports, in library order: the titles no source bound, and the chapters found. */
+data class UpdateReport(val unmatched: List<String>, val found: List<FoundChapters>)
+
 class LibraryUpdater(
     store: Store, library: LibraryRepository, media: MediaRepository, sources: SourceRepository,
 ) {
-    /** Answers the titles no source bound, in library order. */
-    suspend fun updateChapters(onTitle: suspend (ChapterUpdate) -> Unit = {}): List<String>
+    suspend fun updateChapters(onTitle: suspend (ChapterUpdate) -> Unit = {}): UpdateReport
 }
 
 // AppContainer seam: KomaApplication enqueues LibraryUpdateWorker.
@@ -366,10 +397,12 @@ val startLibraryUpdate: () -> Unit
 
 1. Ends when Koma lists no source.
 2. Takes each title of the stored `Library.items` in turn, novels left out, and stops at a sign-out
-   (`Store.generation`), answering no title then. It announces the title to `onTitle`, then loads
+   (`Store.generation`), reporting nothing then. It announces the title to `onTitle`, then loads
    its chapters: the title's stored binding, else `resolve(media.loadDetails(ref))`, gives its
-   source manga; a title no source binds is skipped and answered. It then calls
-   `chapters(binding, refresh = status in { Reading, Rereading })`.
+   source manga; a title no source binds is skipped and reported unmatched. It then calls
+   `newChapters(binding, refresh = status in { Reading, Rereading })`, and reports the chapters it
+   answers, without those of the title's hidden scanlators. A title with none is left out of
+   `found`.
 3. A failed request skips its title. Titles load one at a time.
 
 `LibraryUpdateWorker` is a WorkManager `CoroutineWorker`, enqueued as the unique work
@@ -377,11 +410,15 @@ val startLibraryUpdate: () -> Unit
 runs `updateChapters` on `KomaApplication`'s container, and each announcement replaces its
 foreground notification (`dataSync`, low-importance channel "Library updates"): "Refreshing
 library (position/total)", the title, and a progress bar. The notification ends with the work.
-When Android refuses the foreground service, the update runs without a notification. When
-`updateChapters` answers titles, the worker then posts a notification on the default-importance
-channel "Titles without a source": "No source found for N titles", and the titles, one per line
-once expanded. Tapping it opens the app. Each update replaces the last one's.
-`MainActivity` asks for `POST_NOTIFICATIONS` at launch on Android 13 and later until it is granted.
+When Android refuses the foreground service, the update runs without a notification.
+
+When the report holds found chapters, the worker then posts a notification on the
+default-importance channel "New chapters": "N new chapters", the titles, and once expanded one line
+per title, `<title>: <chapter>, <chapter>`. When it holds unmatched titles, it posts a notification
+on the default-importance channel "Titles without a source": "No source found for N titles", and
+the titles, one per line once expanded. Tapping either opens the app. Each update replaces the last
+one's. Neither posts without `POST_NOTIFICATIONS`, which `MainActivity` asks for at launch on
+Android 13 and later until it is granted.
 
 `LibraryRepository.unmatched: Flow<Set<MediaRef>>` reads the `unmatched` rows of the backend's
 media. A Library cover whose title it holds shows a badge in `colorScheme.error` with the error icon,
@@ -389,6 +426,31 @@ tagged `unmatched-<id>`, instead of its unread count.
 
 The library screen runs `library.sync()` as `doc/architecture/specs/app.spec.md` `[KD-31.1]` says,
 with its refresh indicator, and calls `startLibraryUpdate()` once the sync succeeds.
+
+### [CT-23] Updates tab
+
+Kind: api · Anchor: `app/src/main/kotlin/app/koma/data/LibraryRepository.kt`,
+`app/src/main/kotlin/app/koma/updates/`
+
+```kotlin
+package app.koma.data
+
+/** A chapter a refetch found on [media]: its source's [url] and [name], found at [foundAt] (epoch ms). */
+data class NewChapter(val media: Media, val url: String, val name: String, val foundAt: Long)
+
+// LibraryRepository
+val newChapters: Flow<List<NewChapter>>
+```
+
+`newChapters` reads the `chapter_update` rows whose chapter the stored list still holds, of the
+backend's library titles bound to that manga, without media the backend no longer answers nor the
+title's hidden scanlators: newest found first, then by title, each title's in its source's order.
+
+Signed in, the Updates tab shows them under a header per day found (`formatDay`, which moves from
+`app.koma.history` to `app.koma.ui` as both features use it), each row the title's cover, its title
+and the chapter's name. The list is tagged `updates`, a header `updates-day-<yyyy-mm-dd>` and a row
+`update-<media id>:<chapter url>`. Tapping a row opens the title on the Updates tab's back stack.
+With none, and signed out, the tab shows "No new chapters", tagged `empty-updates`.
 
 ## Acceptance
 
@@ -430,6 +492,16 @@ Source tests stub each source's API with `FakeNetwork`, through the client sourc
   title and no cover shows an error badge; when a pull's search answers only `Pluto 2`, then the
   update reports `Pluto` and its cover shows the error badge; when a later pull's search answers
   `Pluto`, then the badge goes and the update reports no title. — demonstrates `[SO-17]`
+
+- `[VC-25]` Given the library of `[VC-21]`, when the library first opens, then the update reports
+  no chapter; when a pull's list for the reading title adds Chapters 3 and 2, then it reports
+  `Solo Leveling: Chapter 3, Chapter 2`, a second pull reports none, and the Updates tab lists both
+  under one day, newest first, and tapping one opens Solo Leveling. When a pull on the title
+  screen adds Chapter 2 instead, the Updates tab lists it and no update reports it.
+  — demonstrates `[SO-18]`
+- `[VC-26]` Given the library of `[VC-21]` whose reading title's chapters are by Team Z, hidden on
+  its title screen, when a pull adds a Team Z chapter, then the update reports none and the Updates
+  tab shows "No new chapters". — demonstrates `[SO-18]`
 
 ## Caveats
 

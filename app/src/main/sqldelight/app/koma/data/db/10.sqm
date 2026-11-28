@@ -1,0 +1,2 @@
+-- The chapters a refetch found missing from the stored list.
+CREATE TABLE IF NOT EXISTS chapter_update (source INTEGER NOT NULL, manga_url TEXT NOT NULL, url TEXT NOT NULL, found_at INTEGER NOT NULL, PRIMARY KEY (source, manga_url, url));

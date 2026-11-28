@@ -1,4 +1,4 @@
-package app.koma.history
+package app.koma.ui
 
 import java.time.Instant
 import java.time.ZoneId

@@ -21,6 +21,12 @@ fun isChapterRead(number: Double?, progress: Double?): Boolean =
 data class LibraryItem(val media: Media, val status: ListStatus, val updatedAt: Long)
 
 /**
+ * A chapter a refetch found on [media]: its source's [url] and [name], found at [foundAt] (epoch
+ * ms).
+ */
+data class NewChapter(val media: Media, val url: String, val name: String, val foundAt: Long)
+
+/**
  * [synced] once the library has been read from the backend; [items] by their newest stored read,
  * then those without one by their last update.
  */
@@ -103,6 +109,31 @@ class LibraryRepository(
     val unmatched: Flow<Set<MediaRef>> =
         store.watch({ listOf(bindingQueries.unmatched(name)) }) {
             bindingQueries.unmatched(name).executeAsList().map { MediaRef(backend.id, it) }.toSet()
+        }
+
+    /**
+     * The chapters found on library titles that their screens show: newest found first, each
+     * title's in its source's order.
+     */
+    val newChapters: Flow<List<NewChapter>> =
+        store.watch({ listOf(chapterQueries.updates(name)) }) {
+            chapterQueries.updates(name).executeAsList().map {
+                NewChapter(
+                    mediaOf(
+                        it.backend,
+                        it.id,
+                        it.title,
+                        it.cover,
+                        it.kind,
+                        it.score,
+                        it.adult,
+                        it.long_strip,
+                    ),
+                    it.url,
+                    it.name,
+                    it.found_at,
+                )
+            }
         }
 
     /** Whether the library has been read from the backend. */

@@ -35,11 +35,12 @@ class Store(private val db: KomaDatabase, private val context: CoroutineContext)
 
     fun meta(key: String): String? = db.metaQueries.value(key).executeAsOneOrNull()
 
-    /** Forgets the signed-in person's library and history. */
+    /** Forgets the signed-in person's library, history and found chapters. */
     suspend fun clearUserData() = write {
         generation++
         libraryEntryQueries.clear()
         readEventQueries.clear()
+        chapterQueries.clearUpdates()
         metaQueries.clear()
     }
 

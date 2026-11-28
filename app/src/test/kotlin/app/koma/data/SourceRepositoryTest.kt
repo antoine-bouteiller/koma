@@ -12,6 +12,7 @@ import eu.kanade.tachiyomi.source.model.SChapter
 import eu.kanade.tachiyomi.source.model.SManga
 import eu.kanade.tachiyomi.source.model.SMangaUpdate
 import eu.kanade.tachiyomi.source.online.HttpSource
+import java.time.Clock
 import kotlinx.coroutines.CompletableDeferred
 import kotlinx.coroutines.Dispatchers
 import kotlinx.coroutines.async
@@ -35,7 +36,7 @@ class SourceRepositoryTest {
     private val solo = details("Solo Leveling", "Na Honjaman Level Up")
 
     private fun repository(vararg sources: CatalogSource) =
-        SourceRepository(store, sources.toList())
+        SourceRepository(store, sources.toList(), Clock.systemUTC())
 
     @Test
     fun `a source without a finder binds the first hit matching any variant`() = runTest {

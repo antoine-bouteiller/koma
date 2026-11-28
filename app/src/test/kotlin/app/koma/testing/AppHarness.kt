@@ -26,6 +26,7 @@ import app.cash.sqldelight.driver.android.AndroidSqliteDriver
 import app.koma.AppContainer
 import app.koma.data.Backend
 import app.koma.data.ChapterUpdate
+import app.koma.data.FoundChapters
 import app.koma.data.KomaDatabase
 import app.koma.data.httpClient
 import app.koma.data.mangabaka.MangaBakaBackend
@@ -81,6 +82,8 @@ class AppHarness : TestRule {
     val libraryUpdates = CopyOnWriteArrayList<ChapterUpdate>()
     /** The titles each background library update found no source for, one list per update. */
     val unmatched = CopyOnWriteArrayList<List<String>>()
+    /** The chapters each background library update found, one list per update. */
+    val found = CopyOnWriteArrayList<List<FoundChapters>>()
     /** The image URLs the app asked for. */
     val images = CopyOnWriteArrayList<String>()
     var image: suspend (ImageRequest) -> ImageResult = { request ->
@@ -166,7 +169,9 @@ class AppHarness : TestRule {
                     if (update?.isActive != true) {
                         update =
                             MainScope().launch {
-                                unmatched += built.updater.updateChapters(libraryUpdates::add)
+                                val report = built.updater.updateChapters(libraryUpdates::add)
+                                unmatched += report.unmatched
+                                found += report.found
                             }
                     }
                 },

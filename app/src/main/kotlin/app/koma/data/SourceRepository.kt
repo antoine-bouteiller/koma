@@ -7,6 +7,7 @@ import eu.kanade.tachiyomi.source.model.FilterList
 import eu.kanade.tachiyomi.source.model.SChapter
 import eu.kanade.tachiyomi.source.model.SManga
 import eu.kanade.tachiyomi.source.online.HttpSource
+import java.time.Clock
 import java.util.concurrent.ConcurrentHashMap
 import kotlin.coroutines.cancellation.CancellationException
 import kotlinx.coroutines.flow.Flow
@@ -23,7 +24,11 @@ data class Candidate(val source: Long, val sourceName: String, val manga: SManga
  * Finds and keeps the source manga behind each media. Source members throw any exception on a
  * failed request.
  */
-class SourceRepository(private val store: Store, private val sources: List<CatalogSource>) {
+class SourceRepository(
+    private val store: Store,
+    private val sources: List<CatalogSource>,
+    private val clock: Clock,
+) {
     // A source refuses a second chapter load of one manga while the first runs, even from another
     // screen: a title reopened as it closes asks again before the closing screen's load ends.
     private val loads = ConcurrentHashMap<Pair<Long, String>, Mutex>()
@@ -84,13 +89,26 @@ class SourceRepository(private val store: Store, private val sources: List<Catal
      * [refresh] fetches them even when stored. One load of a manga at a time. Null when Koma no
      * longer lists its source.
      */
-    suspend fun chapters(binding: Binding, refresh: Boolean = false): List<SChapter>? {
+    suspend fun chapters(binding: Binding, refresh: Boolean = false): List<SChapter>? =
+        load(binding, refresh)?.chapters
+
+    /**
+     * Loads [binding]'s chapters as [chapters] does, and answers those the fetch found missing from
+     * the stored list, which are stored as found: none when nothing was fetched, nor on the manga's
+     * first fetch.
+     */
+    suspend fun newChapters(binding: Binding, refresh: Boolean): List<SChapter>? =
+        load(binding, refresh)?.found
+
+    private class Loaded(val chapters: List<SChapter>, val found: List<SChapter>)
+
+    private suspend fun load(binding: Binding, refresh: Boolean): Loaded? {
         val source = source(binding.source) ?: return null
         val load = loads.computeIfAbsent(binding.source to binding.mangaUrl) { Mutex() }
         return load.withLock {
             if (!refresh)
                 stored(binding)?.let {
-                    return@withLock it
+                    return@withLock Loaded(it, emptyList())
                 }
             val manga =
                 SManga.create().apply {
@@ -101,8 +119,8 @@ class SourceRepository(private val store: Store, private val sources: List<Catal
                 source
                     .getMangaUpdate(manga, emptyList(), fetchDetails = false, fetchChapters = true)
                     .chapters
-            store.write { put(binding, chapters) }
-            chapters
+            val found = store.write { put(binding, chapters) }
+            Loaded(chapters, found)
         }
     }
 
@@ -169,7 +187,22 @@ class SourceRepository(private val store: Store, private val sources: List<Catal
         return null
     }
 
-    private fun KomaDatabase.put(binding: Binding, chapters: List<SChapter>) {
+    /**
+     * Answers the chapters a stored list lacked, stored as found; none on the manga's first list.
+     */
+    private fun KomaDatabase.put(binding: Binding, chapters: List<SChapter>): List<SChapter> {
+        val known =
+            if (chapterQueries.listed(binding.source, binding.mangaUrl).executeAsOne() == 0L) null
+            else
+                chapterQueries
+                    .stored(binding.source, binding.mangaUrl) { url, _, _, _, _ -> url }
+                    .executeAsList()
+                    .toSet()
+        val found = known?.let { chapters.filter { it.url !in known } }.orEmpty()
+        val now = clock.millis()
+        for (chapter in found) {
+            chapterQueries.found(binding.source, binding.mangaUrl, chapter.url, now)
+        }
         chapterQueries.clear(binding.source, binding.mangaUrl)
         chapters.forEachIndexed { position, chapter ->
             chapterQueries.put(
@@ -184,6 +217,7 @@ class SourceRepository(private val store: Store, private val sources: List<Catal
             )
         }
         chapterQueries.list(binding.source, binding.mangaUrl)
+        return found
     }
 
     private fun KomaDatabase.put(ref: MediaRef, binding: Binding) {
