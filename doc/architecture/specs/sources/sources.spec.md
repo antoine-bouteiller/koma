@@ -49,6 +49,7 @@ proves the match before binding it.
 | `[KD-11.1]` Title to source binding | On first read, try the user's ordered preferred sources. A source with a `Finder` binds only what its finder answers. A source without one is searched with every backend title variant and binds on an exact normalized title match. When no source binds, the title screen shows ranked search candidates from every source. The binding is editable from the title screen when Koma lists more than one source. `[CT-19.1]` gives the algorithm. | A backend id proves the match, so a same-titled novel or edition never binds. Title matching stays for sources without ids. Finders live in Koma, so copied extensions stay as upstream ships them. |
 | `[KD-18.2]` Sources | Mihon's extension API, at the version keiyoushi's extensions build against. Koma ships the `eu.kanade.tachiyomi.source` and `eu.kanade.tachiyomi.network` packages, and the keiyoushi helper packages a copied extension imports (`[CT-18]`). v1 copies the extensions it uses from `keiyoushi/extensions-source` into `app/src/main/kotlin/eu/kanade/tachiyomi/extension/`, and lists them in `app/src/main/kotlin/app/koma/source/Sources.kt`. v1 lists Atsumaru only. | A copied extension builds with few or no edits and stays comparable with upstream. The same API can later load installed extension APKs (`[NG-3.1]`). Atsumaru's JSON API answers plain HTTPS with no Cloudflare challenge, and its 33,632 series (2026-11-18) cover the titles the user reads. |
 | `[KD-32]` Chapter store | A source manga's chapter list is stored on its first load, and the title screen shows the stored list. Only a library update (`[CT-22.1]`) or a pull on the title screen fetches it again. A library update refetches the titles filed `Reading` or `Rereading`, and fetches any other title's list only until one is stored. | Mihon's model: opening a title costs no source request, and the titles being read stay current. Titles the user does not follow cost one request in total. `LibraryUpdater` holds no screen state, so a periodic job can run it unchanged. |
+| `[KD-33]` Unread badge | Each Library cover shows how many chapters its title screen shows unread (`doc/architecture/specs/reader.spec.md` `[CT-5.1]`): chapters of hidden scanlators are left out, and an unnumbered chapter counts. A title with none unread, or without a stored chapter list, shows no badge. The count is derived from the stored chapters and the library entry's progress, never stored. Only the Library shows it. | Mihon's model: the library tells which titles have chapters to read without opening them. Deriving the count follows `[KD-13]`, so it follows progress edited elsewhere and the next library update. |
 | `[KD-28]` Source runtime | Koma has no KSP processor and no Mihon app around the extension. It writes by hand what keiyoushi's build generates (`[CT-18]`), and registers in Injekt what Mihon's app provides: the `Application`, a `NetworkHelper` over `AppContainer.http`, and a `Json`. | The copied `KeiSource` and helpers read these through Injekt and check the client's interceptors by class name, so they run unchanged. |
 
 | Leaf | Module |
@@ -69,6 +70,8 @@ proves the match before binding it.
 - `[SO-15]` The library's refresh indicator shows only while the library syncs. Its chapters then
   update in the background, under a notification that names the title being updated and its
   position. — demonstrated by `[VC-22]`
+- `[SO-16]` A Library cover shows how many of its title's chapters are unread, and the count
+  follows the user's progress and scanlator filter. — demonstrated by `[VC-23]`
 
 ## Contracts
 
@@ -399,6 +402,11 @@ Source tests stub each source's API with `FakeNetwork`, through the client sourc
 - `[VC-22]` Given the library of `[VC-21]`, when the library first opens, then each title's chapter
   request goes out after the background update announced that title, with its position out of 2.
   — demonstrates `[SO-15]`
+- `[VC-23]` Given the library of `[VC-21]` with progress 1.1 on the reading title, whose chapters
+  are 1, 1.1, 2 by Team Z, 2 by Team Y and one without a number, and progress 1 on the completed
+  title, whose only chapter is 1, when the library opens, then the reading title's cover shows 3
+  and the completed title's shows no badge; when Team Z is hidden on the title screen, it shows 2;
+  when a pull brings progress 2, it shows 1. — demonstrates `[SO-16]`
 
 ## Caveats
 

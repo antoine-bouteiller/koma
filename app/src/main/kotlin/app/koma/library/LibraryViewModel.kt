@@ -23,6 +23,7 @@ class LibraryViewModel(private val container: AppContainer) : ViewModel() {
     val state: StateFlow<LibraryState> =
         combine(
                 container.library.library,
+                container.library.unread,
                 syncing,
                 lastFailed,
                 ::libraryState,

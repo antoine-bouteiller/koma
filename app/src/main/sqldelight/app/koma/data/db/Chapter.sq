@@ -18,3 +18,12 @@ INSERT INTO chapter (source, manga_url, position, url, name, scanlator, number, 
 
 list:
 INSERT OR REPLACE INTO chapter_list (source, manga_url) VALUES (?, ?);
+
+-- The chapters each library title's screen shows: its bound source manga's, without hidden scanlators'.
+shownInLibrary:
+SELECT e.media_id, e.progress, c.number FROM library_entry e
+JOIN binding b ON b.backend = e.backend AND b.media_id = e.media_id
+JOIN chapter c ON c.source = b.source AND c.manga_url = b.manga_url
+WHERE e.backend = ? AND NOT EXISTS (
+  SELECT 1 FROM excluded_scanlator x WHERE x.backend = e.backend AND x.media_id = e.media_id AND x.scanlator = c.scanlator
+);

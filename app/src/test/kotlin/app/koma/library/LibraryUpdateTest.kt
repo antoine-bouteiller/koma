@@ -1,5 +1,8 @@
 package app.koma.library
 
+import androidx.compose.ui.test.assertTextEquals
+import androidx.compose.ui.test.onChild
+import androidx.compose.ui.test.onNodeWithTag
 import androidx.compose.ui.test.performTouchInput
 import androidx.compose.ui.test.swipeDown
 import app.koma.data.ChapterUpdate
@@ -59,6 +62,8 @@ class LibraryUpdateTest {
         app.awaitIdle()
     }
 
+    private fun unread(id: Int) = app.compose.onNodeWithTag("unread-$id", useUnmergedTree = true)
+
     private fun fetched() =
         app.network.requested(READING).size to app.network.requested(COMPLETED).size
 
@@ -89,6 +94,49 @@ class LibraryUpdateTest {
 
         pull()
         assertEquals(3 to 2, fetched())
+    }
+
+    @Test
+    fun `a library cover counts the shown chapters past the title's progress`() {
+        library()
+        app.network.answer(
+            CHANGES,
+            200,
+            changes(
+                "c1",
+                false,
+                upsert(1, "reading", progress = 1.1),
+                upsert(2, "completed", progress = 1),
+            ),
+        )
+        app.network.answer(
+            READING,
+            200,
+            chapters(
+                chapter("solo/1", "Chapter 1", 1f),
+                chapter("solo/1.1", "Chapter 1.1", 1.1f),
+                chapter("solo/2z", "Chapter 2", 2f, "Team Z"),
+                chapter("solo/2y", "Chapter 2", 2f, "Team Y"),
+                chapter("solo/extra", "Extra", -1f),
+            ),
+        )
+        app.launch()
+        unread(1).onChild().assertTextEquals("3")
+        unread(2).assertDoesNotExist()
+
+        app.tap("manga-1")
+        app.tap("title-scanlators")
+        app.tap("scanlator-Team Z")
+        app.back()
+        unread(1).onChild().assertTextEquals("2")
+
+        app.network.answer(
+            "$CHANGES?limit=1000&cursor=c1",
+            200,
+            changes("c2", false, upsert(1, "reading", revision = 3, progress = 2)),
+        )
+        pull()
+        unread(1).onChild().assertTextEquals("1")
     }
 
     @Test

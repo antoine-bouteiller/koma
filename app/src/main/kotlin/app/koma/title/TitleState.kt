@@ -9,6 +9,8 @@ import app.koma.data.Media
 import app.koma.data.MediaDetails
 import app.koma.data.Publication
 import app.koma.data.Tag
+import app.koma.data.chapterNumber
+import app.koma.data.isChapterRead
 import eu.kanade.tachiyomi.source.model.SChapter
 import kotlin.math.round
 
@@ -101,9 +103,7 @@ data class Pick(val key: String, val source: String, val title: String)
 fun chapterRow(chapter: SChapter) =
     ChapterRow(chapter.url, chapter.name, chapter.scanlator, number(chapter))
 
-/** A source's chapter number; through its decimal string, so chapter 10.1f is progress 10.1. */
-fun number(chapter: SChapter): Double? =
-    chapter.chapter_number.takeIf { it >= 0f }?.toString()?.toDouble()
+fun number(chapter: SChapter): Double? = chapterNumber(chapter.chapter_number)
 
 /** [chapters] with each chapter [progress] reaches marked read; one without a number never is. */
 fun readChapters(chapters: Chapters?, progress: Double?): Chapters? =
@@ -112,7 +112,7 @@ fun readChapters(chapters: Chapters?, progress: Double?): Chapters? =
         chapters.copy(
             chapters =
                 chapters.chapters.map { row ->
-                    row.copy(read = row.number != null && row.number <= (progress ?: 0.0))
+                    row.copy(read = isChapterRead(row.number, progress))
                 }
         )
 

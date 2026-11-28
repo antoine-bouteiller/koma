@@ -3,6 +3,7 @@ package app.koma.library
 import androidx.compose.foundation.background
 import androidx.compose.foundation.clickable
 import androidx.compose.foundation.layout.Arrangement
+import androidx.compose.foundation.layout.Box
 import androidx.compose.foundation.layout.Column
 import androidx.compose.foundation.layout.PaddingValues
 import androidx.compose.foundation.layout.aspectRatio
@@ -19,6 +20,7 @@ import androidx.compose.foundation.lazy.grid.rememberLazyGridState
 import androidx.compose.foundation.pager.HorizontalPager
 import androidx.compose.foundation.pager.rememberPagerState
 import androidx.compose.foundation.shape.RoundedCornerShape
+import androidx.compose.material3.Badge
 import androidx.compose.material3.ExperimentalMaterial3Api
 import androidx.compose.material3.ExperimentalMaterial3ExpressiveApi
 import androidx.compose.material3.MaterialTheme
@@ -166,17 +168,31 @@ private fun CoverGrid(
                     .testTag("manga-${manga.ref.id}"),
                 verticalArrangement = Arrangement.spacedBy(6.dp),
             ) {
-                AsyncImage(
-                    model = manga.cover,
-                    contentDescription = null,
-                    imageLoader = images,
-                    contentScale = ContentScale.Crop,
-                    modifier =
-                        Modifier.fillMaxWidth()
-                            .aspectRatio(2f / 3f)
-                            .clip(RoundedCornerShape(8.dp))
-                            .background(MaterialTheme.colorScheme.surfaceContainerHighest),
-                )
+                Box {
+                    AsyncImage(
+                        model = manga.cover,
+                        contentDescription = null,
+                        imageLoader = images,
+                        contentScale = ContentScale.Crop,
+                        modifier =
+                            Modifier.fillMaxWidth()
+                                .aspectRatio(2f / 3f)
+                                .clip(RoundedCornerShape(8.dp))
+                                .background(MaterialTheme.colorScheme.surfaceContainerHighest),
+                    )
+                    if (manga.unread > 0) {
+                        Badge(
+                            containerColor = MaterialTheme.colorScheme.primary,
+                            contentColor = MaterialTheme.colorScheme.onPrimary,
+                            modifier =
+                                Modifier.align(Alignment.TopEnd)
+                                    .padding(6.dp)
+                                    .testTag("unread-${manga.ref.id}"),
+                        ) {
+                            Text("${manga.unread}")
+                        }
+                    }
+                }
                 Text(
                     manga.title,
                     style = MaterialTheme.typography.bodySmall,

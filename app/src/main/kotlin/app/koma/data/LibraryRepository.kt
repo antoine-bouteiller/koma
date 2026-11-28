@@ -8,6 +8,16 @@ import kotlinx.coroutines.sync.withLock
 
 private const val CURSOR = "library_cursor"
 
+/**
+ * A source's chapter number; through its decimal string, so chapter 10.1f is progress 10.1. Null
+ * when the source gives none.
+ */
+fun chapterNumber(number: Float): Double? = number.takeIf { it >= 0f }?.toString()?.toDouble()
+
+/** Whether [progress] covers chapter [number]; a chapter without a number never is read. */
+fun isChapterRead(number: Double?, progress: Double?): Boolean =
+    number != null && number <= (progress ?: 0.0)
+
 data class LibraryItem(val media: Media, val status: ListStatus, val updatedAt: Long)
 
 /**
@@ -73,6 +83,20 @@ class LibraryRepository(
                     LibraryItem(media, status, row.updated_at)
                 }
             Library(synced, items)
+        }
+
+    /**
+     * How many chapters each library title's screen shows unread. A title without a stored chapter
+     * list, or with none unread, is missing.
+     */
+    val unread: Flow<Map<MediaRef, Int>> =
+        store.watch({ listOf(chapterQueries.shownInLibrary(name)) }) {
+            chapterQueries
+                .shownInLibrary(name)
+                .executeAsList()
+                .filterNot { isChapterRead(chapterNumber(it.number.toFloat()), it.progress) }
+                .groupingBy { MediaRef(backend.id, it.media_id) }
+                .eachCount()
         }
 
     /** Whether the library has been read from the backend. */
