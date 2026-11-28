@@ -5,6 +5,8 @@ import android.content.Context
 import android.net.Uri
 import app.cash.sqldelight.db.SqlDriver
 import app.koma.data.AccountRepository
+import app.koma.data.AutoUpdate
+import app.koma.data.AutoUpdatePreferences
 import app.koma.data.Backend
 import app.koma.data.HistoryRepository
 import app.koma.data.KomaDatabase
@@ -82,6 +84,11 @@ class AppContainer(
      */
     val startLibraryUpdate: () -> Unit,
     /**
+     * Schedules the library update to start on its own as the settings say, or stops it when they
+     * turn it off. A due start waits until the device meets their restrictions.
+     */
+    scheduleLibraryUpdate: (AutoUpdate) -> Unit,
+    /**
      * Runs the blocking network and database work. Tests pass the main dispatcher, which Compose's
      * idling waits for.
      */
@@ -95,6 +102,7 @@ class AppContainer(
     val sources = SourceRepository(store, sources, clock)
     val updater = LibraryUpdater(store, library, media, this.sources)
     val theme = ThemePreferences(preferences)
+    val autoUpdate = AutoUpdatePreferences(preferences, scheduleLibraryUpdate)
 
     init {
         // What Mihon's app provides its extensions. Factories, so the latest container's win.

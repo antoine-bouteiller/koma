@@ -12,6 +12,9 @@ import androidx.compose.material3.Text
 import androidx.compose.runtime.Composable
 import androidx.compose.runtime.LaunchedEffect
 import androidx.compose.runtime.getValue
+import androidx.compose.runtime.mutableStateOf
+import androidx.compose.runtime.saveable.rememberSaveable
+import androidx.compose.runtime.setValue
 import androidx.compose.ui.Modifier
 import androidx.compose.ui.platform.testTag
 import androidx.lifecycle.compose.collectAsStateWithLifecycle
@@ -20,6 +23,7 @@ import app.koma.AppContainer
 import app.koma.R
 import app.koma.data.MediaRef
 import app.koma.ui.EmptyState
+import app.koma.ui.HeaderAction
 import app.koma.ui.LoadingState
 
 /** The signed-in person's library. [onOpen] opens a title. */
@@ -32,6 +36,9 @@ fun LibraryView(
     val model = viewModel { LibraryViewModel(container) }
     LaunchedEffect(model) { model.open() }
     val state by model.state.collectAsStateWithLifecycle()
+    var autoUpdate by rememberSaveable { mutableStateOf(false) }
+    HeaderAction { LibraryMenu(onAutoUpdate = { autoUpdate = true }) }
+    if (autoUpdate) AutoUpdateSheet(container, onDismiss = { autoUpdate = false })
     val motion = MaterialTheme.motionScheme
     AnimatedContent(
         state,

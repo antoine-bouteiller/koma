@@ -49,6 +49,7 @@ class KomaApplication : Application() {
                 )
             },
             startLibraryUpdate = { LibraryUpdateWorker.start(this) },
+            scheduleLibraryUpdate = { LibraryUpdateWorker.schedule(this, it) },
         )
     }
 }

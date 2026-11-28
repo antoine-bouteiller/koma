@@ -97,6 +97,7 @@ class SourceRuntimeTest {
             installedVersion = "0.1.0",
             installApk = {},
             startLibraryUpdate = {},
+            scheduleLibraryUpdate = {},
             work = Dispatchers.Unconfined,
         )
     }

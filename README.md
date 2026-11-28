@@ -13,7 +13,7 @@ Koma is a Kotlin and Jetpack Compose app in one Gradle module, `app/`, with pack
 | `app.koma.data` | The `Backend` interface, the media, library, history and account repositories, the HTTP client, and the SQLite store (SQLDelight, `app/src/main/sqldelight/`) |
 | `app.koma.data.mangabaka` | `MangaBakaBackend`: MangaBaka's API and its sign-in (OAuth with PKCE) |
 | `app.koma.auth` | The sign-in prompt and session state, the Custom Tab browser, the Keystore secret store |
-| `app.koma.library` | The library's shelves and their screen |
+| `app.koma.library` | The library's shelves, their screen, and the automatic update's settings |
 | `app.koma.history` | The reading history's screen |
 | `app.koma.updates` | The Updates tab: the new chapters of library titles |
 | `app.koma.title` | A title's screen: the backend's facts, summary and tags, and its library status and rating |

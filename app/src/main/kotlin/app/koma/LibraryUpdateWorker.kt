@@ -10,22 +10,32 @@ import android.os.Build
 import androidx.core.app.NotificationChannelCompat
 import androidx.core.app.NotificationCompat
 import androidx.core.app.NotificationManagerCompat
+import androidx.work.Constraints
 import androidx.work.CoroutineWorker
+import androidx.work.ExistingPeriodicWorkPolicy
 import androidx.work.ExistingWorkPolicy
 import androidx.work.ForegroundInfo
+import androidx.work.NetworkType
 import androidx.work.OneTimeWorkRequestBuilder
+import androidx.work.PeriodicWorkRequestBuilder
 import androidx.work.WorkManager
 import androidx.work.WorkerParameters
+import app.koma.data.AutoUpdate
 import app.koma.data.ChapterUpdate
 import app.koma.data.FoundChapters
+import app.koma.data.UpdateInterval
+import java.util.concurrent.TimeUnit
+import kotlinx.coroutines.sync.Mutex
 
 private const val WORK = "library-update"
+private const val PERIODIC_WORK = "library-update-periodic"
 private const val CHANNEL = "library-update"
 private const val UNMATCHED_CHANNEL = "library-unmatched"
 private const val FOUND_CHANNEL = "library-chapters"
 private const val NOTIFICATION = 1
 private const val UNMATCHED_NOTIFICATION = 2
 private const val FOUND_NOTIFICATION = 3
+private const val FLEX_MINUTES = 10L
 
 /**
  * Updates the library's chapters in a foreground service whose notification names each title, then
@@ -34,6 +44,16 @@ private const val FOUND_NOTIFICATION = 3
 class LibraryUpdateWorker(context: Context, params: WorkerParameters) :
     CoroutineWorker(context, params) {
     override suspend fun doWork(): Result {
+        // The started and the scheduled update are distinct unique works, which may overlap.
+        if (!running.tryLock()) return Result.success()
+        return try {
+            update()
+        } finally {
+            running.unlock()
+        }
+    }
+
+    private suspend fun update(): Result {
         val notifications = NotificationManagerCompat.from(applicationContext)
         notifications.createNotificationChannel(
             NotificationChannelCompat.Builder(CHANNEL, NotificationManagerCompat.IMPORTANCE_LOW)
@@ -147,6 +167,8 @@ class LibraryUpdateWorker(context: Context, params: WorkerParameters) :
     }
 
     companion object {
+        private val running = Mutex()
+
         /** Starts an update unless one runs. */
         fun start(context: Context) {
             WorkManager.getInstance(context)
@@ -155,6 +177,41 @@ class LibraryUpdateWorker(context: Context, params: WorkerParameters) :
                     ExistingWorkPolicy.KEEP,
                     OneTimeWorkRequestBuilder<LibraryUpdateWorker>().build(),
                 )
+        }
+
+        /**
+         * Runs an update every [AutoUpdate.interval], once the device meets its restrictions, or
+         * stops when the interval is off. Changing only the restrictions keeps the next run's time.
+         */
+        fun schedule(context: Context, settings: AutoUpdate) {
+            val work = WorkManager.getInstance(context)
+            if (settings.interval == UpdateInterval.Off) {
+                work.cancelUniqueWork(PERIODIC_WORK)
+                return
+            }
+            val constraints =
+                Constraints.Builder()
+                    .setRequiredNetworkType(
+                        if (settings.wifiOnly) NetworkType.UNMETERED else NetworkType.CONNECTED
+                    )
+                    .setRequiresCharging(settings.charging)
+                    .setRequiresBatteryNotLow(settings.batteryNotLow)
+                    .build()
+            // The flex window puts the first run an interval after turning it on, not right away.
+            val request =
+                PeriodicWorkRequestBuilder<LibraryUpdateWorker>(
+                        settings.interval.hours,
+                        TimeUnit.HOURS,
+                        FLEX_MINUTES,
+                        TimeUnit.MINUTES,
+                    )
+                    .setConstraints(constraints)
+                    .build()
+            work.enqueueUniquePeriodicWork(
+                PERIODIC_WORK,
+                ExistingPeriodicWorkPolicy.UPDATE,
+                request,
+            )
         }
     }
 }

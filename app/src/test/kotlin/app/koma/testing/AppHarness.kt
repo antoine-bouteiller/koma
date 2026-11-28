@@ -24,6 +24,7 @@ import androidx.lifecycle.ViewModelStoreOwner
 import androidx.lifecycle.viewmodel.compose.LocalViewModelStoreOwner
 import app.cash.sqldelight.driver.android.AndroidSqliteDriver
 import app.koma.AppContainer
+import app.koma.data.AutoUpdate
 import app.koma.data.Backend
 import app.koma.data.ChapterUpdate
 import app.koma.data.FoundChapters
@@ -85,6 +86,8 @@ class AppHarness : TestRule {
     val unmatched = CopyOnWriteArrayList<List<String>>()
     /** The chapters each background library update found, one list per update. */
     val found = CopyOnWriteArrayList<List<FoundChapters>>()
+    /** Each schedule handed to Android for the automatic library update, in order. */
+    val scheduled = CopyOnWriteArrayList<AutoUpdate>()
     /** The image URLs the app asked for. */
     val images = CopyOnWriteArrayList<String>()
     var image: suspend (ImageRequest) -> ImageResult = { request ->
@@ -177,6 +180,7 @@ class AppHarness : TestRule {
                             }
                     }
                 },
+                scheduleLibraryUpdate = scheduled::add,
                 work = Dispatchers.Main,
             )
         return built
