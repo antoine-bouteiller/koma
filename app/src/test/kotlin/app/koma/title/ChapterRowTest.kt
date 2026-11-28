@@ -33,6 +33,14 @@ class ChapterRowTest {
     }
 
     @Test
+    fun `a part chapter shows only while no later whole chapter is listed`() {
+        assertEquals(listOf("126.2", "126.1", "126.0"), keys(bound(126.2f, 126.1f, 126f)))
+        assertEquals(listOf("127.5", "127.0", "-1.0"), keys(bound(127.5f, 127f, 126.1f, -1f)))
+    }
+
+    private fun keys(chapters: Chapters) = (chapters as Chapters.Bound).chapters.map { it.key }
+
+    @Test
     fun `hiding every scanlator says the chapters are filtered out`() {
         val chapters =
             boundChapters(

@@ -26,7 +26,8 @@ class LibraryUpdater(
 ) {
     /**
      * Announces each title to [onTitle] before loading its chapters. A title whose chapters fail to
-     * load is skipped. Found chapters of hidden scanlators go unreported.
+     * load is skipped. Found chapters of hidden scanlators, and outdated part chapters, go
+     * unreported.
      */
     suspend fun updateChapters(onTitle: suspend (ChapterUpdate) -> Unit = {}): UpdateReport {
         val none = UpdateReport(emptyList(), emptyList())
@@ -58,6 +59,9 @@ class LibraryUpdater(
         val found = sources.newChapters(binding, refresh).orEmpty()
         if (found.isEmpty()) return emptyList()
         val excluded = sources.excludedScanlators(ref).first()
-        return found.filter { it.scanlator == null || it.scanlator !in excluded }.map { it.name }
+        val shown = withoutOutdatedParts(sources.chapters(binding).orEmpty()).map { it.url }.toSet()
+        return found
+            .filter { it.url in shown && (it.scanlator == null || it.scanlator !in excluded) }
+            .map { it.name }
     }
 }

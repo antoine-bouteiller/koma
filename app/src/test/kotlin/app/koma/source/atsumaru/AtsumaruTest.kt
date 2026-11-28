@@ -121,13 +121,13 @@ class AtsumaruTest {
             "${CHAPTERS}B",
             200,
             """{"chapters":[${chapter("c5y", 5f, "y", 1)},${chapter("c5z", 5f, "z", 2)},""" +
-                """${chapter("c5x", 5f, "x", 3)},${chapter("c45x", 4.5f, "x", 1)}]}""",
+                """${chapter("c5x", 5f, "x", 3)},${chapter("c55x", 5.5f, "x", 1)}]}""",
         )
         app.launch()
         app.tap("manga-3397")
 
         shows("chapter-B/c5z", "Chapter 5.0", "Z")
-        shows("chapter-B/c45x", "Chapter 4.5", "X")
+        shows("chapter-B/c55x", "Chapter 5.5", "X")
         app.missing("chapter-B/c5y")
         app.missing("chapter-B/c5x")
     }

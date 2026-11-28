@@ -164,8 +164,8 @@ Tests run on the JVM under Robolectric. They stub MangaBaka's API and Atsumaru's
 - `[VC-3]` Given a title bound to the Atsumaru stub, when a chapter whose stubbed page list holds
   three images opens in the reader, then the reader shows those three images, loaded from the
   stub's `/static/pages/…` URLs. — demonstrates `[SO-12]`
-- `[VC-4]` Given remote progress 4 and stubbed chapters 1, 2, 4, 4.5, 5 and one without a number,
-  when the chapter list opens, then 1, 2 and 4 show read, and 4.5, 5 and the unnumbered one show
+- `[VC-4]` Given remote progress 4 and stubbed chapters 1, 2, 4, 4.5 and one without a number,
+  when the chapter list opens, then 1, 2 and 4 show read, and 4.5 and the unnumbered one show
   unread. — demonstrates `[SO-4]`
 - `[VC-5]` Given remote progress 4 with state `plan_to_read`, when chapter 4.5's last page is shown,
   then the stub receives `PATCH /v1/my/library/{id}` with `progress_chapter: 4.5` and

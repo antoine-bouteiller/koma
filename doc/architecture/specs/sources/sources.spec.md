@@ -3,7 +3,7 @@ title: Koma sources
 kind: umbrella
 status: amended
 author: Antoine Bouteiller
-date: 2026-11-27
+date: 2026-11-28
 module:
   - app/src/main/kotlin/app/koma/source/
   - app/src/main/kotlin/eu/kanade/tachiyomi/source/
@@ -53,6 +53,7 @@ proves the match before binding it.
 | `[KD-33]` Unread badge | Each Library cover shows how many chapters its title screen shows unread (`doc/architecture/specs/reader.spec.md` `[CT-5.1]`): chapters of hidden scanlators are left out, and an unnumbered chapter counts. A title with none unread, or without a stored chapter list, shows no badge. The count is derived from the stored chapters and the library entry's progress, never stored. Only the Library shows it. | Mihon's model: the library tells which titles have chapters to read without opening them. Deriving the count follows `[KD-13]`, so it follows progress edited elsewhere and the next library update. |
 | `[KD-34]` Unmatched titles | A title no source binds is stored as unmatched, and storing a binding clears it. A library update still searches it each time (`[C-15]`), and notifies the titles it found no source for once it ends. Each unmatched Library cover shows a red error badge in place of its unread count. A failed request marks nothing. | Mihon's model: a library update reports the titles it could not update. The badge tells which titles need a binding picked on their title screen without opening each one. |
 | `[KD-35]` New chapters | A refetch that lists chapters the stored list lacked stores each as found, at the time it found it; a manga's first fetch finds none. The Updates tab lists the found chapters of library titles, without hidden scanlators', and tapping one opens its title. A library update then notifies the chapters it found, by title; a title screen's pull notifies nothing. Sign-out forgets the found chapters. | Mihon's model: the Updates tab gathers what each update brought, and a notification tells of it without opening the app. A first fetch lists a title's whole history, which is not news. The user pulling a title already sees its new chapters. |
+| `[KD-36]` Outdated part chapters | A chapter whose number is not whole, as 126.1, is hidden once the stored list holds a chapter of a later whole number, as 127 or 127.5, whatever its scanlator. While none does, as with 126.1 and 126.2 the latest, it shows. The title screen, the unread badge, the Updates tab and the new-chapters notification leave hidden ones out. | Sources often list a hiatus or delay notice as a part chapter, which a later chapter makes stale. Hiding it everywhere keeps the badge and the Updates tab equal to what the title screen shows. |
 | `[KD-28]` Source runtime | Koma has no KSP processor and no Mihon app around the extension. It writes by hand what keiyoushi's build generates (`[CT-18]`), and registers in Injekt what Mihon's app provides: the `Application`, a `NetworkHelper` over `AppContainer.http`, and a `Json`. | The copied `KeiSource` and helpers read these through Injekt and check the client's interceptors by class name, so they run unchanged. |
 
 | Leaf | Module |
@@ -80,6 +81,9 @@ proves the match before binding it.
 - `[SO-18]` A library update notifies the chapters it adds to a title's stored list, and the
   Updates tab lists them by the day they were found. A title's first fetch adds none.
   — demonstrated by `[VC-25]`, `[VC-26]`
+- `[SO-19]` A part chapter, as 126.1, shows only while no later whole chapter is listed: then the
+  title screen, the unread badge, the Updates tab and the notification leave it out.
+  — demonstrated by `[VC-27]`
 
 ## Contracts
 
@@ -257,7 +261,8 @@ source, the title screen offers no binding action.
 
 The title screen's header offers a scanlator filter while the bound chapters name a scanlator. It
 lists them, and hides the chapters of each one the user unchecks, through `showScanlator`. A
-chapter that names no scanlator always shows.
+chapter that names no scanlator always shows. The title screen leaves out outdated part chapters
+(`[KD-36]`).
 
 `resolve(details)`:
 
@@ -401,7 +406,8 @@ val startLibraryUpdate: () -> Unit
    its chapters: the title's stored binding, else `resolve(media.loadDetails(ref))`, gives its
    source manga; a title no source binds is skipped and reported unmatched. It then calls
    `newChapters(binding, refresh = status in { Reading, Rereading })`, and reports the chapters it
-   answers, without those of the title's hidden scanlators. A title with none is left out of
+   answers, without those of the title's hidden scanlators nor outdated part chapters (`[KD-36]`)
+   of its stored list. A title with none is left out of
    `found`.
 3. A failed request skips its title. Titles load one at a time.
 
@@ -444,7 +450,7 @@ val newChapters: Flow<List<NewChapter>>
 
 `newChapters` reads the `chapter_update` rows whose chapter the stored list still holds, of the
 backend's library titles bound to that manga, without media the backend no longer answers nor the
-title's hidden scanlators: newest found first, then by title, each title's in its source's order.
+title's hidden scanlators, nor outdated part chapters (`[KD-36]`): newest found first, then by title, each title's in its source's order.
 
 Signed in, the Updates tab shows them under a header per day found (`formatDay`, which moves from
 `app.koma.history` to `app.koma.ui` as both features use it), each row the title's cover, its title
@@ -502,6 +508,11 @@ Source tests stub each source's API with `FakeNetwork`, through the client sourc
 - `[VC-26]` Given the library of `[VC-21]` whose reading title's chapters are by Team Z, hidden on
   its title screen, when a pull adds a Team Z chapter, then the update reports none and the Updates
   tab shows "No new chapters". — demonstrates `[SO-18]`
+- `[VC-27]` Given the library of `[VC-21]` whose reading title lists chapters 1.1 and 1, when the
+  library opens, then its cover shows 2; when a pull lists 3, 2.5, 2, 1.1 and 1, then the cover
+  shows 3, the update reports `Solo Leveling: Chapter 3, Chapter 2`, and the Updates tab lists
+  chapters 3 and 2 only. Given chapters 126.2, 126.1 and 126, the title screen lists all three;
+  given 127.5, 127, 126.1 and one without a number, it leaves out 126.1. — demonstrates `[SO-19]`
 
 ## Caveats
 

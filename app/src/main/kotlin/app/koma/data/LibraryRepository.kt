@@ -1,7 +1,9 @@
 package app.koma.data
 
+import eu.kanade.tachiyomi.source.model.SChapter
 import java.io.IOException
 import java.time.Clock
+import kotlin.math.floor
 import kotlinx.coroutines.flow.Flow
 import kotlinx.coroutines.sync.Mutex
 import kotlinx.coroutines.sync.withLock
@@ -17,6 +19,19 @@ fun chapterNumber(number: Float): Double? = number.takeIf { it >= 0f }?.toString
 /** Whether [progress] covers chapter [number]; a chapter without a number never is read. */
 fun isChapterRead(number: Double?, progress: Double?): Boolean =
     number != null && number <= (progress ?: 0.0)
+
+/**
+ * [chapters] without each part chapter, as 126.1, that a later whole chapter outdates: sources
+ * often list a hiatus notice as one. Keep in sync with the queries of `Chapter.sq`.
+ */
+fun withoutOutdatedParts(chapters: List<SChapter>): List<SChapter> {
+    val latest =
+        chapters.mapNotNull { chapterNumber(it.chapter_number) }.maxOrNull() ?: return chapters
+    return chapters.filterNot { chapter ->
+        val number = chapterNumber(chapter.chapter_number) ?: return@filterNot false
+        number != floor(number) && floor(number) < floor(latest)
+    }
+}
 
 data class LibraryItem(val media: Media, val status: ListStatus, val updatedAt: Long)
 

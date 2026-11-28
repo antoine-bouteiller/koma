@@ -215,7 +215,6 @@ class ChaptersTest {
             "$TEST_SOURCE/manga/a",
             200,
             chapters(
-                chapter("a/3", "Chapter 3", 3f),
                 chapter("a/2.5", "Chapter 2.5", 2.5f),
                 chapter("a/2", "Chapter 2", 2f),
                 chapter("a/1", "Chapter 1", 1f),
@@ -229,7 +228,7 @@ class ChaptersTest {
             app.node("title-content").performScrollToNode(hasTestTag("chapter-$key"))
             app.node("chapter-$key").assert(hasStateDescription("Read"))
         }
-        for (key in listOf("a/3", "a/2.5", "a/extra")) {
+        for (key in listOf("a/2.5", "a/extra")) {
             app.node("title-content").performScrollToNode(hasTestTag("chapter-$key"))
             app.node("chapter-$key").assert(SemanticsMatcher.keyNotDefined(StateDescription))
         }

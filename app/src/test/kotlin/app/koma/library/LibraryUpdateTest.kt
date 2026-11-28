@@ -222,6 +222,44 @@ class LibraryUpdateTest {
     }
 
     @Test
+    fun `a part chapter a later whole chapter outdates is neither counted, reported nor listed`() {
+        library()
+        app.network.answer(
+            READING,
+            200,
+            chapters(
+                chapter("solo/1.1", "Hiatus", 1.1f),
+                chapter("solo/1", "Chapter 1", 1f),
+            ),
+        )
+        app.launch()
+        unread(1).onChild().assertTextEquals("2")
+
+        app.network.answer(
+            READING,
+            200,
+            chapters(
+                chapter("solo/3", "Chapter 3", 3f),
+                chapter("solo/2.5", "Hiatus", 2.5f),
+                chapter("solo/2", "Chapter 2", 2f),
+                chapter("solo/1.1", "Hiatus", 1.1f),
+                chapter("solo/1", "Chapter 1", 1f),
+            ),
+        )
+        pull()
+        unread(1).onChild().assertTextEquals("3")
+        assertEquals(
+            listOf(FoundChapters("Solo Leveling", listOf("Chapter 3", "Chapter 2"))),
+            app.found.last(),
+        )
+        app.tap("tab-updates")
+        assertEquals(
+            listOf("updates-day-2026-01-01", "update-1:solo/3", "update-1:solo/2"),
+            app.childTags("updates"),
+        )
+    }
+
+    @Test
     fun `a chapter a title's pull adds is listed without a report`() {
         library()
         app.launch()

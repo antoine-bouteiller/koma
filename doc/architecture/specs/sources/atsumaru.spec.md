@@ -1,8 +1,8 @@
 ---
 title: Atsumaru source
-status: implemented
+status: amended
 author: Antoine Bouteiller
-date: 2026-11-27
+date: 2026-11-28
 module:
   - app/src/main/kotlin/eu/kanade/tachiyomi/extension/en/atsumaru/
   - app/src/main/kotlin/app/koma/source/atsumaru/
@@ -29,7 +29,7 @@ keiyoushi's Atsumaru extension and adds a finder that binds a title by that id
 ## Outcome
 
 - `[SO-9]` A user can read a title from Atsumaru without searching when Atsumaru carries its
-  MangaBaka id. Each chapter number appears once. — demonstrated by `[VC-12.1]`, `[VC-13]`,
+  MangaBaka id. Each chapter number appears once. — demonstrated by `[VC-12.1]`, `[VC-13.1]`,
   `doc/architecture/specs/reader.spec.md` `[VC-3]`
 
 ## Contracts
@@ -184,9 +184,14 @@ manga page under `https://atsu.moe/api/manga/page?id=…`.
   titled `I Level Up Alone` with `mangaBakaId` `3397`, when the title is first read, then the
   Atsumaru finder binds it to `B` without a prompt; when neither hit carries `3397`, nothing is
   bound and the title screen lists `A` and `B` as candidates. — demonstrates `[SO-9]`
-- `[VC-13]` Given an Atsumaru stub listing chapter 5 from scanlator `Y` (score 3, day 1), `Z`
+- ~~`[VC-13]` Given an Atsumaru stub listing chapter 5 from scanlator `Y` (score 3, day 1), `Z`
   (score 3, day 2) and `X` (score 1, day 3), and chapter 4.5 from `X` alone, when the chapter list
   opens, then it shows one chapter 5, credited to `Z`, and chapter 4.5, credited to `X`.
+  — demonstrates `[SO-9]`~~
+- `[VC-13.1]` Given an Atsumaru stub listing chapter 5 from scanlator `Y` (score 3, day 1), `Z`
+  (score 3, day 2) and `X` (score 1, day 3), and chapter 5.5 from `X` alone, when the chapter list
+  opens, then it shows one chapter 5, credited to `Z`, and chapter 5.5, credited to `X`. Chapter
+  4.5 would be hidden as outdated (`doc/architecture/specs/sources/sources.spec.md` `[KD-36]`).
   — demonstrates `[SO-9]`
 
 ## Caveats

@@ -26,6 +26,7 @@ found:
 INSERT OR IGNORE INTO chapter_update (source, manga_url, url, found_at) VALUES (?, ?, ?, ?);
 
 -- The found chapters each library title's screen shows, newest found first, each title's in its source's order.
+-- Its last condition, like shownInLibrary's, is withoutOutdatedParts in LibraryRepository.kt.
 updates:
 SELECT u.found_at, c.url, c.name, m.* FROM chapter_update u
 JOIN chapter c ON c.source = u.source AND c.manga_url = u.manga_url AND c.url = u.url
@@ -35,16 +36,22 @@ JOIN media m ON m.backend = b.backend AND m.id = b.media_id
 WHERE b.backend = ? AND m.title != '' AND NOT EXISTS (
   SELECT 1 FROM excluded_scanlator x WHERE x.backend = b.backend AND x.media_id = b.media_id AND x.scanlator = c.scanlator
 )
+AND (c.number = CAST(c.number AS INTEGER) OR CAST(c.number AS INTEGER) >= (
+  SELECT MAX(CAST(l.number AS INTEGER)) FROM chapter l WHERE l.source = c.source AND l.manga_url = c.manga_url
+))
 ORDER BY u.found_at DESC, m.id, c.position;
 
 clearUpdates:
 DELETE FROM chapter_update;
 
--- The chapters each library title's screen shows: its bound source manga's, without hidden scanlators'.
+-- The chapters each library title's screen shows: its bound source manga's, without hidden scanlators' nor outdated part chapters.
 shownInLibrary:
 SELECT e.media_id, e.progress, c.number FROM library_entry e
 JOIN binding b ON b.backend = e.backend AND b.media_id = e.media_id
 JOIN chapter c ON c.source = b.source AND c.manga_url = b.manga_url
 WHERE e.backend = ? AND NOT EXISTS (
   SELECT 1 FROM excluded_scanlator x WHERE x.backend = e.backend AND x.media_id = e.media_id AND x.scanlator = c.scanlator
-);
+)
+AND (c.number = CAST(c.number AS INTEGER) OR CAST(c.number AS INTEGER) >= (
+  SELECT MAX(CAST(l.number AS INTEGER)) FROM chapter l WHERE l.source = c.source AND l.manga_url = c.manga_url
+));

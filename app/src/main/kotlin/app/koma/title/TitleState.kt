@@ -11,6 +11,7 @@ import app.koma.data.Publication
 import app.koma.data.Tag
 import app.koma.data.chapterNumber
 import app.koma.data.isChapterRead
+import app.koma.data.withoutOutdatedParts
 import eu.kanade.tachiyomi.source.model.SChapter
 import kotlin.math.round
 
@@ -150,7 +151,7 @@ fun pickingChapters(candidates: List<Candidate>, cancel: Boolean) =
 
 fun boundChapters(chapters: List<SChapter>, changeable: Boolean) =
     Chapters.Bound(
-        chapters = chapters.map(::chapterRow),
+        chapters = withoutOutdatedParts(chapters).map(::chapterRow),
         changeable = changeable,
         note = "No chapters yet.".takeIf { chapters.isEmpty() },
     )
