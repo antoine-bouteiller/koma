@@ -1,0 +1,2 @@
+-- The scanlators whose chapters each title hides.
+CREATE TABLE IF NOT EXISTS excluded_scanlator (backend TEXT NOT NULL, media_id TEXT NOT NULL, scanlator TEXT NOT NULL, PRIMARY KEY (backend, media_id, scanlator));

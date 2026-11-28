@@ -80,6 +80,8 @@ import app.koma.R
 import app.koma.data.ListStatus
 import app.koma.data.MediaRef
 import app.koma.ui.ConnectedShapes
+import app.koma.ui.GlassIconButton
+import app.koma.ui.HeaderAction
 import app.koma.ui.PillButton
 import app.koma.ui.PillShape
 import app.koma.ui.ScreenColors
@@ -115,7 +117,18 @@ private fun TitleContent(
 ) {
     var picking by rememberSaveable { mutableStateOf(false) }
     var rating by rememberSaveable { mutableStateOf(false) }
+    var filtering by rememberSaveable { mutableStateOf(false) }
     val list = rememberLazyListState()
+    if (state.scanlators.isNotEmpty()) {
+        HeaderAction {
+            GlassIconButton(
+                R.drawable.ic_filter_list,
+                contentDescription = "Scanlators",
+                onClick = { filtering = true },
+                modifier = Modifier.testTag("title-scanlators"),
+            )
+        }
+    }
     TrackHeaderBackdrop(list)
     val pull = rememberPullToRefreshState()
     PullToRefreshBox(
@@ -184,6 +197,13 @@ private fun TitleContent(
                 model.setStatus(it)
             },
             onDismiss = { picking = false },
+        )
+    }
+    if (filtering && state.scanlators.isNotEmpty()) {
+        ScanlatorSheet(
+            state.scanlators,
+            onShow = model::showScanlator,
+            onDismiss = { filtering = false },
         )
     }
     val score = state.rating?.score

@@ -33,6 +33,24 @@ class ChapterRowTest {
     }
 
     @Test
+    fun `hiding every scanlator says the chapters are filtered out`() {
+        val chapters =
+            boundChapters(
+                listOf(
+                    SChapter.create().apply {
+                        url = "1"
+                        name = "Chapter 1"
+                        scanlator = "Y"
+                    }
+                ),
+                changeable = false,
+            )
+        val shown = shownChapters(chapters, setOf("Y")) as Chapters.Bound
+        assertEquals(emptyList<ChapterRow>(), shown.chapters)
+        assertEquals("Every chapter is filtered out.", shown.note)
+    }
+
+    @Test
     fun `read state leaves other chapter states alone`() {
         assertEquals(Chapters.Loading, readChapters(Chapters.Loading, 3.0))
     }

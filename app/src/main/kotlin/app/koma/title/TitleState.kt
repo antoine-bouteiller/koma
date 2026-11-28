@@ -60,7 +60,12 @@ data class TitleState(
     val chapters: Chapters? = null,
     /** Whether the chapters are being asked for again while the current ones show. */
     val refreshing: Boolean = false,
+    /** The scanlators the bound chapters name; empty offers no filter. */
+    val scanlators: List<Scanlator> = emptyList(),
 )
+
+/** A scanlator of the bound chapters, and whether its chapters show. */
+data class Scanlator(val name: String, val shown: Boolean)
 
 /** Where the title's chapters come from, and what they are. */
 sealed interface Chapters {
@@ -110,6 +115,26 @@ fun readChapters(chapters: Chapters?, progress: Double?): Chapters? =
                     row.copy(read = row.number != null && row.number <= (progress ?: 0.0))
                 }
         )
+
+/** The scanlators [chapters] name, alphabetically; none unless bound. */
+fun scanlators(chapters: Chapters?, excluded: Set<String>): List<Scanlator> =
+    (chapters as? Chapters.Bound)
+        ?.chapters
+        .orEmpty()
+        .mapNotNull { it.scanlator?.ifEmpty { null } }
+        .distinct()
+        .sortedWith(String.CASE_INSENSITIVE_ORDER)
+        .map { Scanlator(it, it !in excluded) }
+
+/** [chapters] without those of an [excluded] scanlator; a chapter naming none always shows. */
+fun shownChapters(chapters: Chapters?, excluded: Set<String>): Chapters? {
+    if (chapters !is Chapters.Bound || excluded.isEmpty()) return chapters
+    val shown = chapters.chapters.filter { it.scanlator == null || it.scanlator !in excluded }
+    return chapters.copy(
+        chapters = shown,
+        note = chapters.note ?: "Every chapter is filtered out.".takeIf { shown.isEmpty() },
+    )
+}
 
 fun pickingChapters(candidates: List<Candidate>, cancel: Boolean) =
     Chapters.Picking(

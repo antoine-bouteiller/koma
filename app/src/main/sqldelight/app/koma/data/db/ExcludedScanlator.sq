@@ -1,0 +1,11 @@
+-- Public data, kept across sign-outs and source changes: the scanlators whose chapters a media's title screen hides.
+CREATE TABLE IF NOT EXISTS excluded_scanlator (backend TEXT NOT NULL, media_id TEXT NOT NULL, scanlator TEXT NOT NULL, PRIMARY KEY (backend, media_id, scanlator));
+
+excluded:
+SELECT scanlator FROM excluded_scanlator WHERE backend = ? AND media_id = ?;
+
+hide:
+INSERT OR IGNORE INTO excluded_scanlator (backend, media_id, scanlator) VALUES (?, ?, ?);
+
+show:
+DELETE FROM excluded_scanlator WHERE backend = ? AND media_id = ? AND scanlator = ?;

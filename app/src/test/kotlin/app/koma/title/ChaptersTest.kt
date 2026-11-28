@@ -3,6 +3,8 @@ package app.koma.title
 import androidx.compose.ui.semantics.SemanticsProperties.StateDescription
 import androidx.compose.ui.test.SemanticsMatcher
 import androidx.compose.ui.test.assert
+import androidx.compose.ui.test.assertIsOff
+import androidx.compose.ui.test.assertIsOn
 import androidx.compose.ui.test.assertTextEquals
 import androidx.compose.ui.test.hasStateDescription
 import androidx.compose.ui.test.hasTestTag
@@ -231,6 +233,36 @@ class ChaptersTest {
             app.node("title-content").performScrollToNode(hasTestTag("chapter-$key"))
             app.node("chapter-$key").assert(SemanticsMatcher.keyNotDefined(StateDescription))
         }
+    }
+
+    @Test
+    fun `a hidden scanlator's chapters stay hidden on that title across restarts`() {
+        solo("Test Source" to 77)
+        app.network.answer(FIRST, 200, mangas("a" to "Solo Leveling"))
+        app.network.answer(
+            "$TEST_SOURCE/manga/a",
+            200,
+            chapters(
+                chapter("a/2z", "Chapter 2", 2f, "Team Z"),
+                chapter("a/2y", "Chapter 2", 2f, "Team Y"),
+                chapter("a/1", "Chapter 1", 1f),
+            ),
+        )
+        app.launch()
+        open()
+
+        app.tap("title-scanlators")
+        app.tap("scanlator-Team Z")
+        app.missing("chapter-a/2z")
+        shows("chapter-a/2y", "Chapter 2", "Team Y")
+        shows("chapter-a/1", "Chapter 1")
+
+        app.reload()
+
+        app.node("scanlator-Team Z").assertIsOff()
+        app.node("scanlator-Team Y").assertIsOn()
+        app.missing("chapter-a/2z")
+        shows("chapter-a/2y", "Chapter 2", "Team Y")
     }
 
     @Test

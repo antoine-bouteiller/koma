@@ -31,6 +31,7 @@ private data class Screen(
     val save: Save,
     val chapters: Chapters?,
     val refreshing: Boolean,
+    val excluded: Set<String>,
 )
 
 private data class Load(
@@ -61,8 +62,16 @@ class TitleViewModel(private val container: AppContainer, private val ref: Media
                 container.media.media(ref),
                 container.library.entry(ref),
                 container.media.details(ref),
-                combine(loaded, save, reading, refreshing, ::Screen),
-            ) { media, entry, details, (load, s, chapters, pulled) ->
+                combine(
+                    loaded,
+                    save,
+                    reading,
+                    refreshing,
+                    container.sources.excludedScanlators(ref),
+                    ::Screen,
+                ),
+            ) { media, entry, details, (load, s, chapters, pulled, excluded) ->
+                val read = readChapters(chapters, entry?.progress)
                 titleState(
                         backend,
                         media,
@@ -75,8 +84,9 @@ class TitleViewModel(private val container: AppContainer, private val ref: Media
                         load.seed,
                     )
                     .copy(
-                        chapters = readChapters(chapters, entry?.progress),
+                        chapters = shownChapters(read, excluded),
                         refreshing = pulled,
+                        scanlators = scanlators(read, excluded),
                     )
             }
             // Stops watching the store once the screen is gone, as one model is kept per title.
@@ -215,6 +225,13 @@ class TitleViewModel(private val container: AppContainer, private val ref: Media
             container.sources.chapters(binding, refresh = fetch)
                 ?: return picking(details, cancel = false)
         return boundChapters(chapters, changeable = container.sources.count > 1).also { bound = it }
+    }
+
+    /** Shows or hides the chapters of [scanlator]. */
+    fun showScanlator(scanlator: String, shown: Boolean) {
+        viewModelScope.launch(container.work) {
+            container.sources.showScanlator(ref, scanlator, shown)
+        }
     }
 
     fun setStatus(status: ListStatus) {

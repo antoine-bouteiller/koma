@@ -10,10 +10,15 @@ import androidx.compose.foundation.layout.padding
 import androidx.compose.foundation.layout.size
 import androidx.compose.foundation.lazy.LazyListScope
 import androidx.compose.foundation.lazy.items
+import androidx.compose.foundation.selection.toggleable
+import androidx.compose.material3.Checkbox
+import androidx.compose.material3.ExperimentalMaterial3Api
 import androidx.compose.material3.ExperimentalMaterial3ExpressiveApi
 import androidx.compose.material3.LoadingIndicator
 import androidx.compose.material3.MaterialTheme
+import androidx.compose.material3.ModalBottomSheet
 import androidx.compose.material3.Text
+import androidx.compose.material3.rememberModalBottomSheetState
 import androidx.compose.runtime.Composable
 import androidx.compose.ui.Alignment
 import androidx.compose.ui.Modifier
@@ -22,6 +27,7 @@ import androidx.compose.ui.semantics.Role
 import androidx.compose.ui.semantics.semantics
 import androidx.compose.ui.semantics.stateDescription
 import androidx.compose.ui.text.font.FontWeight
+import androidx.compose.ui.text.style.TextOverflow
 import androidx.compose.ui.unit.dp
 import app.koma.ui.PillButton
 import app.koma.ui.TitleFont
@@ -151,6 +157,51 @@ private fun Line(name: String, detail: String?, modifier: Modifier, read: Boolea
                 color = colors.onSurfaceVariant.copy(alpha = alpha),
                 maxLines = 1,
             )
+        }
+    }
+}
+
+/** The scanlators of the bound chapters, each checked while its chapters show. */
+@OptIn(ExperimentalMaterial3Api::class)
+@Composable
+fun ScanlatorSheet(
+    scanlators: List<Scanlator>,
+    onShow: (String, Boolean) -> Unit,
+    onDismiss: () -> Unit,
+) {
+    ModalBottomSheet(
+        onDismissRequest = onDismiss,
+        sheetState = rememberModalBottomSheetState(skipPartiallyExpanded = true),
+    ) {
+        Column(Modifier.padding(bottom = 16.dp).testTag("scanlators")) {
+            Text(
+                "Scanlators",
+                style =
+                    MaterialTheme.typography.titleLarge.copy(
+                        fontFamily = TitleFont,
+                        fontWeight = FontWeight.SemiBold,
+                    ),
+                modifier = Modifier.padding(start = 24.dp, end = 24.dp, bottom = 8.dp),
+            )
+            for (scanlator in scanlators) {
+                Row(
+                    Modifier.fillMaxWidth()
+                        .toggleable(scanlator.shown, role = Role.Checkbox) {
+                            onShow(scanlator.name, it)
+                        }
+                        .padding(horizontal = 12.dp)
+                        .testTag("scanlator-${scanlator.name}"),
+                    verticalAlignment = Alignment.CenterVertically,
+                ) {
+                    Checkbox(scanlator.shown, onCheckedChange = null, Modifier.padding(12.dp))
+                    Text(
+                        scanlator.name,
+                        style = MaterialTheme.typography.bodyLarge,
+                        maxLines = 1,
+                        overflow = TextOverflow.Ellipsis,
+                    )
+                }
+            }
         }
     }
 }

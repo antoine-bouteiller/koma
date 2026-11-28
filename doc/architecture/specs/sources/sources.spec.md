@@ -225,6 +225,8 @@ class SourceRepository(store: Store, sources: List<CatalogSource>) {
     suspend fun chapters(binding: Binding, refresh: Boolean = false): List<SChapter>?
                                                                // stored unless refresh; null when
                                                                // sources() lacks it
+    fun excludedScanlators(ref: MediaRef): Flow<Set<String>>   // from the store
+    suspend fun showScanlator(ref: MediaRef, scanlator: String, shown: Boolean)
     fun source(id: Long): HttpSource?                          // null when sources() lacks it
     val count: Int                                             // how many sources Koma lists
 }
@@ -234,6 +236,10 @@ class SourceRepository(store: Store, sources: List<CatalogSource>) {
 a title's chapter list, and `[CT-22]` calls it for a library title without a binding. On `null` it lists `candidates`, and picking one calls `bind`. When Koma
 lists more than one source, the binding action on a bound title also lists `candidates`; with one
 source, the title screen offers no binding action.
+
+The title screen's header offers a scanlator filter while the bound chapters name a scanlator. It
+lists them, and hides the chapters of each one the user unchecks, through `showScanlator`. A
+chapter that names no scanlator always shows.
 
 `resolve(details)`:
 
@@ -291,17 +297,25 @@ create table chapter_list (
   source integer not null, manga_url text not null,
   primary key (source, manga_url)
 );
+create table excluded_scanlator (
+  backend text not null, media_id text not null, scanlator text not null,
+  primary key (backend, media_id, scanlator)
+);
 ```
 
 `source` is Mihon's `Source.id`. The tables extend `doc/architecture/specs/app.spec.md`
 `[CT-4.5]` through additive migrations: `6.sqm` adds `binding` and `preferred_source`, whose queries
 live in `Binding.sq`, and `7.sqm` adds `chapter` and `chapter_list`, whose queries live in
-`Chapter.sq`. All four keep public data, which sign-out leaves in place. v1 writes no
+`Chapter.sq`, and `8.sqm` adds `excluded_scanlator`, whose queries live in `ExcludedScanlator.sq`.
+All five keep data that sign-out leaves in place. v1 writes no
 `preferred_source` row, so sources are tried in `sources()` order.
 
 `chapter` holds a source manga's chapters in the order the source answered them: `SChapter.url`,
 `name`, `scanlator`, `chapter_number` and `date_upload`. A `chapter_list` row marks a manga whose
 list is stored, so a manga with no chapters is not fetched again.
+
+`excluded_scanlator` holds the scanlators whose chapters a title hides. It is keyed by title, so a
+binding change keeps it.
 
 ### [CT-22] Library update
 

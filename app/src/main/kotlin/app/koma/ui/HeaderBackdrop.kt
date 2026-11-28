@@ -27,7 +27,8 @@ import androidx.compose.ui.unit.dp
 
 /**
  * What a screen's content hands its header: its scroll, which lays the header's band down, the
- * accessory the header shows under the title, and the colors of both.
+ * accessory the header shows under the title, the action it shows at its end, and the colors of
+ * all.
  */
 @Stable
 class HeaderBackdrop {
@@ -35,6 +36,10 @@ class HeaderBackdrop {
 
     /** What the screen shows under the title, if anything. */
     var accessory by mutableStateOf<(@Composable () -> Unit)?>(null)
+        private set
+
+    /** What the screen shows at the header's end, if anything. */
+    var action by mutableStateOf<(@Composable () -> Unit)?>(null)
         private set
 
     /** Whether the screen picks its own colors. */
@@ -67,6 +72,14 @@ class HeaderBackdrop {
 
     internal fun remove(slot: @Composable () -> Unit) {
         if (accessory === slot) accessory = null
+    }
+
+    internal fun showAction(slot: @Composable () -> Unit) {
+        action = slot
+    }
+
+    internal fun removeAction(slot: @Composable () -> Unit) {
+        if (action === slot) action = null
     }
 }
 
@@ -118,6 +131,18 @@ fun headerAccessory(content: @Composable () -> Unit): Dp {
         onDispose { backdrop.remove(slot) }
     }
     return with(LocalDensity.current) { height.toDp() }
+}
+
+/** Shows [content] at the end of the screen header while this is composed. */
+@Composable
+fun HeaderAction(content: @Composable () -> Unit) {
+    val backdrop = LocalHeaderBackdrop.current ?: return
+    val current by rememberUpdatedState(content)
+    DisposableEffect(backdrop) {
+        val slot: @Composable () -> Unit = { current() }
+        backdrop.showAction(slot)
+        onDispose { backdrop.removeAction(slot) }
+    }
 }
 
 /** Shows [content] once its colors also apply to the floating header. */

@@ -386,7 +386,14 @@ private fun ScreenFrame(
                     onHeight = onHeaderHeight,
                     accessory = { backdrop.accessory?.invoke() },
                 ) {
-                    ScreenHeader(actions = actions) { ScreenTitle(title, titleTag, onBack) }
+                    ScreenHeader(
+                        actions = {
+                            actions()
+                            backdrop.action?.invoke()
+                        }
+                    ) {
+                        ScreenTitle(title, titleTag, onBack)
+                    }
                 }
             }
         }

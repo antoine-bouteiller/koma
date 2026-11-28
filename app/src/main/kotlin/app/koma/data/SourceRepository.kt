@@ -121,6 +121,20 @@ class SourceRepository(private val store: Store, private val sources: List<Catal
             .executeAsList()
     }
 
+    /** The scanlators whose chapters [ref]'s title hides. */
+    fun excludedScanlators(ref: MediaRef): Flow<Set<String>> {
+        val query = { db: KomaDatabase ->
+            db.excludedScanlatorQueries.excluded(ref.backend.name, ref.id)
+        }
+        return store.watch({ listOf(query(this)) }) { query(this).executeAsList().toSet() }
+    }
+
+    /** Shows or hides the chapters of [scanlator] on [ref]'s title. */
+    suspend fun showScanlator(ref: MediaRef, scanlator: String, shown: Boolean) = store.write {
+        if (shown) excludedScanlatorQueries.show(ref.backend.name, ref.id, scanlator)
+        else excludedScanlatorQueries.hide(ref.backend.name, ref.id, scanlator)
+    }
+
     /** How many sources Koma lists. */
     val count: Int
         get() = sources.size
