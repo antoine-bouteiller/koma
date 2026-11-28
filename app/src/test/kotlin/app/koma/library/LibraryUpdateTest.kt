@@ -64,6 +64,9 @@ class LibraryUpdateTest {
 
     private fun unread(id: Int) = app.compose.onNodeWithTag("unread-$id", useUnmergedTree = true)
 
+    private fun unmatched(id: Int) =
+        app.compose.onNodeWithTag("unmatched-$id", useUnmergedTree = true)
+
     private fun fetched() =
         app.network.requested(READING).size to app.network.requested(COMPLETED).size
 
@@ -137,6 +140,26 @@ class LibraryUpdateTest {
         )
         pull()
         unread(1).onChild().assertTextEquals("1")
+    }
+
+    @Test
+    fun `a title no source binds is reported and badged until a later update binds it`() {
+        library()
+        app.network.answer("$TEST_SOURCE/search?q=Pluto", 500, "{}")
+        app.launch()
+        unmatched(2).assertDoesNotExist()
+        assertEquals(listOf(emptyList<String>()), app.unmatched)
+
+        app.network.answer("$TEST_SOURCE/search?q=Pluto", 200, mangas("pluto" to "Pluto 2"))
+        pull()
+        unmatched(2).assertExists()
+        unmatched(1).assertDoesNotExist()
+        assertEquals(listOf("Pluto"), app.unmatched.last())
+
+        app.network.answer("$TEST_SOURCE/search?q=Pluto", 200, mangas("pluto" to "Pluto"))
+        pull()
+        unmatched(2).assertDoesNotExist()
+        assertEquals(emptyList<String>(), app.unmatched.last())
     }
 
     @Test

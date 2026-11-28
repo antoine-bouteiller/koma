@@ -38,7 +38,8 @@ class SourceRepository(private val store: Store, private val sources: List<Catal
 
     /**
      * The stored binding, else the first source manga a source proves or matches by title, which is
-     * stored. Null when no source answers one; a failed request throws and stores nothing.
+     * stored. Null when no source answers one, which marks the media unmatched until a binding is
+     * stored; a failed request throws and stores nothing.
      */
     suspend fun resolve(details: MediaDetails): Binding? {
         val ref = details.media.ref
@@ -53,6 +54,7 @@ class SourceRepository(private val store: Store, private val sources: List<Catal
             store.write { put(ref, binding) }
             return binding
         }
+        store.write { bindingQueries.unmatch(ref.backend.name, ref.id) }
         return null
     }
 
@@ -184,7 +186,7 @@ class SourceRepository(private val store: Store, private val sources: List<Catal
         chapterQueries.list(binding.source, binding.mangaUrl)
     }
 
-    private fun KomaDatabase.put(ref: MediaRef, binding: Binding) =
+    private fun KomaDatabase.put(ref: MediaRef, binding: Binding) {
         bindingQueries.put(
             ref.backend.name,
             ref.id,
@@ -192,4 +194,6 @@ class SourceRepository(private val store: Store, private val sources: List<Catal
             binding.mangaUrl,
             binding.title,
         )
+        bindingQueries.match(ref.backend.name, ref.id)
+    }
 }

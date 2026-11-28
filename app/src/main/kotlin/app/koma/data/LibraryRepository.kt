@@ -99,6 +99,12 @@ class LibraryRepository(
                 .eachCount()
         }
 
+    /** The media no source bound on its last search. */
+    val unmatched: Flow<Set<MediaRef>> =
+        store.watch({ listOf(bindingQueries.unmatched(name)) }) {
+            bindingQueries.unmatched(name).executeAsList().map { MediaRef(backend.id, it) }.toSet()
+        }
+
     /** Whether the library has been read from the backend. */
     fun synced(): Boolean = store.meta(CURSOR) != null
 

@@ -20,26 +20,32 @@ class LibraryUpdater(
 ) {
     /**
      * Announces each title to [onTitle] before loading its chapters. A title whose chapters fail to
-     * load is skipped.
+     * load is skipped. Answers the titles no source bound, in library order.
      */
-    suspend fun updateChapters(onTitle: suspend (ChapterUpdate) -> Unit = {}) {
+    suspend fun updateChapters(onTitle: suspend (ChapterUpdate) -> Unit = {}): List<String> {
         val generation = store.generation
-        if (sources.count == 0) return
+        if (sources.count == 0) return emptyList()
         val items = library.library.first().items.filter { it.media.kind != Kind.Novel }
+        val unmatched = mutableListOf<String>()
         for ((index, item) in items.withIndex()) {
-            if (generation != store.generation) return
+            if (generation != store.generation) return emptyList()
             onTitle(ChapterUpdate(item.media.title, index + 1, items.size))
             try {
-                update(item.media.ref, refresh = item.status in FOLLOWED)
+                if (!update(item.media.ref, refresh = item.status in FOLLOWED)) {
+                    unmatched += item.media.title
+                }
             } catch (e: CancellationException) {
                 throw e
             } catch (_: Exception) {}
         }
+        return unmatched
     }
 
-    private suspend fun update(ref: MediaRef, refresh: Boolean) {
+    /** False when no source binds the title. */
+    private suspend fun update(ref: MediaRef, refresh: Boolean): Boolean {
         val binding =
-            sources.binding(ref).first() ?: sources.resolve(media.loadDetails(ref)) ?: return
+            sources.binding(ref).first() ?: sources.resolve(media.loadDetails(ref)) ?: return false
         sources.chapters(binding, refresh)
+        return true
     }
 }

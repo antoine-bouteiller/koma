@@ -4,6 +4,9 @@ CREATE TABLE IF NOT EXISTS binding (backend TEXT NOT NULL, media_id TEXT NOT NUL
 -- The user's source order, first position first.
 CREATE TABLE IF NOT EXISTS preferred_source (source INTEGER PRIMARY KEY, position INTEGER NOT NULL);
 
+-- Public data, kept across sign-outs: the media no source bound on its last search, which binding one clears.
+CREATE TABLE IF NOT EXISTS unmatched (backend TEXT NOT NULL, media_id TEXT NOT NULL, PRIMARY KEY (backend, media_id));
+
 one:
 SELECT source, manga_url, title FROM binding WHERE backend = ? AND media_id = ?;
 
@@ -13,3 +16,12 @@ INSERT OR REPLACE INTO binding (backend, media_id, source, manga_url, title) VAL
 
 preferred:
 SELECT source FROM preferred_source ORDER BY position;
+
+unmatched:
+SELECT media_id FROM unmatched WHERE backend = ?;
+
+unmatch:
+INSERT OR IGNORE INTO unmatched (backend, media_id) VALUES (?, ?);
+
+match:
+DELETE FROM unmatched WHERE backend = ? AND media_id = ?;

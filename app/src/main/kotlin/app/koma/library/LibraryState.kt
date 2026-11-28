@@ -5,8 +5,17 @@ import app.koma.data.Library
 import app.koma.data.ListStatus
 import app.koma.data.MediaRef
 
-/** [unread] counts the chapters its title screen shows unread. */
-data class Manga(val ref: MediaRef, val title: String, val cover: String, val unread: Int = 0)
+/**
+ * [unread] counts the chapters its title screen shows unread. [unmatched] when no source bound it
+ * on its last search.
+ */
+data class Manga(
+    val ref: MediaRef,
+    val title: String,
+    val cover: String,
+    val unread: Int = 0,
+    val unmatched: Boolean = false,
+)
 
 /** A tab of the library, in [Library.items]' order. */
 data class Shelf(val id: String, val title: String, val items: List<Manga>)
@@ -28,7 +37,11 @@ private val SHELVES =
     )
 
 /** Each shelf of [library], in its order, without novels. */
-fun shelves(library: Library, unread: Map<MediaRef, Int>): List<Shelf> {
+fun shelves(
+    library: Library,
+    unread: Map<MediaRef, Int>,
+    unmatched: Set<MediaRef>,
+): List<Shelf> {
     val shown = library.items.filter { it.media.kind != Kind.Novel }
     return SHELVES.map { rule ->
         Shelf(
@@ -42,6 +55,7 @@ fun shelves(library: Library, unread: Map<MediaRef, Int>): List<Shelf> {
                         it.media.title,
                         it.media.cover,
                         unread[it.media.ref] ?: 0,
+                        it.media.ref in unmatched,
                     )
                 },
         )
@@ -62,13 +76,14 @@ sealed interface LibraryState {
 fun libraryState(
     library: Library,
     unread: Map<MediaRef, Int>,
+    unmatched: Set<MediaRef>,
     syncing: Boolean,
     failed: Boolean,
 ): LibraryState =
     when {
         !library.synced && failed -> LibraryState.Failed
         !library.synced -> LibraryState.Loading
-        else -> LibraryState.Shelves(shelves(library, unread), refreshing = syncing)
+        else -> LibraryState.Shelves(shelves(library, unread, unmatched), refreshing = syncing)
     }
 
 /** An empty shelf's title and what will show up there. */

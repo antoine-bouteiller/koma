@@ -24,6 +24,7 @@ class LibraryViewModel(private val container: AppContainer) : ViewModel() {
         combine(
                 container.library.library,
                 container.library.unread,
+                container.library.unmatched,
                 syncing,
                 lastFailed,
                 ::libraryState,

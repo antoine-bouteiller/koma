@@ -79,6 +79,8 @@ class AppHarness : TestRule {
     val installed = mutableListOf<File>()
     /** What each background library update announced, in order. */
     val libraryUpdates = CopyOnWriteArrayList<ChapterUpdate>()
+    /** The titles each background library update found no source for, one list per update. */
+    val unmatched = CopyOnWriteArrayList<List<String>>()
     /** The image URLs the app asked for. */
     val images = CopyOnWriteArrayList<String>()
     var image: suspend (ImageRequest) -> ImageResult = { request ->
@@ -163,7 +165,9 @@ class AppHarness : TestRule {
                 startLibraryUpdate = {
                     if (update?.isActive != true) {
                         update =
-                            MainScope().launch { built.updater.updateChapters(libraryUpdates::add) }
+                            MainScope().launch {
+                                unmatched += built.updater.updateChapters(libraryUpdates::add)
+                            }
                     }
                 },
                 work = Dispatchers.Main,
