@@ -5,8 +5,11 @@ import kotlinx.coroutines.flow.first
 
 private val FOLLOWED = setOf(ListStatus.Reading, ListStatus.Rereading)
 
+/** The library title a chapter update is on: the [position]th of [total], counted from 1. */
+data class ChapterUpdate(val title: String, val position: Int, val total: Int)
+
 /**
- * Brings the library up to date, then the chapters of its titles: a followed title's on every
+ * Brings the chapters of the stored library's titles up to date: a followed title's on every
  * update, any other's until some are stored. A title not bound yet is bound without a prompt.
  */
 class LibraryUpdater(
@@ -15,14 +18,17 @@ class LibraryUpdater(
     private val media: MediaRepository,
     private val sources: SourceRepository,
 ) {
-    /** Throws when the library sync fails. A title whose chapters fail to load is skipped. */
-    suspend fun update() {
+    /**
+     * Announces each title to [onTitle] before loading its chapters. A title whose chapters fail to
+     * load is skipped.
+     */
+    suspend fun updateChapters(onTitle: suspend (ChapterUpdate) -> Unit = {}) {
         val generation = store.generation
-        library.sync()
         if (sources.count == 0) return
-        for (item in library.library.first().items) {
+        val items = library.library.first().items.filter { it.media.kind != Kind.Novel }
+        for ((index, item) in items.withIndex()) {
             if (generation != store.generation) return
-            if (item.media.kind == Kind.Novel) continue
+            onTitle(ChapterUpdate(item.media.title, index + 1, items.size))
             try {
                 update(item.media.ref, refresh = item.status in FOLLOWED)
             } catch (e: CancellationException) {

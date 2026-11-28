@@ -19,6 +19,7 @@ zstd-kmp = "0.4.0"
 sqldelight = "2.4.1"
 junit = "4.13.2"
 robolectric = "4.18.1"
+work = "2.12.0"
 
 [libraries]
 kotlin-gradle = { module = "org.jetbrains.kotlin:kotlin-gradle-plugin", version.ref = "kotlin" }
@@ -54,6 +55,7 @@ androidx-preference = { module = "androidx.preference:preference-ktx", version.r
 jsoup = { module = "org.jsoup:jsoup", version.ref = "jsoup" }
 zstd-kmp-okio = { module = "com.squareup.zstd:zstd-kmp-okio", version.ref = "zstd-kmp" }
 sqldelight-android-driver = { module = "app.cash.sqldelight:android-driver", version.ref = "sqldelight" }
+work-runtime = { module = "androidx.work:work-runtime", version.ref = "work" }
 sqldelight-coroutines = { module = "app.cash.sqldelight:coroutines-extensions", version.ref = "sqldelight" }
 junit = { module = "junit:junit", version.ref = "junit" }
 robolectric = { module = "org.robolectric:robolectric", version.ref = "robolectric" }

@@ -63,6 +63,11 @@ class AppContainer(
     /** Hands a downloaded APK to Android's installer, which asks the user to install it. */
     val installApk: (File) -> Unit,
     /**
+     * Runs [LibraryUpdater.updateChapters] in the background, showing its progress, unless it
+     * already runs.
+     */
+    val startLibraryUpdate: () -> Unit,
+    /**
      * Runs the blocking network and database work. Tests pass the main dispatcher, which Compose's
      * idling waits for.
      */

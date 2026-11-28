@@ -2,6 +2,7 @@ package app.koma.library
 
 import androidx.compose.ui.test.performTouchInput
 import androidx.compose.ui.test.swipeDown
+import app.koma.data.ChapterUpdate
 import app.koma.source.CatalogSource
 import app.koma.testing.AppHarness
 import app.koma.testing.BATCH
@@ -88,5 +89,24 @@ class LibraryUpdateTest {
 
         pull()
         assertEquals(3 to 2, fetched())
+    }
+
+    @Test
+    fun `the background update names each title while it loads its chapters`() {
+        library()
+        val named = mutableMapOf<String, ChapterUpdate?>()
+        app.network.whileInFlight = { request ->
+            if (request.url == READING || request.url == COMPLETED) {
+                named[request.url] = app.libraryUpdates.lastOrNull()
+            }
+        }
+        app.launch()
+        assertEquals(
+            mapOf(
+                READING to ChapterUpdate("Solo Leveling", 1, 2),
+                COMPLETED to ChapterUpdate("Pluto", 2, 2),
+            ),
+            named,
+        )
     }
 }

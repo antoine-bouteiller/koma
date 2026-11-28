@@ -47,6 +47,7 @@ class KomaApplication : Application() {
                         )
                 )
             },
+            startLibraryUpdate = { LibraryUpdateWorker.start(this) },
         )
     }
 }

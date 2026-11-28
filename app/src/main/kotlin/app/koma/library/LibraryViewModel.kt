@@ -30,8 +30,8 @@ class LibraryViewModel(private val container: AppContainer) : ViewModel() {
             .stateIn(viewModelScope, SharingStarted.Eagerly, LibraryState.Loading)
 
     /**
-     * Updates the library and its chapters when it first shows after a sign-in in this process, or
-     * while it was never synced. Otherwise it waits for [refresh].
+     * Syncs the library, then starts its chapter update, when it first shows after a sign-in in
+     * this process, or while it was never synced. Otherwise it waits for [refresh].
      */
     fun open() {
         val session = container.account.signIns
@@ -51,8 +51,9 @@ class LibraryViewModel(private val container: AppContainer) : ViewModel() {
                 lastFailed.value = false
                 // Newer reads reorder the shelves; without them, they keep their order.
                 launch { failed { container.history.syncNewer() } }
-                lastFailed.value = failed { container.updater.update() }
+                lastFailed.value = failed { container.library.sync() }
                 syncing.value = false
+                if (!lastFailed.value) container.startLibraryUpdate()
             }
     }
 }

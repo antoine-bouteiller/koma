@@ -100,6 +100,7 @@ dependencies {
     implementation(libs.okhttp.zstd)
     implementation(libs.sqldelight.android.driver)
     implementation(libs.sqldelight.coroutines)
+    implementation(libs.work.runtime)
     implementation(libs.zstd.kmp.okio)
 
     testImplementation(libs.junit)

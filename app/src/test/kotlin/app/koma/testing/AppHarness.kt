@@ -25,6 +25,7 @@ import androidx.lifecycle.viewmodel.compose.LocalViewModelStoreOwner
 import app.cash.sqldelight.driver.android.AndroidSqliteDriver
 import app.koma.AppContainer
 import app.koma.data.Backend
+import app.koma.data.ChapterUpdate
 import app.koma.data.KomaDatabase
 import app.koma.data.httpClient
 import app.koma.data.mangabaka.MangaBakaBackend
@@ -46,6 +47,9 @@ import java.util.concurrent.AbstractExecutorService
 import java.util.concurrent.CopyOnWriteArrayList
 import java.util.concurrent.TimeUnit
 import kotlinx.coroutines.Dispatchers
+import kotlinx.coroutines.Job
+import kotlinx.coroutines.MainScope
+import kotlinx.coroutines.launch
 import okhttp3.Dispatcher
 import org.junit.Assert.assertEquals
 import org.junit.rules.RuleChain
@@ -73,6 +77,8 @@ class AppHarness : TestRule {
     val browser = FakeBrowser()
     /** The APKs handed to Android's installer. */
     val installed = mutableListOf<File>()
+    /** What each background library update announced, in order. */
+    val libraryUpdates = CopyOnWriteArrayList<ChapterUpdate>()
     /** The image URLs the app asked for. */
     val images = CopyOnWriteArrayList<String>()
     var image: suspend (ImageRequest) -> ImageResult = { request ->
@@ -119,40 +125,50 @@ class AppHarness : TestRule {
         val http =
             httpClient().newBuilder().dispatcher(Dispatcher(Inline)).addInterceptor(network).build()
         val clock = Clock.fixed(epoch, ZoneOffset.UTC)
-        return AppContainer(
-            context = context,
-            http = http,
-            images =
-                ImageLoader.Builder(context)
-                    .serviceLoaderEnabled(false)
-                    .components {
-                        add(
-                            object : Interceptor {
-                                override suspend fun intercept(
-                                    chain: Interceptor.Chain
-                                ): ImageResult {
-                                    images += chain.request.data.toString()
-                                    return image(chain.request)
+        lateinit var built: AppContainer
+        var update: Job? = null
+        built =
+            AppContainer(
+                context = context,
+                http = http,
+                images =
+                    ImageLoader.Builder(context)
+                        .serviceLoaderEnabled(false)
+                        .components {
+                            add(
+                                object : Interceptor {
+                                    override suspend fun intercept(
+                                        chain: Interceptor.Chain
+                                    ): ImageResult {
+                                        images += chain.request.data.toString()
+                                        return image(chain.request)
+                                    }
                                 }
-                            }
-                        )
+                            )
+                        }
+                        .build(),
+                driver =
+                    AndroidSqliteDriver(
+                        KomaDatabase.Schema,
+                        context,
+                        database.absolutePath,
+                    ),
+                backend = backend ?: MangaBakaBackend(http, secrets, browser, clock),
+                sources = sources(),
+                preferences = preferences,
+                clock = clock,
+                zone = { zone },
+                installedVersion = "0.1.0",
+                installApk = { installed += it },
+                startLibraryUpdate = {
+                    if (update?.isActive != true) {
+                        update =
+                            MainScope().launch { built.updater.updateChapters(libraryUpdates::add) }
                     }
-                    .build(),
-            driver =
-                AndroidSqliteDriver(
-                    KomaDatabase.Schema,
-                    context,
-                    database.absolutePath,
-                ),
-            backend = backend ?: MangaBakaBackend(http, secrets, browser, clock),
-            sources = sources(),
-            preferences = preferences,
-            clock = clock,
-            zone = { zone },
-            installedVersion = "0.1.0",
-            installApk = { installed += it },
-            work = Dispatchers.Main,
-        )
+                },
+                work = Dispatchers.Main,
+            )
+        return built
     }
 
     /** Opens the app. */

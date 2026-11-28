@@ -94,6 +94,7 @@ class SourceRuntimeTest {
             zone = { ZoneOffset.UTC },
             installedVersion = "0.1.0",
             installApk = {},
+            startLibraryUpdate = {},
             work = Dispatchers.Unconfined,
         )
     }
