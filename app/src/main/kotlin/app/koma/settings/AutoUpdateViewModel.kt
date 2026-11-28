@@ -1,4 +1,4 @@
-package app.koma.library
+package app.koma.settings
 
 import androidx.lifecycle.ViewModel
 import androidx.lifecycle.viewModelScope

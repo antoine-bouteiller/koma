@@ -53,6 +53,7 @@ fun SettingsView(
             null -> SettingsRoot(account, onOpen)
             SettingsPage.Theme -> ThemeView(container)
             SettingsPage.Account -> AccountSettings(account, onSignIn, onSignOut)
+            SettingsPage.Library -> LibrarySettingsView(container)
             SettingsPage.Permissions -> PermissionsView(container)
         }
     }
@@ -81,6 +82,16 @@ private fun SettingsRoot(account: Account, onOpen: (SettingsPage) -> Unit) {
                         tag = "settings-account",
                         subtitle = accountSummary(account),
                         onClick = { onOpen(SettingsPage.Account) },
+                    )
+                },
+                GroupRow { shape ->
+                    SettingsRow(
+                        title = "Library",
+                        icon = R.drawable.ic_book,
+                        shape = shape,
+                        tag = "settings-library",
+                        subtitle = "Automatic updates",
+                        onClick = { onOpen(SettingsPage.Library) },
                     )
                 },
                 GroupRow { shape ->

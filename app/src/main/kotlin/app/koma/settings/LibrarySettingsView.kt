@@ -1,6 +1,5 @@
-package app.koma.library
+package app.koma.settings
 
-import androidx.compose.foundation.layout.Box
 import androidx.compose.foundation.layout.Column
 import androidx.compose.foundation.layout.Row
 import androidx.compose.foundation.layout.fillMaxWidth
@@ -8,82 +7,33 @@ import androidx.compose.foundation.layout.padding
 import androidx.compose.foundation.selection.selectable
 import androidx.compose.foundation.selection.selectableGroup
 import androidx.compose.foundation.selection.toggleable
+import androidx.compose.foundation.shape.RoundedCornerShape
 import androidx.compose.material3.Checkbox
-import androidx.compose.material3.DropdownMenu
-import androidx.compose.material3.DropdownMenuItem
-import androidx.compose.material3.ExperimentalMaterial3Api
-import androidx.compose.material3.Icon
 import androidx.compose.material3.MaterialTheme
-import androidx.compose.material3.ModalBottomSheet
 import androidx.compose.material3.RadioButton
 import androidx.compose.material3.Text
-import androidx.compose.material3.rememberModalBottomSheetState
 import androidx.compose.runtime.Composable
 import androidx.compose.runtime.getValue
-import androidx.compose.runtime.mutableStateOf
-import androidx.compose.runtime.remember
-import androidx.compose.runtime.setValue
 import androidx.compose.ui.Alignment
 import androidx.compose.ui.Modifier
 import androidx.compose.ui.platform.testTag
-import androidx.compose.ui.res.painterResource
 import androidx.compose.ui.semantics.Role
-import androidx.compose.ui.text.font.FontWeight
 import androidx.compose.ui.unit.dp
 import androidx.lifecycle.compose.collectAsStateWithLifecycle
 import androidx.lifecycle.viewmodel.compose.viewModel
 import app.koma.AppContainer
-import app.koma.R
 import app.koma.data.UpdateInterval
-import app.koma.ui.GlassIconButton
-import app.koma.ui.TitleFont
-
-/** The Library header's menu. */
-@Composable
-internal fun LibraryMenu(onAutoUpdate: () -> Unit) {
-    var open by remember { mutableStateOf(false) }
-    Box {
-        GlassIconButton(
-            R.drawable.ic_more_vert,
-            contentDescription = "Library options",
-            onClick = { open = true },
-            modifier = Modifier.testTag("library-menu"),
-        )
-        DropdownMenu(expanded = open, onDismissRequest = { open = false }) {
-            DropdownMenuItem(
-                text = { Text("Automatic updates") },
-                leadingIcon = { Icon(painterResource(R.drawable.ic_refresh), null) },
-                onClick = {
-                    open = false
-                    onAutoUpdate()
-                },
-                modifier = Modifier.testTag("library-auto-update"),
-            )
-        }
-    }
-}
+import app.koma.ui.SettingsCard
 
 /** How often the library updates on its own, and what the device must offer first. */
-@OptIn(ExperimentalMaterial3Api::class)
 @Composable
-internal fun AutoUpdateSheet(container: AppContainer, onDismiss: () -> Unit) {
+internal fun LibrarySettingsView(container: AppContainer) {
     val model = viewModel { AutoUpdateViewModel(container.autoUpdate) }
     val page by model.page.collectAsStateWithLifecycle()
     val settings = page.settings
-    ModalBottomSheet(
-        onDismissRequest = onDismiss,
-        sheetState = rememberModalBottomSheetState(skipPartiallyExpanded = true),
-    ) {
-        Column(Modifier.padding(bottom = 16.dp).testTag("auto-update")) {
-            Text(
-                "Automatic updates",
-                style =
-                    MaterialTheme.typography.titleLarge.copy(
-                        fontFamily = TitleFont,
-                        fontWeight = FontWeight.SemiBold,
-                    ),
-                modifier = Modifier.padding(start = 24.dp, end = 24.dp, bottom = 8.dp),
-            )
+    SettingsCard(RoundedCornerShape(20.dp), Modifier.testTag("auto-update")) {
+        Column(Modifier.padding(vertical = 8.dp)) {
+            Heading("Automatic updates")
             Column(Modifier.selectableGroup()) {
                 for (interval in UpdateInterval.entries) {
                     Choice(
@@ -95,12 +45,7 @@ internal fun AutoUpdateSheet(container: AppContainer, onDismiss: () -> Unit) {
                     }
                 }
             }
-            Text(
-                "Only update",
-                style = MaterialTheme.typography.titleSmall,
-                color = MaterialTheme.colorScheme.onSurfaceVariant,
-                modifier = Modifier.padding(start = 24.dp, end = 24.dp, top = 16.dp, bottom = 4.dp),
-            )
+            Heading("Only update")
             Restriction(
                 "On Wi-Fi",
                 "auto-update-wifi",
@@ -127,11 +72,21 @@ internal fun AutoUpdateSheet(container: AppContainer, onDismiss: () -> Unit) {
 }
 
 @Composable
+private fun Heading(text: String) {
+    Text(
+        text,
+        style = MaterialTheme.typography.titleSmall,
+        color = MaterialTheme.colorScheme.onSurface,
+        modifier = Modifier.padding(horizontal = 16.dp, vertical = 8.dp),
+    )
+}
+
+@Composable
 private fun Choice(label: String, tag: String, selected: Boolean, onClick: () -> Unit) {
     Row(
         Modifier.fillMaxWidth()
             .selectable(selected, role = Role.RadioButton, onClick = onClick)
-            .padding(horizontal = 12.dp)
+            .padding(horizontal = 4.dp)
             .testTag(tag),
         verticalAlignment = Alignment.CenterVertically,
     ) {
@@ -151,7 +106,7 @@ private fun Restriction(
     Row(
         Modifier.fillMaxWidth()
             .toggleable(checked, enabled = enabled, role = Role.Checkbox, onValueChange = onChange)
-            .padding(horizontal = 12.dp)
+            .padding(horizontal = 4.dp)
             .testTag(tag),
         verticalAlignment = Alignment.CenterVertically,
     ) {

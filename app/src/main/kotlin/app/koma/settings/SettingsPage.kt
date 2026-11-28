@@ -4,6 +4,7 @@ package app.koma.settings
 enum class SettingsPage(val route: String) {
     Theme("theme"),
     Account("account"),
+    Library("library-settings"),
     Permissions("permissions"),
 }
 
@@ -12,6 +13,7 @@ fun SettingsPage.title(backend: String): String =
     when (this) {
         SettingsPage.Theme -> "Theme"
         SettingsPage.Account -> backend
+        SettingsPage.Library -> "Library"
         SettingsPage.Permissions -> "Permissions"
     }
 

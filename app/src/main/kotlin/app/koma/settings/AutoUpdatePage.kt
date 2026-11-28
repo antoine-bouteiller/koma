@@ -1,9 +1,9 @@
-package app.koma.library
+package app.koma.settings
 
 import app.koma.data.AutoUpdate
 import app.koma.data.UpdateInterval
 
-/** What the automatic update sheet shows. The restrictions apply only while an interval is set. */
+/** What the Library page shows. The restrictions apply only while an interval is set. */
 data class AutoUpdatePage(val settings: AutoUpdate, val restrictionsEnabled: Boolean)
 
 fun autoUpdatePage(settings: AutoUpdate): AutoUpdatePage =

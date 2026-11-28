@@ -1,4 +1,4 @@
-package app.koma.library
+package app.koma.settings
 
 import androidx.compose.ui.test.assertIsEnabled
 import androidx.compose.ui.test.assertIsNotEnabled
@@ -26,15 +26,16 @@ class AutoUpdateTest {
         app.network.answer(CHANGES, 200, changes("c1", false))
     }
 
-    private fun openSheet() {
-        app.tap("library-menu")
-        app.tap("library-auto-update")
+    private fun openPage() {
+        app.tap("tab-settings")
+        app.tap("settings-library")
+        app.text("title-library-settings", "Library")
     }
 
     @Test
     fun `automatic updates start off, with their restrictions disabled`() {
         app.launch()
-        openSheet()
+        openPage()
         app.selected("auto-update-off")
         app.node("auto-update-wifi").assertIsNotEnabled().assertIsOn()
         app.node("auto-update-charging").assertIsNotEnabled().assertIsOff()
@@ -45,7 +46,7 @@ class AutoUpdateTest {
     @Test
     fun `each change reschedules the update, and the choice outlives a restart`() {
         app.launch()
-        openSheet()
+        openPage()
         app.tap("auto-update-daily")
         app.node("auto-update-charging").assertIsEnabled()
         app.tap("auto-update-charging")
