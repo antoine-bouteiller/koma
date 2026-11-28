@@ -4,6 +4,7 @@ import kotlinx.coroutines.flow.Flow
 import kotlinx.serialization.encodeToString
 
 internal fun KomaDatabase.upsert(media: Media) {
+    if (canonical(media.ref) != media.ref) return
     mediaQueries.upsert(
         media.ref.backend.name,
         media.ref.id,
@@ -43,55 +44,94 @@ data class CoverColors(val cover: String, val seed: Int?)
 class MediaRepository(private val store: Store, private val backend: Backend) {
     /** Null until stored; an empty title marks media the backend no longer answers. */
     fun media(ref: MediaRef): Flow<Media?> {
-        val query = { db: KomaDatabase -> db.mediaQueries.one(ref.backend.name, ref.id, ::mediaOf) }
-        return store.watch({ listOf(query(this)) }) { query(this).executeAsOneOrNull() }
+        val query = { db: KomaDatabase ->
+            val target = db.canonical(ref)
+            db.mediaQueries.one(target.backend.name, target.id, ::mediaOf)
+        }
+        return store.watch({
+            listOf(query(this), mediaReplacementQueries.survivor(ref.backend.name, ref.id))
+        }) {
+            query(this).executeAsOneOrNull()
+        }
     }
 
     /** The backend's details of [ref], null until fetched. Never refreshed once stored. */
     fun details(ref: MediaRef): Flow<MediaDetails?> {
-        val query = { db: KomaDatabase -> db.mediaDetailsQueries.one(ref.backend.name, ref.id) }
-        return store.watch({ listOf(query(this)) }) {
+        val query = { db: KomaDatabase ->
+            val target = db.canonical(ref)
+            db.mediaDetailsQueries.one(target.backend.name, target.id)
+        }
+        return store.watch({
+            listOf(query(this), mediaReplacementQueries.survivor(ref.backend.name, ref.id))
+        }) {
             query(this).executeAsOneOrNull()?.let(::decodeDetails)
         }
     }
 
     /** Fetches and stores the details of [ref], unless they are stored. */
     suspend fun loadDetails(ref: MediaRef): MediaDetails {
+        val target = store.read { canonical(ref) }
         val stored = store.read {
-            mediaDetailsQueries.one(ref.backend.name, ref.id).executeAsOneOrNull()
+            mediaDetailsQueries.one(target.backend.name, target.id).executeAsOneOrNull()
         }
         stored?.let(::decodeDetails)?.let {
             return it
         }
-        val details = backend.details(ref)
-        store.write {
-            mediaDetailsQueries.upsert(ref.backend.name, ref.id, json.encodeToString(details))
+        val details = backend.details(target)
+        val current = store.write {
+            val current = canonical(target)
+            if (current == target) {
+                mediaDetailsQueries.upsert(
+                    target.backend.name,
+                    target.id,
+                    json.encodeToString(details),
+                )
+            }
+            current
         }
-        return details
+        return if (current == target) details else loadDetails(current)
     }
 
     /** Null until this title's cover has been sampled successfully. */
     fun coverColors(ref: MediaRef): CoverColors? = store.read {
-        mediaDetailsQueries.colors(ref.backend.name, ref.id).executeAsOneOrNull()?.let { row ->
+        val target = canonical(ref)
+        mediaDetailsQueries.colors(target.backend.name, target.id).executeAsOneOrNull()?.let { row
+            ->
             row.color_cover?.let { CoverColors(it, row.color_seed?.toInt()) }
         }
     }
 
     suspend fun cacheCoverColors(ref: MediaRef, colors: CoverColors) {
         store.write {
+            val target = canonical(ref)
+            if (
+                target != ref &&
+                    mediaDetailsQueries
+                        .one(target.backend.name, target.id)
+                        .executeAsOneOrNull()
+                        ?.let(::decodeDetails)
+                        ?.media
+                        ?.cover != colors.cover
+            )
+                return@write
             mediaDetailsQueries.cacheColors(
                 colors.cover,
                 colors.seed?.toLong(),
-                ref.backend.name,
-                ref.id,
+                target.backend.name,
+                target.id,
             )
         }
     }
 
     /** Looks up the refs not stored yet. Those the backend does not answer get an empty title. */
     suspend fun cache(refs: Collection<MediaRef>) {
-        val known = store.read { mediaQueries.ids(backend.id.name).executeAsList() }.toSet()
-        val missing = refs.filter { it.backend == backend.id && it.id !in known }.distinct()
+        val missing = store.read {
+            val known = mediaQueries.ids(backend.id.name).executeAsList().toSet()
+            refs
+                .map { canonical(it) }
+                .filter { it.backend == backend.id && it.id !in known }
+                .distinct()
+        }
         if (missing.isEmpty()) return
         val found = backend.media(missing).associateBy { it.ref }
         store.write {

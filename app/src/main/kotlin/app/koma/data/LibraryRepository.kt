@@ -47,21 +47,32 @@ data class NewChapter(val media: Media, val url: String, val name: String, val f
  */
 data class Library(val synced: Boolean, val items: List<LibraryItem>)
 
-private fun KomaDatabase.apply(changes: List<ListChange>) {
+private fun KomaDatabase.apply(changes: List<ListChange>, replacements: Map<MediaRef, MediaRef>) {
     for (change in changes) {
         when (change) {
-            is ListChange.Removed ->
-                libraryEntryQueries.remove(change.ref.backend.name, change.ref.id)
+            is ListChange.Removed -> {
+                if (canonical(change.ref) == change.ref && change.ref !in replacements) {
+                    libraryEntryQueries.remove(change.ref.backend.name, change.ref.id)
+                }
+            }
             is ListChange.Upsert ->
                 with(change.entry) {
-                    libraryEntryQueries.upsert(
-                        ref.backend.name,
-                        ref.id,
-                        status.name,
-                        progress,
-                        score,
-                        updatedAt,
-                    )
+                    val target = canonical(ref)
+                    if (
+                        target == ref ||
+                            libraryEntryQueries
+                                .status(target.backend.name, target.id)
+                                .executeAsOneOrNull() == null
+                    ) {
+                        libraryEntryQueries.upsert(
+                            target.backend.name,
+                            target.id,
+                            status.name,
+                            progress,
+                            score,
+                            updatedAt,
+                        )
+                    }
                 }
         }
     }
@@ -156,12 +167,18 @@ class LibraryRepository(
 
     /** Null when the stored library does not hold [ref]. */
     fun entry(ref: MediaRef): Flow<ListEntry?> =
-        store.watch({ listOf(libraryEntryQueries.entry(ref.backend.name, ref.id)) }) {
+        store.watch({
+            listOf(
+                libraryEntryQueries.entry(ref.backend.name, ref.id),
+                mediaReplacementQueries.survivor(ref.backend.name, ref.id),
+            )
+        }) {
+            val target = canonical(ref)
             val row =
-                libraryEntryQueries.entry(ref.backend.name, ref.id).executeAsOneOrNull()
+                libraryEntryQueries.entry(target.backend.name, target.id).executeAsOneOrNull()
                     ?: return@watch null
             val status = ListStatus.entries.find { it.name == row.status } ?: return@watch null
-            ListEntry(ref, status, row.progress, row.score, row.updated_at)
+            ListEntry(target, status, row.progress, row.score, row.updated_at)
         }
 
     /** Brings the stored library up to date: a full read the first time, then only what changed. */
@@ -181,10 +198,11 @@ class LibraryRepository(
                 var more = true
                 while (more) {
                     val page = backend.changes(cursor)
-                    media.cache(page.items.map { it.ref() })
+                    val replacements = prepare(page.items)
                     val applied =
                         store.write(generation) {
-                            apply(page.items)
+                            apply(page.items, replacements)
+                            replacements.forEach { (from, to) -> replaceMedia(from, to) }
                             metaQueries.put(CURSOR, page.cursor)
                         }
                     if (!applied) return
@@ -205,12 +223,25 @@ class LibraryRepository(
             next = page.cursor
             more = page.more
         }
-        media.cache(changes.map { it.ref() })
+        val replacements = prepare(changes)
         store.write(generation) {
             libraryEntryQueries.clear()
-            apply(changes)
+            apply(changes, replacements)
+            replacements.forEach { (from, to) -> replaceMedia(from, to) }
             metaQueries.put(CURSOR, next ?: "")
         }
+    }
+
+    private suspend fun prepare(changes: List<ListChange>): Map<MediaRef, MediaRef> {
+        val refs = store.read {
+            (libraryEntryQueries.ids(name).executeAsList().map { MediaRef(backend.id, it) } +
+                    changes.map { it.ref() })
+                .map { canonical(it) }
+                .distinct()
+        }
+        val replacements = backend.replacements(refs)
+        media.cache(refs.map { replacements[it] ?: it } + replacements.values)
+        return replacements
     }
 
     /**
@@ -219,17 +250,27 @@ class LibraryRepository(
      */
     suspend fun setStatus(ref: MediaRef, status: ListStatus) {
         val generation = store.generation
-        val stored = store.read { storedStatus(ref) }
-        media.cache(listOf(ref))
+        val target = store.read { canonical(ref) }
+        val stored = store.read { storedStatus(target) }
+        media.cache(listOf(target))
         syncIfRefused {
-            if (stored == null) backend.addEntry(ref, status) else backend.updateEntry(ref, status)
+            if (stored == null) backend.addEntry(target, status)
+            else backend.updateEntry(target, status)
         }
         val now = clock.millis()
         store.write(generation) {
-            if (stored == null) {
-                libraryEntryQueries.upsert(ref.backend.name, ref.id, status.name, null, null, now)
+            val current = canonical(target)
+            if (stored == null && storedStatus(current) == null) {
+                libraryEntryQueries.upsert(
+                    current.backend.name,
+                    current.id,
+                    status.name,
+                    null,
+                    null,
+                    now,
+                )
             } else {
-                libraryEntryQueries.setStatus(status.name, now, ref.backend.name, ref.id)
+                libraryEntryQueries.setStatus(status.name, now, current.backend.name, current.id)
             }
         }
     }
@@ -240,10 +281,17 @@ class LibraryRepository(
      */
     suspend fun setScore(ref: MediaRef, score: Double) {
         val generation = store.generation
-        syncIfRefused { backend.updateEntry(ref, score = score) }
+        val target = store.read { canonical(ref) }
+        syncIfRefused { backend.updateEntry(target, score = score) }
         val now = clock.millis()
         store.write(generation) {
-            libraryEntryQueries.setScore(score.takeIf { it > 0 }, now, ref.backend.name, ref.id)
+            val current = canonical(target)
+            libraryEntryQueries.setScore(
+                score.takeIf { it > 0 },
+                now,
+                current.backend.name,
+                current.id,
+            )
         }
     }
 

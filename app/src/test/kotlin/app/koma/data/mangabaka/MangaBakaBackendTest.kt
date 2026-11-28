@@ -16,6 +16,7 @@ import app.koma.testing.SERIES
 import app.koma.testing.batch
 import app.koma.testing.changes
 import app.koma.testing.fullSeries
+import app.koma.testing.series
 import app.koma.testing.tag
 import app.koma.testing.upsert
 import java.io.IOException
@@ -105,6 +106,50 @@ class MangaBakaBackendTest {
         backend.media((1..120).map(::ref))
         val ids = network.requested(BATCH).map { it.split("id=").size - 1 }
         assertEquals(listOf(50, 50, 20), ids)
+    }
+
+    @Test
+    fun `replacement lookup follows chains and omits unchanged and unavailable ids`() = runTest {
+        network.answer(BATCH, 200, batch(series(234, "Survivor"), series(1, "Unchanged")))
+        network.answer(
+            "$SERIES/245?schema=full",
+            200,
+            """{"data":{"id":245,"state":"merged","merged_with":244}}""",
+        )
+        network.answer(
+            "$SERIES/244?schema=full",
+            200,
+            """{"data":{"id":244,"state":"merged","merged_with":234}}""",
+        )
+        network.answer("$SERIES/999?schema=full", 404, """{"status":404}""")
+
+        assertEquals(
+            mapOf(ref(245) to ref(234), ref(244) to ref(234)),
+            backend.replacements(listOf(ref(245), ref(234), ref(1), ref(999))),
+        )
+        assertEquals(emptyList<String>(), network.unstubbed)
+        assertTrue(network.requests.all { it.headers["Authorization"] == null })
+    }
+
+    @Test
+    fun `a replacement with no active survivor is an IOException`() = runTest {
+        network.answer(BATCH, 200, batch())
+        network.answer(
+            "$SERIES/245?schema=full",
+            200,
+            """{"data":{"id":245,"state":"merged","merged_with":234}}""",
+        )
+        for ((status, reply) in
+            listOf(
+                200 to """{"data":{"id":234,"state":"deleted","merged_with":null}}""",
+                404 to """{"status":404}""",
+                200 to """{"data":{"id":234,"state":"merged","merged_with":null}}""",
+                200 to """{"data":{"id":234,"state":"merged","merged_with":245}}""",
+            )) {
+            network.answer("$SERIES/234?schema=full", status, reply)
+            assertTrue(failure { backend.replacements(listOf(ref(245))) } is IOException)
+        }
+        assertEquals(emptyList<String>(), network.unstubbed)
     }
 
     @Test

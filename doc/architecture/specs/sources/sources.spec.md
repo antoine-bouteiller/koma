@@ -405,7 +405,9 @@ class LibraryUpdater(
 val startLibraryUpdate: () -> Unit
 ```
 
-`AppContainer` builds the updater as `updater`. `updateChapters()`:
+`AppContainer` builds the updater as `updater`. Its library sync includes media identity repair
+(`doc/architecture/specs/app.spec.md` `[CT-11]`), so the chapter update reads rewritten bindings.
+`updateChapters()`:
 
 1. Ends when Koma lists no source.
 2. Takes each title of the stored `Library.items` in turn, novels left out, and stops at a sign-out

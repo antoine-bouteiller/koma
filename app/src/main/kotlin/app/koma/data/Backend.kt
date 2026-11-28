@@ -160,5 +160,8 @@ interface Backend {
     /** Any number of refs; a ref the backend no longer answers is missing from the result. */
     suspend fun media(refs: List<MediaRef>): List<Media>
 
+    /** Replaced refs mapped to their final surviving ref on this backend. */
+    suspend fun replacements(refs: List<MediaRef>): Map<MediaRef, MediaRef>
+
     suspend fun details(ref: MediaRef): MediaDetails
 }

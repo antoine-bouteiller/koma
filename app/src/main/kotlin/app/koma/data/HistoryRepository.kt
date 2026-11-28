@@ -23,7 +23,8 @@ data class History(val synced: Boolean, val reads: List<Read>, val hasNext: Bool
 
 private fun KomaDatabase.upsert(events: List<ReadEvent>) {
     for (e in events) {
-        readEventQueries.upsert(e.ref.backend.name, e.id, e.ref.id, e.at, e.from, e.to)
+        val ref = canonical(e.ref)
+        readEventQueries.upsert(ref.backend.name, e.id, ref.id, e.at, e.from, e.to)
     }
 }
 

@@ -51,6 +51,8 @@ private class Cover(val x350: String? = null, val x250: String? = null, val raw:
 @Serializable
 private class SeriesReply(
     val id: Long,
+    val state: String = "active",
+    @SerialName("merged_with") val mergedWith: Long? = null,
     val type: String = "",
     val titles: List<Title>? = null,
     val cover: Cover = Cover(),
@@ -73,6 +75,8 @@ private class RawTag(
 @Serializable
 private class FullSeries(
     val id: Long,
+    val state: String = "active",
+    @SerialName("merged_with") val mergedWith: Long? = null,
     val type: String = "",
     val titles: List<Title>? = null,
     val cover: Cover = Cover(),
@@ -285,7 +289,7 @@ class MangaBakaBackend(
         CursorPage(events, body.pagination.cursor, body.pagination.more)
     }
 
-    /** Unauthenticated, so MangaBaka's CDN can answer. Merged or deleted ids are missing. */
+    /** Unauthenticated, so MangaBaka's CDN can answer. */
     override suspend fun media(refs: List<MediaRef>): List<Media> = readable {
         val ids = refs.filter { it.backend == id }.mapNotNull { it.id.toLongOrNull() }.distinct()
         ids.chunked(BATCH_SIZE).flatMap { chunk ->
@@ -337,6 +341,55 @@ class MangaBakaBackend(
                     .filter { it.genre || it.weight == "core" }
                     .map { Tag(it.name, it.genre, it.spoiler == true, RANKS[it.weight]) },
         )
+    }
+
+    override suspend fun replacements(refs: List<MediaRef>): Map<MediaRef, MediaRef> = readable {
+        val ids = refs.filter { it.backend == id }.map(::seriesId).distinct().sorted()
+        val known =
+            ids.chunked(BATCH_SIZE)
+                .flatMap { chunk ->
+                    val body =
+                        http.getText("$API/v2/series/batch?" + chunk.joinToString("&") { "id=$it" })
+                    json.decodeFromString(Batch.serializer(), body).data
+                }
+                .associate { it.id to (it.state to it.mergedWith) }
+                .toMutableMap()
+        val result = mutableMapOf<MediaRef, MediaRef>()
+        for (original in ids) {
+            var current = original
+            val visited = linkedSetOf<Long>()
+            while (true) {
+                if (!visited.add(current)) throw IOException("Cyclic media replacement.")
+                val series =
+                    known[current]
+                        ?: try {
+                            val full =
+                                json
+                                    .decodeFromString(
+                                        OneSeries.serializer(),
+                                        http.getText("$API/v2/series/$current?schema=full"),
+                                    )
+                                    .data
+                            if (full.id != current) throw IOException("Unexpected series id.")
+                            (full.state to full.mergedWith).also { known[current] = it }
+                        } catch (e: HttpException) {
+                            if (e.status != 404 || current != original) throw e
+                            break
+                        }
+                if (series.first != "merged") {
+                    if (series.first != "active") {
+                        if (current != original) throw IOException("Unavailable media replacement.")
+                        break
+                    }
+                    for (old in visited.filter { it != current }) result[ref(old)] = ref(current)
+                    break
+                }
+                current =
+                    series.second?.takeIf { it > 0 }
+                        ?: throw IOException("Missing media replacement.")
+            }
+        }
+        result
     }
 
     private fun ref(seriesId: Long) = MediaRef(id, seriesId.toString())

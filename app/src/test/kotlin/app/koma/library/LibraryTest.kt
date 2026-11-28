@@ -211,6 +211,7 @@ class LibraryTest {
                 series(5, "Overlord", "novel"),
             ),
         )
+        app.network.answer("$SERIES/1?schema=full", 404, """{"status":404}""")
         app.launch()
         assertEquals(listOf("manga-4", "manga-2"), app.childTags("library-reading"))
         assertEquals(listOf("manga-3"), app.childTags("library-archived"))
@@ -265,7 +266,7 @@ class LibraryTest {
     }
 
     @Test
-    fun `a later sync asks only for what changed and looks up only new series`() {
+    fun `a later sync reads only library changes and checks cached series identities`() {
         app.signedIn()
         app.network.answer(
             "$CHANGES?limit=1000",
@@ -281,7 +282,11 @@ class LibraryTest {
         app.launch()
         app.text("manga-2", "Vagabond")
         app.network.fail("$CHANGES?limit=1000")
-        app.network.fail(BATCH)
+        app.network.answer(
+            BATCH,
+            200,
+            batch(series(1, "Berserk"), series(2, "Changed title"), series(7, "Pluto")),
+        )
         app.network.answer(
             "$CHANGES?limit=1000&cursor=c1",
             200,

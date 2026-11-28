@@ -1,7 +1,7 @@
 ---
 title: Koma backend
 kind: umbrella
-status: implemented
+status: amended
 author: Antoine Bouteiller
 date: 2026-11-26
 module:
@@ -121,6 +121,8 @@ interface Backend {
 }
 ```
 
+The identity-replacement member is specified separately by `[CT-2]` on the same interface.
+
 Every member throws an `IOException` for any failure, an unreadable reply included, so callers never
 see HTTP statuses or serialization. `changes(null)` pages through the whole library; a refused
 cursor throws `ExpiredCursorException`, and a backend without a changes feed refuses every cursor.
@@ -133,9 +135,28 @@ from the result. `readEvents` answers newest first; `since` keeps events at or a
 and the user's, is on one 0.0–5.0 scale to one decimal, and tag ranks on 0–100, so no screen formats
 a backend-specific scale.
 
+### [CT-2] Identity replacements
+
+Kind: api · Anchor: `app/src/main/kotlin/app/koma/data/Backend.kt#replacements`
+
+```kotlin
+interface Backend {
+    suspend fun replacements(refs: List<MediaRef>): Map<MediaRef, MediaRef>
+}
+```
+
+Only replaced refs appear, including intermediate refs discovered while following a replacement.
+Each value is the final surviving ref on the same backend, distinct from its key. Unchanged and
+unavailable refs are omitted. Any number of refs is accepted.
+Malformed replacements and cycles throw `IOException`; a backend without deduplication returns
+an empty map. The interface exposes identity, not a service's lifecycle-state vocabulary.
+Library repair belongs to `doc/architecture/specs/app.spec.md` `[CT-11]`.
+
 ## Acceptance
 
 - `[VC-7.2]` Given a test `Backend` named `Shelfie`, with ids and titles that MangaBaka could not
   produce, when the Library, History, title-screen and Settings tests run against it, then they
   show and write the stub's values, and every screen that names the backend reads `Shelfie`.
   — demonstrates `[SO-6.2]`
+- `[VC-8]` Given a test backend with nonnumeric replacement refs, a library sync follows its
+  replacement without knowing the backend's wire format. — demonstrates `[SO-6.2]`

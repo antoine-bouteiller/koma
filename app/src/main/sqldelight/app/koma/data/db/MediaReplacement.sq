@@ -1,0 +1,44 @@
+-- Public identity data, kept across sign-outs so late replies still resolve merged ids.
+CREATE TABLE IF NOT EXISTS media_redirect (backend TEXT NOT NULL, media_id TEXT NOT NULL, survivor_id TEXT NOT NULL, PRIMARY KEY (backend, media_id));
+
+survivor:
+SELECT survivor_id FROM media_redirect WHERE backend = ? AND media_id = ?;
+
+redirect:
+INSERT OR REPLACE INTO media_redirect (backend, media_id, survivor_id) VALUES (?, ?, ?);
+
+redirectAncestors:
+UPDATE media_redirect SET survivor_id = :survivor WHERE backend = :backend AND survivor_id = :old;
+
+replaceLibrary:
+UPDATE OR IGNORE library_entry SET media_id = :survivor WHERE backend = :backend AND media_id = :old;
+
+deleteLibrary:
+DELETE FROM library_entry WHERE backend = ? AND media_id = ?;
+
+deleteMedia:
+DELETE FROM media WHERE backend = ? AND id = ?;
+
+deleteDetails:
+DELETE FROM media_details WHERE backend = ? AND id = ?;
+
+replaceEvents:
+UPDATE read_event SET media_id = :survivor WHERE backend = :backend AND media_id = :old;
+
+replaceBinding:
+UPDATE OR IGNORE binding SET media_id = :survivor WHERE backend = :backend AND media_id = :old;
+
+deleteBinding:
+DELETE FROM binding WHERE backend = ? AND media_id = ?;
+
+replaceUnmatched:
+UPDATE OR IGNORE unmatched SET media_id = :survivor WHERE backend = :backend AND media_id = :old;
+
+deleteUnmatched:
+DELETE FROM unmatched WHERE backend = ? AND media_id = ?;
+
+replaceExcluded:
+UPDATE OR IGNORE excluded_scanlator SET media_id = :survivor WHERE backend = :backend AND media_id = :old;
+
+deleteExcluded:
+DELETE FROM excluded_scanlator WHERE backend = ? AND media_id = ?;

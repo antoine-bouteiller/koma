@@ -146,6 +146,7 @@ class FakeBackend(override val name: String = "Shelfie", signedIn: Boolean = tru
         limit: Int,
     ): CursorPage<ReadEvent> {
         calls += "readEvents($cursor, $since)"
+        waitFor("readEvents")
         return CursorPage(reads.filter { since == null || it.at >= since }, "end", more = false)
     }
 
@@ -153,6 +154,13 @@ class FakeBackend(override val name: String = "Shelfie", signedIn: Boolean = tru
         if (failMedia) throw IOException("Unreachable.")
         return refs.mapNotNull { known[it]?.media }
     }
+
+    val redirects = mutableMapOf<MediaRef, MediaRef>()
+
+    override suspend fun replacements(refs: List<MediaRef>): Map<MediaRef, MediaRef> =
+        redirects.filterKeys {
+            it in refs
+        }
 
     override suspend fun details(ref: MediaRef): MediaDetails {
         calls += "details(${ref.id})"

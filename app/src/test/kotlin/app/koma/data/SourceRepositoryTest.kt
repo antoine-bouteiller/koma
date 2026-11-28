@@ -65,6 +65,26 @@ class SourceRepositoryTest {
         assertEquals(emptyList<String>(), source.searches)
     }
 
+    @OptIn(kotlinx.coroutines.ExperimentalCoroutinesApi::class)
+    @Test
+    fun `a source match finishing after a merge keeps the survivor's chosen binding`() = runTest {
+        for (matched in listOf(false, true)) {
+            val answer = CompletableDeferred<SManga?>()
+            val source = FakeSource(1)
+            val sources = repository(CatalogSource(source, Finder { answer.await() }))
+            val old = details("Duplicate", id = "old-$matched")
+            val survivor = details("Survivor", id = "survivor-$matched").media.ref
+            val resolving = async { sources.resolve(old) }
+            runCurrent()
+            sources.bind(survivor, Candidate(9, "Chosen source", manga("chosen", "Chosen title")))
+            store.write { replaceMedia(old.media.ref, survivor) }
+            answer.complete(if (matched) manga("automatic", "Automatic match") else null)
+
+            assertEquals(Binding(9, "chosen", "Chosen title"), resolving.await())
+            assertEquals(Binding(9, "chosen", "Chosen title"), sources.binding(survivor).first())
+        }
+    }
+
     @Test
     fun `nothing binds when no hit matches, and every hit is a candidate`() = runTest {
         val first = FakeSource(1, "Solo Leveling" to listOf(manga("a", "Solo Leveling: Ragnarok")))

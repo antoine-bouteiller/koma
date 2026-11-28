@@ -1,6 +1,6 @@
 ---
 title: MangaBaka backend
-status: implemented
+status: amended
 author: Antoine Bouteiller
 date: 2026-11-26
 module:
@@ -33,6 +33,9 @@ sign-in.
 - `[SO-11]` A session lasts across token rotations: each refresh sends the refresh token the
   previous one returned, so MangaBaka never revokes the app's tokens. — demonstrated by `[VC-9]`
 
+- `[SO-12]` Public series lookup resolves merged ids to their final active survivor without
+  credentials. — demonstrated by `[VC-10]`
+
 ## Contracts
 
 ### [CT-16] MangaBaka mapping
@@ -59,6 +62,23 @@ Kind: api · Anchor: `app/src/main/kotlin/app/koma/data/mangabaka/MangaBakaBacke
 | `readEvents` | `GET /v2/my/library/events?event_type=progress_update`; undated events are dropped |
 | `userName` | `GET /v1/my/profile`: `preferred_username`, else `nickname`, else empty |
 
+### [CT-17] MangaBaka replacements
+
+Kind: api · Anchor: `app/src/main/kotlin/app/koma/data/mangabaka/MangaBakaBackend.kt#replacements`
+
+| Backend | MangaBaka |
+| --- | --- |
+| `replacements` | Unauthenticated `GET /v2/series/batch`, 50 ids per call. An omitted id is checked with `GET /v2/series/{id}?schema=full`. A series with `state: "merged"` maps its id to `merged_with`, following any further replacements until an active survivor. A 404 for an original id supplies no replacement. A missing survivor, missing target or cycle fails the lookup. |
+
+The batch endpoint does not reliably expose merged records. A public qualification with series
+245 found `state: "merged", merged_with: 234` in the full endpoint, while a batch containing
+245 and 234 returned only active 234. The published guides at `https://mangabaka.org/developers/guides/follow-merged-series` and
+`https://mangabaka.org/developers/guides/sync-a-library` confirm batch omission and the full-series
+fallback. The authenticated library changes feed was not queried; merge discovery does not
+depend on it reporting merges. The library guide says an entry stays in the feed when its series
+is merged, but does not establish whether its `series_id` moves or writes to the survivor are
+accepted (`doc/architecture/specs/app.spec.md` `[C-2]`).
+
 ## Acceptance
 
 Tests run on the JVM under Robolectric and stub MangaBaka's API and OAuth endpoints with
@@ -66,6 +86,11 @@ Tests run on the JVM under Robolectric and stub MangaBaka's API and OAuth endpoi
 
 - `[VC-9]` Given an expired access token, when the app refreshes twice, then the second refresh
   sends the refresh token the first one returned. — demonstrates `[SO-11]`
+
+- `[VC-10]` Given a batch omitting a requested merged id, its full reply pointing at another
+  merged id, and an active terminal survivor, `replacements` returns the terminal ref. Unchanged
+  and 404 original ids produce no replacement. A missing target or a cycle throws `IOException`.
+  — demonstrates `[SO-12]`
 
 ## Caveats
 

@@ -36,9 +36,14 @@ class SourceRepository(
     /** Null until bound. */
     fun binding(ref: MediaRef): Flow<Binding?> {
         val query = { db: KomaDatabase ->
-            db.bindingQueries.one(ref.backend.name, ref.id, ::Binding)
+            val target = db.canonical(ref)
+            db.bindingQueries.one(target.backend.name, target.id, ::Binding)
         }
-        return store.watch({ listOf(query(this)) }) { query(this).executeAsOneOrNull() }
+        return store.watch({
+            listOf(query(this), mediaReplacementQueries.survivor(ref.backend.name, ref.id))
+        }) {
+            query(this).executeAsOneOrNull()
+        }
     }
 
     /**
@@ -49,18 +54,31 @@ class SourceRepository(
     suspend fun resolve(details: MediaDetails): Binding? {
         val ref = details.media.ref
         store
-            .read { bindingQueries.one(ref.backend.name, ref.id, ::Binding).executeAsOneOrNull() }
+            .read {
+                val target = canonical(ref)
+                bindingQueries.one(target.backend.name, target.id, ::Binding).executeAsOneOrNull()
+            }
             ?.let {
                 return it
             }
         for (catalog in ordered()) {
             val manga = find(catalog, details) ?: continue
             val binding = Binding(catalog.source.id, manga.url, manga.title)
-            store.write { put(ref, binding) }
-            return binding
+            return store.write {
+                val target = canonical(ref)
+                bindingQueries.one(target.backend.name, target.id, ::Binding).executeAsOneOrNull()
+                    ?: binding.also { put(target, it) }
+            }
         }
-        store.write { bindingQueries.unmatch(ref.backend.name, ref.id) }
-        return null
+        return store.write {
+            val target = canonical(ref)
+            bindingQueries
+                .one(target.backend.name, target.id, ::Binding)
+                .executeAsOneOrNull()
+                .also {
+                    if (it == null) bindingQueries.unmatch(target.backend.name, target.id)
+                }
+        }
     }
 
     /** Each source's search hits for the media's title; a source whose search fails is left out. */
@@ -144,15 +162,21 @@ class SourceRepository(
     /** The scanlators whose chapters [ref]'s title hides. */
     fun excludedScanlators(ref: MediaRef): Flow<Set<String>> {
         val query = { db: KomaDatabase ->
-            db.excludedScanlatorQueries.excluded(ref.backend.name, ref.id)
+            val target = db.canonical(ref)
+            db.excludedScanlatorQueries.excluded(target.backend.name, target.id)
         }
-        return store.watch({ listOf(query(this)) }) { query(this).executeAsList().toSet() }
+        return store.watch({
+            listOf(query(this), mediaReplacementQueries.survivor(ref.backend.name, ref.id))
+        }) {
+            query(this).executeAsList().toSet()
+        }
     }
 
     /** Shows or hides the chapters of [scanlator] on [ref]'s title. */
     suspend fun showScanlator(ref: MediaRef, scanlator: String, shown: Boolean) = store.write {
-        if (shown) excludedScanlatorQueries.show(ref.backend.name, ref.id, scanlator)
-        else excludedScanlatorQueries.hide(ref.backend.name, ref.id, scanlator)
+        val target = canonical(ref)
+        if (shown) excludedScanlatorQueries.show(target.backend.name, target.id, scanlator)
+        else excludedScanlatorQueries.hide(target.backend.name, target.id, scanlator)
     }
 
     /** How many sources Koma lists. */
@@ -221,13 +245,14 @@ class SourceRepository(
     }
 
     private fun KomaDatabase.put(ref: MediaRef, binding: Binding) {
+        val target = canonical(ref)
         bindingQueries.put(
-            ref.backend.name,
-            ref.id,
+            target.backend.name,
+            target.id,
             binding.source,
             binding.mangaUrl,
             binding.title,
         )
-        bindingQueries.match(ref.backend.name, ref.id)
+        bindingQueries.match(target.backend.name, target.id)
     }
 }

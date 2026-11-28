@@ -16,7 +16,9 @@ module:
   - app/src/main/kotlin/app/koma/data/Http.kt
   - app/src/main/kotlin/app/koma/data/LibraryRepository.kt
   - app/src/main/kotlin/app/koma/data/MediaRepository.kt
+  - app/src/main/kotlin/app/koma/data/MediaReplacement.kt
   - app/src/main/kotlin/app/koma/data/Store.kt
+  - app/src/main/kotlin/app/koma/data/SourceRepository.kt
   - app/src/main/kotlin/app/koma/history/
   - app/src/main/kotlin/app/koma/library/
   - app/src/main/kotlin/app/koma/settings/
@@ -69,10 +71,11 @@ MangaBaka without a manual step. Koma is a personal Android app in Kotlin and Je
 | `[KD-8.1]` Library | The backend library grouped by status, cached in SQLite. Read whole once through `changes(null)`, then kept current with a stored cursor. A refused cursor (`ExpiredCursorException`) triggers one full read. A backend without a changes feed refuses every cursor. | `[NG-2]`. The feed carries removals, so the cache never keeps a deleted entry. One member serves backends with and without a feed. |
 | ~~`[KD-31]` Library refresh~~ | ~~The library syncs, then updates its titles' chapters (`doc/architecture/specs/sources/sources.spec.md` `[CT-22]`), when the user pulls the Library down, when it first shows after a sign-in in this process, and while it was never synced. A launch over a synced library sends no request for it.~~ | ~~Mihon's model: a launch costs no request, and the user decides when the library and its chapters refresh. The first update after a sign-in fetches every title's chapters once.~~ |
 | `[KD-31.1]` Library refresh | The library syncs, then starts the background chapter update (`doc/architecture/specs/sources/sources.spec.md` `[CT-22.2]`), when the user pulls the Library down, when it first shows after a sign-in in this process, and while it was never synced. The Library shows its refresh indicator only during the sync, and a notification shows the chapter update's progress. A launch over a synced library sends no request for it. | Mihon's model: a launch costs no request, the user decides when the library and its chapters refresh, and a long chapter update neither holds the screen nor stops when the app leaves the foreground. The first update after a sign-in fetches every title's chapters once. |
-| `[KD-21]` Repositories | `MediaRepository`, `LibraryRepository`, `HistoryRepository` and `AccountRepository` in `app.koma.data`, one instance each, built by `AppContainer` (`[CT-10.4]`). Library and history sync run inside them. | Android's data-layer guidance: one repository per kind of data, over the network and the database. Any screen reuses the same data. |
+| `[KD-21]` Repositories | `MediaRepository`, `LibraryRepository`, `HistoryRepository` and `AccountRepository` in `app.koma.data`, one instance each, built by `AppContainer` (`[CT-10.5]`). Library and history sync run inside them. | Android's data-layer guidance: one repository per kind of data, over the network and the database. Any screen reuses the same data. |
 | `[KD-22]` Backend name in copy | UI strings that name the backend read `Backend.name`. | Replacing the backend touches no screen. |
 | `[KD-23]` Rating | The title screen's status button splits once the library holds the title: its trailing half shows the user's rating and opens a gauge from 0 to 5 in half points. 0 clears the rating. | MangaBaka rates out of 100 and stores 0 as none. Half points keep a drag along the gauge's arc precise. |
 | `[KD-24]` Navigation | Navigation 3. Each tab keeps its own back stack of `@Serializable` routes, restored after process death. Another tab's stack shows over the Library's, so back from its root opens the Library, and back from the Library's root leaves the app. Each screen draws its own floating header. | Popped screens drop their ViewModels and saved state, and predictive back works at any depth. A shared header would need its own copy of `NavDisplay`'s transition. |
+| `[KD-32]` Merged media | Every library sync resolves the stored library's ids and the feed's ids before applying a page. A backend replacement rewrites local references atomically. The surviving id's singleton rows win conflicts, reading events keep their event ids, and excluded scanlators are combined. | A merge can happen without a library edit, so the changes feed and the public-data cache alone cannot detect it. |
 | `[KD-25.2]` Title colors | The first opening waits for the details and the final cover's color sample before showing the title's content. Its header and content use the final Material "Content" scheme immediately, without easing. Celebi and `Score` choose the seed from a 96 px copy. The seed, including a successful grey result, is stored alongside the details and reused across openings and restarts. A grey or missing cover, a failed image load, Monochrome, or the Theme page's Cover colors switch turned off keeps the app's colors; True Black still applies. Failed image loads are not cached as grey. | Waiting prevents both partial content and a palette change after reveal. Storing the seed avoids decoding and quantizing the cover again. |
 
 ```mermaid
@@ -104,6 +107,10 @@ flowchart TB
 - `[SO-8]` A user rates a library title from its screen, in half points from 0.5 to 5, or clears
   the rating. The rating is MangaBaka's and follows edits made elsewhere. — demonstrated by
   `[VC-14]`
+
+- `[SO-9]` A library update follows merged ids for its titles without losing their reading history,
+  source bindings or hidden scanlators. Existing title watches follow the surviving id.
+  — demonstrated by `[VC-16]`, `[VC-17]`
 
 ## Contracts
 
@@ -150,9 +157,14 @@ rated the media. The migration that adds it drops the library cursor, so the nex
 library whole and fills it in. Sources, the reader and Discover add their tables through additive
 migrations (`doc/architecture/specs/sources/sources.spec.md` `[CT-13.1]`,
 `doc/architecture/specs/reader.spec.md` `[CT-14]`, `doc/architecture/specs/discover.spec.md`
-`[CT-15]`).
+`[CT-15]`). Identity repair (`[CT-11]`) is the exception to these cache-lifetime and library-write
+rules.
 
-### [CT-10.4] Repositories
+### ~~[CT-10.4] Repositories~~
+
+~~Repository media ids were used verbatim, and stored details were never invalidated.~~
+
+### [CT-10.5] Repositories
 
 Kind: api · Anchor: `app/src/main/kotlin/app/koma/data/`
 
@@ -217,13 +229,57 @@ data before ending the session. `loadUserName` asks once per session and drops a
 session that has ended. Koma calls it at launch, so a session MangaBaka no longer accepts ends
 before a screen syncs; an offline launch keeps it.
 
-Details, once stored, are never fetched again; they are public and kept across sign-outs.
+Details of an unchanged media id, once stored, are never fetched again; they are public and kept
+across sign-outs. Identity repair (`[CT-11]`) invalidates the replaced id's details. Repository
+writes using that id resolve the stored survivor.
 The title waits for details and cover sampling, then reveals its content only once the palette
 also applies to the header. A failed details request reveals the cached name and a retry action.
 A failed cover request reveals the details with the app's colors and retries sampling on a later
 opening. A successful sample persists even when grey; theme settings still determine the palette.
 The history screen reads the first page on open while `synced` is false; newer events wait for a pull
 to refresh, or for the library's sync.
+
+### [CT-11] Media replacement
+
+Kind: invariant · Anchor: `app/src/main/kotlin/app/koma/data/MediaReplacement.kt#replaceMedia`
+
+```kotlin
+internal fun KomaDatabase.canonical(ref: MediaRef): MediaRef
+internal fun KomaDatabase.replaceMedia(from: MediaRef, to: MediaRef)
+```
+
+```sql
+create table media_redirect (
+  backend text not null, media_id text not null, survivor_id text not null,
+  primary key (backend, media_id)
+);
+```
+
+`LibraryRepository.sync` checks the stored library and every page's refs through `Backend.replacements`
+(`doc/architecture/specs/backend/backend.spec.md` `[CT-2]`), even when media is cached or the
+feed is empty. It resolves ids before removals can hide them. The rewrite, page changes and cursor
+commit together under the store's generation guard. A failed lookup leaves the page and its cursor
+untouched for retry. A full read still replaces the library only after its last page arrives.
+
+`replaceMedia` is the single inventory of tables storing a media id. Every future such table,
+including the reader's `progress_outbox` and `reading_mode`, must participate there. Today it
+rewrites `library_entry`, `media`, `media_details`, `read_event`, `binding`, `unmatched` and
+`excluded_scanlator`. The survivor's library status, progress, score and timestamp win over an
+old entry, even when the old timestamp is newer. A feed entry already using the surviving id wins
+over a redirected entry in the same page. Deleting an old id does not delete its survivor.
+
+The survivor's binding wins when both exist. A binding clears the survivor's unmatched marker.
+All events retain their ids, times and progress. Hidden scanlators form a union. Old media and
+old details, including their cover sample, are invalidated rather than presented as survivor
+metadata. The survivor's card is fetched when absent, and its details are fetched on demand.
+Existing survivor metadata remains cached.
+
+The additive migration creates `media_redirect` without changing existing rows or cursors.
+Redirects are public identity data kept across sign-outs. Repository writes resolve stored
+redirects inside their transaction, so an in-flight history fetch cannot recreate an old id after
+repair. Automatic source matching retains a binding installed while its request was in flight.
+Media, entry, details, binding and excluded-scanlator watches resolve the current survivor on each
+read and watch redirect changes, so an open or restored title using the old ref follows repair. Media fetched for an already redirected id does not overwrite survivor metadata.
 
 ## Acceptance
 
@@ -250,7 +306,25 @@ returns image failures. Color tests supply bitmaps through its image-loader seam
   first sample does not prevent a later opening from using a successful sample.
   — demonstrates `[SO-3.2]`
 
+- `[VC-16]` Given a cached library id replaced by the backend and an empty changes page, a library
+  sync leaves only the surviving id in the library and local references. Without a survivor entry,
+  it keeps the old entry's status, progress and score, including an upsert in the current page.
+  With both entries, it keeps the survivor's
+  values and binding, preserves all event ids, and combines hidden scanlators. Old details are
+  invalidated. A lookup failure retains the page cursor for retry, a sign-out discards the repair,
+  and a later history reply naming the old id stores the survivor instead.
+  — demonstrates `[SO-9]`
+
+- `[VC-17]` Given watches for an old title and cached survivor details, a library sync replaces
+  their media, entry, details, binding and hidden scanlators with the survivor's values. Later
+  writes on the survivor still update those watches. — demonstrates `[SO-9]`
+
 ## Caveats
 
+- `[C-2]` Library writes assume the backend moves a merged library entry to the surviving id or
+  accepts writes through that id. MangaBaka's public guides do not establish this behavior, and
+  authenticated qualification is pending. Entries keyed by an old id in later feed pages may be
+  ignored in favor of a stored survivor entry. History-only ids outside the library are not
+  checked by a library update.
 - `[C-1.1]` Library versions follow Mihon's `gradle/libs.versions.toml`, so a set Mihon builds with
   is known to work together. Libraries Mihon does not use take their latest stable release.

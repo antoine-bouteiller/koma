@@ -7,6 +7,9 @@ WHERE e.backend = ? AND m.title != ''
 ORDER BY (SELECT max(r.at) FROM read_event r WHERE r.backend = e.backend AND r.media_id = e.media_id AND r.to_chapter > coalesce(r.from_chapter, 0)) DESC,
   e.updated_at DESC, m.id;
 
+ids:
+SELECT media_id FROM library_entry WHERE backend = ?;
+
 status:
 SELECT status FROM library_entry WHERE backend = ? AND media_id = ?;
 

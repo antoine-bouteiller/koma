@@ -86,6 +86,36 @@ class StoreTest {
     }
 
     @Test
+    fun `the media redirect migration preserves existing library data and its cursor`() {
+        val driver =
+            AndroidSqliteDriver(KomaDatabase.Schema, RuntimeEnvironment.getApplication(), null)
+        driver.execute(null, "DROP TABLE media_redirect", 0)
+        driver.execute(
+            null,
+            "INSERT INTO media VALUES ('MangaBaka', '245', 'Duplicate', '', 'Manga', 4.0, 0, 0)",
+            0,
+        )
+        driver.execute(
+            null,
+            "INSERT INTO library_entry VALUES ('MangaBaka', '245', 'Reading', 12, 99, 4.5)",
+            0,
+        )
+        driver.execute(null, "INSERT INTO meta VALUES ('library_cursor', 'before')", 0)
+
+        KomaDatabase.Schema.migrate(driver, 11, 12)
+
+        val db = KomaDatabase(driver)
+        assertNull(db.mediaReplacementQueries.survivor("MangaBaka", "245").executeAsOneOrNull())
+        assertEquals("Duplicate", db.mediaQueries.one("MangaBaka", "245").executeAsOne().title)
+        val entry = db.libraryEntryQueries.entry("MangaBaka", "245").executeAsOne()
+        assertEquals(
+            listOf("Reading", 12.0, 4.5, 99L),
+            listOf(entry.status, entry.progress, entry.score, entry.updated_at),
+        )
+        assertEquals("before", db.metaQueries.value("library_cursor").executeAsOne())
+    }
+
+    @Test
     fun `a watch answers again after each write`() = runTest {
         val seen = mutableListOf<String?>()
         val watching =
